@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>細胞防衛線</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: portrait microscope field. Pathogens fall from the top; the cell membrane is the defense line near the bottom; your immune cell slides along it. Menus are cover-slip panels. */
+:root {
+  --field: #0a0f1f;
+  --slip: #141b33;
+  --slip2: #1b2444;
+  --ink: #e6e9ff;
+  --dim: #8d94bf;
+  --violet: #9b7bff;      /* you */
+  --safranin: #ff5c8a;    /* pathogens / damage */
+  --atp: #5fe1ff;         /* rare */
+  --gold: #ffcf5c;        /* coins */
+  --display: "Dela Gothic One", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; }
+[hidden] { display: none !important; }
+body { background: var(--field); color: var(--ink); font-family: var(--body); overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#app { position: fixed; inset: 0; background: var(--field); touch-action: none; }
+canvas { display: block; width: 100%; height: 100%; }
+button { font-family: var(--body); cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--atp); outline-offset: 2px; }
+
+#hud { position: absolute; left: 0; right: 0; top: 0; padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 0; display: grid; gap: 6px; pointer-events: none; }
+.row { display: flex; align-items: center; gap: 10px; }
+.bar { position: relative; flex: 1; height: 10px; border-radius: 5px; background: rgba(230,233,255,.1); overflow: hidden; }
+.bar > i { position: absolute; inset: 0 auto 0 0; width: 100%; border-radius: 5px; background: var(--violet); transition: width .15s; }
+.tag { font: 500 12px var(--mono); font-variant-numeric: tabular-nums; color: var(--dim); letter-spacing: .04em; white-space: nowrap; }
+.tag b { color: var(--ink); font-weight: 500; }
+.coin { color: var(--gold) !important; }
+#waveTxt { font: 400 15px var(--display); color: var(--ink); }
+#pauseBtn { pointer-events: auto; font: 500 12px var(--mono); color: var(--ink); background: rgba(20,27,51,.85); border: 1px solid rgba(155,123,255,.4); border-radius: 6px; padding: 6px 10px; }
+#bossBar { display: grid; gap: 3px; }
+#bossBar .bar > i { background: var(--safranin); }
+#bossBar span { font: 700 12px var(--body); color: var(--safranin); }
+
+.overlay { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px); background: rgba(6,9,20,.74); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.panel { width: min(460px, 100%); background: var(--slip); border: 1px solid rgba(155,123,255,.28); border-radius: 14px; padding: 20px 18px; display: grid; gap: 14px; max-height: 100%; overflow-y: auto; box-sizing: border-box; }
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .14em; color: var(--atp); }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.15; }
+h1 { font-size: clamp(34px, 10vw, 48px); }
+h1 span { color: var(--violet); }
+h2 { font-size: 24px; }
+h3 { font-size: 15px; color: var(--dim); }
+p { margin: 0; line-height: 1.65; color: var(--dim); font-size: 13.5px; }
+p strong { color: var(--ink); }
+.btn { font: 400 18px var(--display); color: var(--field); background: var(--violet); border: 0; border-radius: 10px; padding: 14px; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid rgba(230,233,255,.25); font: 700 14px var(--body); padding: 11px; }
+.btn:disabled { opacity: .4; cursor: default; }
+
+.homeTop { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.chap { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; background: var(--slip2); border-radius: 10px; padding: 10px; }
+.chap button { width: 40px; height: 40px; border-radius: 8px; border: 1px solid rgba(230,233,255,.2); background: transparent; color: var(--ink); font-size: 16px; }
+.chap button:disabled { opacity: .25; cursor: default; }
+.chap div { text-align: center; display: grid; gap: 2px; }
+.chap b { font: 400 22px var(--display); }
+.chap small { font: 500 11px var(--mono); color: var(--dim); }
+.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.slot { min-height: 54px; border-radius: 10px; border: 1px dashed rgba(155,123,255,.4); display: grid; place-items: center; text-align: center; font-size: 12px; color: var(--dim); padding: 6px; }
+.slot.on { border-style: solid; background: rgba(155,123,255,.14); color: var(--ink); font-weight: 700; }
+.wlist { display: grid; gap: 8px; }
+.wcard { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; background: rgba(10,15,31,.6); border: 1px solid rgba(230,233,255,.08); border-radius: 10px; padding: 10px; }
+.wcard canvas { width: 36px; height: 36px; grid-row: span 2; }
+.wcard .nm { font-weight: 700; font-size: 14px; }
+.wcard .nm small { font: 500 11px var(--mono); color: var(--atp); margin-left: 6px; }
+.wcard .ds { font-size: 12px; color: var(--dim); line-height: 1.45; grid-column: 2; }
+.wcard .acts { grid-row: span 2; grid-column: 3; display: grid; gap: 6px; }
+.wcard .acts button { font: 700 12px var(--body); border-radius: 7px; padding: 7px 10px; border: 1px solid rgba(230,233,255,.2); background: transparent; color: var(--ink); white-space: nowrap; }
+.wcard .acts button.up { border-color: rgba(255,207,92,.5); color: var(--gold); }
+.wcard .acts button.eq { background: rgba(155,123,255,.25); border-color: var(--violet); }
+.wcard .acts button:disabled { opacity: .35; cursor: default; }
+.wcard.locked .nm, .wcard.locked .ds { opacity: .55; }
+
+.cards { display: grid; gap: 10px; }
+.card { text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; background: rgba(10,15,31,.7); color: var(--ink); border: 1.5px solid var(--rc); border-radius: 10px; padding: 12px 14px; }
+.card .rr { font: 500 10px var(--mono); letter-spacing: .12em; color: var(--rc); }
+.card .wp { font: 500 10px var(--mono); color: var(--dim); text-align: right; }
+.card .nm { font-weight: 700; font-size: 16px; grid-column: 1 / -1; }
+.card .ds { grid-column: 1 / -1; font-size: 13px; color: var(--dim); line-height: 1.5; }
+.r0 { --rc: rgba(141,148,191,.6); }
+.r1 { --rc: var(--atp); }
+.r2 { --rc: var(--violet); box-shadow: 0 0 18px rgba(155,123,255,.25); }
+.result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.result div { display: grid; gap: 2px; }
+.result b { font: 500 22px var(--mono); font-variant-numeric: tabular-nums; }
+.result span { font-size: 11px; color: var(--dim); }
+.kbd { font: 500 11px var(--mono); color: var(--dim); }
+</style>
+
+<div id="app">
+  <canvas id="c"></canvas>
+  <div id="hud" hidden>
+    <div class="row"><span id="waveTxt">第1章 · WAVE 1/10</span><span style="flex:1"></span><span class="tag coin">● <b class="coin" id="coinTxt">0</b></span><button id="pauseBtn" type="button">II</button></div>
+    <div class="row"><span class="tag">細胞膜 <b id="hpTxt">100</b></span><div class="bar"><i id="hpFill"></i></div></div>
+    <div id="bossBar" hidden><span id="bossName">巨大ウイルス</span><div class="bar"><i id="bossFill"></i></div></div>
+  </div>
+
+  <div class="overlay" id="homeScr">
+    <div class="panel">
+      <div class="homeTop"><div class="eyebrow">× 400 · 血液塗抹標本</div><span class="tag coin">● <b class="coin" id="bankTxt">0</b></span></div>
+      <h1>細胞<span>防衛線</span></h1>
+      <p>上から病原体が押し寄せる。<strong>細胞膜</strong>を破られたら負け。画面をドラッグして免疫細胞を左右に動かし、装備した武器で迎え撃つ。WAVE を越えるたびにスキルを1つ選べる。</p>
+      <div class="chap">
+        <button id="chPrev" type="button" aria-label="前の章">◀</button>
+        <div><b id="chName">第1章</b><small id="chSub">推奨 Lv 1</small></div>
+        <button id="chNext" type="button" aria-label="次の章">▶</button>
+      </div>
+      <h3>出撃武器 (3 枠)</h3>
+      <div class="slots" id="slots"></div>
+      <div class="wlist" id="wlist"></div>
+      <button class="btn" id="startBtn" type="button">出撃</button>
+      <p class="kbd">PC: ← → / A D で移動、P で一時停止。進行はこの端末に保存される。</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="skillScr" hidden>
+    <div class="panel">
+      <div class="eyebrow" id="skillEyebrow">WAVE 1 クリア</div>
+      <h2>スキルを選ぶ</h2>
+      <div class="cards" id="cards"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseScr" hidden>
+    <div class="panel">
+      <div class="eyebrow">一時停止</div>
+      <h2>標本を固定中</h2>
+      <p id="buildTxt"></p>
+      <button class="btn" id="resumeBtn" type="button">再開</button>
+      <button class="btn ghost" id="quitBtn" type="button">撤退してホームへ (コインは半分)</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="reviveScr" hidden>
+    <div class="panel">
+      <div class="eyebrow">細胞膜 破損</div>
+      <h2>もう一度だけ立て直せる</h2>
+      <p>膜を半分まで修復し、膜際にいる病原体を吹き飛ばす。1 回の出撃で 1 度だけ。</p>
+      <button class="btn" id="reviveBtn" type="button">修復して続ける</button>
+      <button class="btn ghost" id="giveupBtn" type="button">あきらめる</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overScr" hidden>
+    <div class="panel">
+      <div class="eyebrow" id="overEyebrow">結果</div>
+      <h2 id="overTitle">感染拡大</h2>
+      <p id="overMsg"></p>
+      <div class="result">
+        <div><b id="rWave">0</b><span>到達 WAVE</span></div>
+        <div><b id="rKill">0</b><span>撃破数</span></div>
+        <div><b id="rCoin" class="coin">0</b><span>獲得コイン</span></div>
+      </div>
+      <button class="btn" id="homeBtn" type="button">ホームへ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const C = $('c'), X = C.getContext('2d');
+let W = 0, H = 0, DPR = 1, vignette = null, safeT = 0, safeB = 0;
+const TAU = Math.PI * 2, WAVES = 10, MAXCH = 20;
+
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = C.clientWidth; H = C.clientHeight;
+  C.width = Math.round(W * DPR); C.height = Math.round(H * DPR);
+  X.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const R = Math.hypot(W, H) / 2;
+  vignette = X.createRadialGradient(W / 2, H / 2, R * 0.6, W / 2, H / 2, R);
+  vignette.addColorStop(0, 'rgba(4,6,14,0)'); vignette.addColorStop(1, 'rgba(4,6,14,0.8)');
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);visibility:hidden';
+  document.body.appendChild(d); const r = d.getBoundingClientRect(); safeT = r.top; safeB = window.innerHeight - r.bottom; d.remove();
+}
+window.addEventListener('resize', resize);
+const memY = () => H - safeB - 130;   // the defense line
+const cellY = () => memY() + 40;
+
+// ---------- weapons ----------
+const WEAP = {
+  scalpel: { name: 'メス',         cost: 0,    dmg: 10, cd: 0.55, col: '#e6e9ff', desc: '膜に一番近い敵へ刃を飛ばす。万能' },
+  dagger:  { name: '回転ダガー',   cost: 0,    dmg: 7,  cd: 0,    col: '#c2a8ff', desc: '細胞のまわりを刃が回る。膜際に張り付いた敵を刻む' },
+  needle:  { name: '鍼',           cost: 300,  dmg: 30, cd: 1.0,  col: '#5fe1ff', desc: '一番 HP の高い敵を追尾して刺す。ボスの弱点を狙う' },
+  bubble:  { name: '消毒バブル',   cost: 500,  dmg: 16, cd: 1.5,  col: '#9ff0ff', desc: '泡が昇って弾け、まわりをまとめて消毒' },
+  bandage: { name: '絆創膏',       cost: 800,  dmg: 8,  cd: 2.2,  col: '#ffcf8a', desc: '敵に貼り付き、その周囲をじわじわ削り続ける' },
+  laser:   { name: 'レーザーメス', cost: 1200, dmg: 80, cd: 3.2,  col: '#ff8fb1', desc: '細胞の真上一列を焼き切る光線' },
+};
+const WIDS = Object.keys(WEAP);
+const upCost = lv => Math.round(40 * Math.pow(lv, 1.55));
+const metaMul = lv => 1 + 0.15 * (lv - 1);
+
+// ---------- save ----------
+const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
+let SAVE = load();
+function load() {
+  try { const s = JSON.parse(localStorage.getItem('celldef.save') || 'null'); if (s && s.w) return Object.assign(structuredClone(DEFAULT_SAVE), s); } catch (e) {}
+  return structuredClone(DEFAULT_SAVE);
+}
+function store() { try { localStorage.setItem('celldef.save', JSON.stringify(SAVE)); } catch (e) {} }
+
+// ---------- enemies ----------
+const ET = {
+  virus: { name: 'ウイルス',     hp: 14,   sp: 40, r: 12, atk: 4,  coin: 1,  col: '#ffb547' },
+  bacil: { name: '桿菌',         hp: 9,    sp: 74, r: 9,  atk: 3,  coin: 1,  col: '#ff5c8a' },
+  split: { name: '分裂菌',       hp: 26,   sp: 34, r: 14, atk: 5,  coin: 2,  col: '#ff8fb1' },
+  tank:  { name: 'ブドウ球菌',   hp: 64,   sp: 23, r: 18, atk: 9,  coin: 3,  col: '#ff7a9c' },
+  elite: { name: 'がん細胞',     hp: 320,  sp: 17, r: 30, atk: 11, coin: 25, col: '#ff7a45' },
+  boss:  { name: '巨大ウイルス', hp: 1300, sp: 14, r: 52, atk: 22, coin: 80, col: '#e0457a' },
+};
+
+// ---------- run state ----------
+let R = null, mode = 'home', last = 0, uid = 0;
+const keys = new Set();
+const drag = { on: false, id: null, sx: 0, cx: 0 };
+
+function newRun() {
+  const ch = SAVE.ch;
+  R = {
+    ch, wave: 0, kills: 0, coins: 0, revived: false,
+    hp: 100, maxHp: 100, x: W / 2, face: 0, hurt: 0,
+    gdmg: 1, grate: 1, crit: 0.05, regen: 0, thorns: 0,
+    equip: SAVE.equip.slice(),
+    w: {}, en: [], shots: [], bubbles: [], zones: [], beams: [], parts: [], texts: [],
+    queue: [], spawnT: 0, spawnGap: 1, daggerAng: 0, t: 0, bossT: 0, shake: 0, scroll: 0,
+  };
+  for (const id of R.equip) R.w[id] = { lv: SAVE.w[id] || 1, dmg: 1, rate: 1, n: 1, size: 1, t: 0.3 };
+}
+const hpMul = () => Math.pow(1.32, R.ch - 1) * (1 + 0.09 * (R.wave - 1));
+
+function planWave() {
+  const w = R.wave, n = 9 + w * 3 + R.ch * 2, q = [];
+  for (let i = 0; i < n; i++) {
+    const pool = ['virus', 'virus'];
+    if (w >= 2 || R.ch > 1) pool.push('bacil');
+    if (w >= 3 || R.ch > 2) pool.push('split');
+    if (w >= 4 || R.ch > 3) pool.push('tank');
+    q.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  if (w === 5) q.splice(Math.floor(n / 2), 0, 'elite');
+  if (w === 10) q.unshift('boss');
+  R.queue = q;
+  R.spawnGap = Math.max(0.28, 1.15 - w * 0.07 - R.ch * 0.03);
+  R.spawnT = 0.6;
+  if (w === 10) toast(`第${R.ch}章ボス ${ET.boss.name}。光る核が弱点`);
+  else if (w === 5) toast('がん細胞が混じっている。硬いぞ');
+  else toast(`WAVE ${w}`);
+}
+
+function spawn(type, x, y) {
+  const d = ET[type];
+  const big = type === 'boss' || type === 'elite';
+  const mul = hpMul() * (type === 'boss' ? 1 + 0.25 * (R.ch - 1) : 1);
+  const seed = []; for (let i = 0; i < 10; i++) seed.push(0.82 + Math.random() * 0.36);
+  const e = {
+    id: ++uid, t: type, x: x ?? (30 + Math.random() * (W - 60)), y: y ?? -d.r - 10,
+    hp: d.hp * mul, mhp: d.hp * mul, r: d.r, sp: d.sp * (0.88 + Math.random() * 0.24) * (1 + 0.03 * (R.ch - 1)),
+    atk: d.atk * (1 + 0.12 * (R.ch - 1)), flash: 0, ph: Math.random() * TAU, seed, dot: 0, dotT: 0,
+    atWall: false, hitCd: 0, kb: 0, weakA: 0, big,
+  };
+  R.en.push(e);
+  return e;
+}
+
+// ---------- combat ----------
+function dmgOf(id) { const w = R.w[id]; return WEAP[id].dmg * metaMul(w.lv) * w.dmg * R.gdmg; }
+function cdOf(id) { const w = R.w[id]; return WEAP[id].cd / (w.rate * R.grate); }
+function weakPos(e) { return { x: e.x + Math.cos(e.weakA) * e.r * 0.62, y: e.y + Math.sin(e.weakA) * e.r * 0.62 }; }
+function hit(e, d, px, py, noText) {
+  if (e.dead) return;
+  let col = '#e6e9ff', label = null;
+  if (Math.random() < R.crit) { d *= 2; col = '#ffcf5c'; }
+  if (e.t === 'boss' && px !== undefined) {
+    const wp = weakPos(e);
+    if ((px - wp.x) ** 2 + (py - wp.y) ** 2 < 20 * 20) { d *= 2.5; col = '#5fe1ff'; label = '弱点'; }
+  }
+  e.hp -= d; e.flash = 0.07;
+  if (!noText && R.texts.length < 60) R.texts.push({ x: e.x + (Math.random() - .5) * 12, y: e.y - e.r, v: label ? `${label} ${Math.round(d)}` : Math.round(d), col, t: 0.6 });
+  if (e.hp <= 0) kill(e);
+}
+function kill(e) {
+  e.dead = true; R.kills++;
+  const c = Math.round(ET[e.t].coin * (1 + 0.15 * (R.ch - 1)));
+  R.coins += c;
+  const col = ET[e.t].col, pn = e.big ? 26 : 7;
+  for (let i = 0; i < pn; i++) { const a = Math.random() * TAU, s = 40 + Math.random() * 140; R.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: .4 + Math.random() * .4, col }); }
+  if (e.t === 'split') for (let k = -1; k <= 1; k += 2) { const s = spawn('virus', e.x + k * 10, e.y); s.hp = s.mhp = s.mhp * 0.55; s.r = 9; }
+  if (e.big) R.shake = 0.35;
+  // bandage spreads to a neighbour when its host dies
+  for (const z of R.zones) if (z.follow === e) {
+    const nb = nearestTo(e.x, e.y, 140, e); z.follow = nb; if (!nb) z.life = Math.min(z.life, 1);
+  }
+}
+function nearestTo(x, y, maxD, skip) {
+  let best = null, bd = maxD * maxD;
+  for (const e of R.en) { if (e.dead || e === skip) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
+  return best;
+}
+function frontline() { return R.en.filter(e => !e.dead && e.y > -10).sort((a, b) => b.y - a.y); }
+
+function weapons(dt) {
+  const cx = R.x, cy = cellY();
+  for (const id of R.equip) {
+    const w = R.w[id];
+    if (id === 'dagger') {
+      const n = 1 + w.n, rad = 68 * w.size;
+      R.daggerAng += dt * 4.2 * Math.sqrt(w.rate * R.grate);
+      for (let i = 0; i < n; i++) {
+        const a = R.daggerAng + i / n * TAU, gx = cx + Math.cos(a) * rad, gy = cy + Math.sin(a) * rad;
+        for (const e of R.en) {
+          if (e.dead || e.hitCd > R.t) continue;
+          if ((e.x - gx) ** 2 + (e.y - gy) ** 2 < (e.r + 10) ** 2) { e.hitCd = R.t + 0.3; hit(e, dmgOf(id), gx, gy); }
+        }
+      }
+      continue;
+    }
+    w.t -= dt;
+    if (w.t > 0) continue;
+    if (id === 'scalpel') {
+      const f = frontline(); if (!f.length) { w.t = 0.1; continue; }
+      w.t = cdOf(id);
+      for (let i = 0; i < w.n; i++) {
+        const tg = f[i % f.length], a = Math.atan2(tg.y - cy, tg.x - cx) + (i >= f.length ? (Math.random() - .5) * .3 : 0);
+        R.shots.push({ k: 'scalpel', x: cx, y: cy - 10, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, dmg: dmgOf(id), pierce: 1, life: 1.6, hit: new Set() });
+      }
+    } else if (id === 'needle') {
+      const alive = R.en.filter(e => !e.dead && e.y > 0);
+      if (!alive.length) { w.t = 0.1; continue; }
+      w.t = cdOf(id);
+      alive.sort((a, b) => b.hp - a.hp);
+      for (let i = 0; i < w.n; i++) {
+        const tg = alive[i % alive.length];
+        R.shots.push({ k: 'needle', tg, x: cx + (i - (w.n - 1) / 2) * 12, y: cy - 10, vx: (Math.random() - .5) * 200, vy: -380, dmg: dmgOf(id), pierce: 1, life: 3, hit: new Set() });
+      }
+    } else if (id === 'bubble') {
+      w.t = cdOf(id);
+      for (let i = 0; i < w.n; i++) R.bubbles.push({ x: cx + (i - (w.n - 1) / 2) * 26, y: cy - 16, ph: Math.random() * TAU, r: 46 * w.size, dmg: dmgOf(id) });
+    } else if (id === 'bandage') {
+      const f = R.en.filter(e => !e.dead && e.y > 0);
+      if (!f.length) { w.t = 0.1; continue; }
+      w.t = cdOf(id);
+      for (let i = 0; i < w.n; i++) {
+        const tg = f[Math.floor(Math.random() * f.length)];
+        R.shots.push({ k: 'bandage', tg, x: cx, y: cy - 10, vx: 0, vy: -300, dmg: dmgOf(id), pierce: 1, life: 3, hit: new Set(), spin: 0 });
+      }
+    } else if (id === 'laser') {
+      if (!R.en.some(e => !e.dead && Math.abs(e.x - R.x) < 60 && e.y > 0)) { w.t = 0.15; continue; }
+      w.t = cdOf(id);
+      R.beams.push({ life: 0.45, max: 0.45, width: 18 * w.size * (1 + 0.5 * (w.n - 1)), dps: dmgOf(id) / 0.45 });
+    }
+  }
+}
+
+// ---------- skills ----------
+const RAR = [{ nm: 'ノーマル', m: 1 }, { nm: 'レア', m: 1.6 }, { nm: 'エピック', m: 2.5 }];
+const COUNT_TXT = { scalpel: '刃の本数', dagger: '回転する刃', needle: '同時に刺す鍼', bubble: '一度に出る泡', bandage: '同時に貼る枚数', laser: '光線の太さ' };
+function skillPool() {
+  const L = [];
+  for (const id of R.equip) {
+    const nm = WEAP[id].name, w = R.w[id];
+    L.push({ wp: nm, name: `${nm} 研磨`, txt: m => `${nm}のダメージ +${Math.round(30 * m)}%`, ap: m => w.dmg += 0.3 * m });
+    if (id !== 'dagger') L.push({ wp: nm, name: `${nm} 速射`, txt: m => `${nm}の攻撃間隔 -${Math.round(100 - 100 / (1 + 0.18 * m))}%`, ap: m => w.rate *= 1 + 0.18 * m });
+    else L.push({ wp: nm, name: '回転ダガー 遠心', txt: m => `刃の回転半径 +${Math.round(15 * m)}%、回転速度アップ`, ap: m => { w.size += 0.15 * m; w.rate *= 1 + 0.12 * m; } });
+    if (w.n < 6) L.push({ wp: nm, min: 1, name: `${nm} 増殖`, txt: m => `${COUNT_TXT[id]} +${m > 2 ? 2 : 1}`, ap: m => w.n += m > 2 ? 2 : 1 });
+    if (id === 'bubble' || id === 'bandage') L.push({ wp: nm, name: `${nm} 拡散`, txt: m => `効果範囲 +${Math.round(20 * m)}%`, ap: m => w.size += 0.2 * m });
+  }
+  L.push({ wp: '全体', name: 'ミトコンドリア活性', txt: m => `全武器のダメージ +${Math.round(12 * m)}%`, ap: m => R.gdmg += 0.12 * m });
+  L.push({ wp: '全体', name: 'ATP 過給', txt: m => `全武器の攻撃速度 +${Math.round(10 * m)}%`, ap: m => R.grate *= 1 + 0.1 * m });
+  L.push({ wp: '全体', name: '会心酵素', txt: m => `会心率 +${Math.round(6 * m)}% (会心はダメージ 2 倍)`, ap: m => R.crit += 0.06 * m });
+  L.push({ wp: '細胞膜', name: '膜の補強', txt: m => `細胞膜の最大値 +${Math.round(25 * m)}、その分回復`, ap: m => { R.maxHp += 25 * m; R.hp += 25 * m; } });
+  L.push({ wp: '細胞膜', name: '緊急修復', txt: m => `細胞膜を ${Math.round(35 * m)} 回復`, ap: m => R.hp = Math.min(R.maxHp, R.hp + 35 * m) });
+  L.push({ wp: '細胞膜', name: '自己再生', txt: m => `細胞膜が毎秒 ${(0.8 * m).toFixed(1)} 回復`, ap: m => R.regen += 0.8 * m });
+  L.push({ wp: '細胞膜', name: 'トゲ状突起', txt: m => `膜に触れた敵へ毎秒 ${Math.round(8 * m * hpMul())} ダメージ`, ap: m => R.thorns += 8 * m * hpMul() });
+  return L;
+}
+function rollRarity(min) {
+  const r = Math.random(); let k = r < 0.1 ? 2 : r < 0.4 ? 1 : 0;
+  return Math.max(k, min || 0);
+}
+function openSkills(title) {
+  mode = 'skill';
+  const pool = skillPool();
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const box = $('cards'); box.textContent = '';
+  $('skillEyebrow').textContent = title;
+  pool.slice(0, 3).forEach((s, i) => {
+    const k = rollRarity(s.min), m = RAR[k].m;
+    const b = document.createElement('button'); b.type = 'button'; b.className = `card r${k}`;
+    b.innerHTML = '<span class="rr"></span><span class="wp"></span><span class="nm"></span><span class="ds"></span>';
+    b.querySelector('.rr').textContent = `${i + 1} · ${RAR[k].nm}`;
+    b.querySelector('.wp').textContent = s.wp;
+    b.querySelector('.nm').textContent = s.name;
+    b.querySelector('.ds').textContent = s.txt(m);
+    b.onclick = () => { if (mode !== 'skill') return; s.ap(m); $('skillScr').hidden = true; nextWave(); };
+    box.appendChild(b);
+  });
+  $('skillScr').hidden = false;
+  setTimeout(() => { const f = box.querySelector('button'); if (f) f.focus({ preventScroll: true }); }, 30);
+}
+function nextWave() { R.wave++; planWave(); mode = 'play'; }
+
+// ---------- update ----------
+function update(dt) {
+  R.t += dt; R.scroll += dt * 14;
+  const my = memY();
+  // move
+  let mv = 0;
+  if (keys.has('ArrowLeft') || keys.has('KeyA')) mv--;
+  if (keys.has('ArrowRight') || keys.has('KeyD')) mv++;
+  if (mv) { R.x += mv * 340 * dt; R.face = mv; }
+  R.x = Math.max(24, Math.min(W - 24, R.x));
+  R.hp = Math.min(R.maxHp, R.hp + R.regen * dt);
+  R.hurt = Math.max(0, R.hurt - dt);
+
+  // spawn
+  if (R.queue.length) {
+    R.spawnT -= dt;
+    if (R.spawnT <= 0) {
+      const t = R.queue.shift();
+      spawn(t, t === 'boss' || t === 'elite' ? W / 2 : undefined);
+      R.spawnT = R.spawnGap * (0.6 + Math.random() * 0.8);
+      if (Math.random() < 0.12 + R.wave * 0.02 && R.queue.length > 2) { const t2 = R.queue.shift(); spawn(t2); } // pairs
+    }
+  }
+
+  weapons(dt);
+
+  // enemies
+  for (const e of R.en) {
+    if (e.dead) continue;
+    e.flash = Math.max(0, e.flash - dt);
+    if (e.dot > 0 && (e.dotT -= dt) <= 0) { e.dotT = 0.4; }
+    if (e.t === 'boss') {
+      e.weakA += dt * 1.4;
+      R.bossT += dt;
+      const hold = 150 + safeT;
+      if (e.y < hold && R.bossT < 60) e.y += 40 * dt;
+      else if (R.bossT >= 60 && !e.atWall) e.y += e.sp * dt; // enraged: closes in
+      e.x = W / 2 + Math.sin(R.t * 0.7) * (W / 2 - e.r - 20);
+      if (R.bossT > 1 && Math.floor(R.bossT / 4) !== Math.floor((R.bossT - dt) / 4)) {
+        for (let k = -1; k <= 1; k++) { const s = spawn('virus', e.x + k * 30, e.y + e.r); s.y = e.y + e.r * 0.8; }
+      }
+    } else if (!e.atWall) {
+      const sway = e.t === 'bacil' ? Math.sin(R.t * 3 + e.ph) * 30 : Math.sin(R.t * 1.2 + e.ph) * 10;
+      e.y += (e.sp - e.kb) * dt;
+      e.x += sway * dt;
+      e.kb = Math.max(0, e.kb - 300 * dt);
+      e.x = Math.max(e.r, Math.min(W - e.r, e.x));
+    }
+    if (e.y + e.r >= my) {
+      e.y = my - e.r; e.atWall = true;
+      R.hp -= e.atk * dt; R.hurt = 0.12;
+      if (R.thorns) { e.hp -= R.thorns * dt; if (e.hp <= 0) kill(e); }
+    }
+  }
+  // gentle separation among wall-huggers so they spread along the membrane
+  const wall = R.en.filter(e => e.atWall && !e.dead);
+  for (let i = 0; i < wall.length; i++) for (let j = i + 1; j < wall.length; j++) {
+    const a = wall[i], b = wall[j], d = a.x - b.x, rr = a.r + b.r;
+    if (Math.abs(d) < rr) { const p = (rr - Math.abs(d)) * 0.5 * Math.sign(d || 1); a.x += p * 0.5; b.x -= p * 0.5; }
+  }
+
+  // shots
+  for (const s of R.shots) {
+    if ((s.k === 'needle' || s.k === 'bandage') && s.tg) {
+      if (s.tg.dead) s.tg = s.k === 'needle' ? R.en.filter(e => !e.dead).sort((a, b) => b.hp - a.hp)[0] : nearestTo(s.x, s.y, 300);
+      if (s.tg) {
+        let tx = s.tg.x, ty = s.tg.y;
+        if (s.k === 'needle' && s.tg.t === 'boss') { const wp = weakPos(s.tg); tx = wp.x; ty = wp.y; }
+        const a = Math.atan2(ty - s.y, tx - s.x), sp = s.k === 'needle' ? 520 : 380;
+        const k = Math.min(1, dt * (s.k === 'needle' ? 7 : 10));
+        s.vx += (Math.cos(a) * sp - s.vx) * k; s.vy += (Math.sin(a) * sp - s.vy) * k;
+      }
+    }
+    s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+    if (s.spin !== undefined) s.spin += dt * 10;
+    if (s.y < -60 || s.x < -60 || s.x > W + 60) s.life = 0;
+    for (const e of R.en) {
+      if (e.dead || s.hit.has(e.id) || s.life <= 0) continue;
+      if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (e.r + 5) ** 2) {
+        s.hit.add(e.id);
+        if (s.k === 'bandage') {
+          R.zones.push({ follow: e, x: e.x, y: e.y, r: 40 * R.w.bandage.size, dps: s.dmg, life: 4.5, tick: 0 });
+          s.life = 0; break;
+        }
+        hit(e, s.dmg, s.x, s.y);
+        if (!e.big) e.kb = 90;
+        if (--s.pierce <= 0) { s.life = 0; break; }
+      }
+    }
+  }
+  R.shots = R.shots.filter(s => s.life > 0);
+
+  // bubbles
+  for (const b of R.bubbles) {
+    b.y -= 120 * dt; b.ph += dt * 3; b.x += Math.sin(b.ph) * 30 * dt;
+    let pop = b.y < 20;
+    if (!pop) for (const e of R.en) if (!e.dead && (e.x - b.x) ** 2 + (e.y - b.y) ** 2 < (e.r + 12) ** 2) { pop = true; break; }
+    if (pop) {
+      b.dead = true;
+      for (const e of R.en) if (!e.dead && (e.x - b.x) ** 2 + (e.y - b.y) ** 2 < (b.r + e.r) ** 2) hit(e, b.dmg, b.x, b.y);
+      for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; R.parts.push({ x: b.x + Math.cos(a) * b.r * 0.6, y: b.y + Math.sin(a) * b.r * 0.6, vx: Math.cos(a) * 60, vy: Math.sin(a) * 60, t: .35, col: '#9ff0ff' }); }
+    }
+  }
+  R.bubbles = R.bubbles.filter(b => !b.dead);
+
+  // bandage zones
+  for (const z of R.zones) {
+    if (z.follow && !z.follow.dead) { z.x = z.follow.x; z.y = z.follow.y; }
+    z.life -= dt; z.tick -= dt;
+    if (z.tick <= 0) {
+      z.tick = 0.4;
+      for (const e of R.en) if (!e.dead && (e.x - z.x) ** 2 + (e.y - z.y) ** 2 < (z.r + e.r) ** 2) hit(e, z.dps * 0.4, undefined, undefined, true);
+    }
+  }
+  R.zones = R.zones.filter(z => z.life > 0);
+
+  // beams
+  for (const b of R.beams) {
+    b.life -= dt;
+    for (const e of R.en) if (!e.dead && Math.abs(e.x - R.x) < b.width / 2 + e.r && e.y < my) {
+      const wp = e.t === 'boss' ? weakPos(e) : null;
+      const onWeak = wp && Math.abs(wp.x - R.x) < b.width / 2 + 8;
+      e.hp -= b.dps * dt * (onWeak ? 2.5 : 1) * (1 + R.crit); e.flash = 0.05;
+      if (e.hp <= 0) kill(e);
+    }
+  }
+  R.beams = R.beams.filter(b => b.life > 0);
+
+  R.en = R.en.filter(e => !e.dead);
+  for (const q of R.parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= .9; q.vy *= .9; q.t -= dt; }
+  R.parts = R.parts.filter(q => q.t > 0); if (R.parts.length > 350) R.parts.splice(0, R.parts.length - 350);
+  for (const t of R.texts) { t.y -= 28 * dt; t.t -= dt; }
+  R.texts = R.texts.filter(t => t.t > 0);
+  R.shake = Math.max(0, R.shake - dt);
+
+  if (R.hp <= 0) {
+    R.hp = 0;
+    if (!R.revived) { mode = 'revive'; $('reviveScr').hidden = false; return; }
+    return finish(false);
+  }
+  if (!R.queue.length && !R.en.length) {
+    if (R.wave >= WAVES) return finish(true);
+    R.coins += 5 + R.wave * 2;
+    openSkills(`WAVE ${R.wave} クリア`);
+  }
+}
+
+// ---------- drawing ----------
+function draw(now) {
+  X.fillStyle = '#0a0f1f'; X.fillRect(0, 0, W, H);
+  const T = now / 1000;
+  if (!R) { drawGrid(T * 14); drawIdle(T); X.fillStyle = vignette; X.fillRect(0, 0, W, H); return; }
+  X.save();
+  if (R.shake > 0) X.translate((Math.random() - .5) * 14 * R.shake, (Math.random() - .5) * 14 * R.shake);
+  drawGrid(R.scroll);
+  const my = memY(), cy = cellY();
+
+  // cytoplasm below membrane
+  X.fillStyle = 'rgba(155,123,255,0.07)'; X.fillRect(0, my, W, H - my);
+  // organelles drifting in the cytoplasm (decor)
+  X.fillStyle = 'rgba(155,123,255,0.12)';
+  for (let i = 0; i < 7; i++) { const ox = ((i * 97 + T * 6) % (W + 40)) - 20, oy = my + 30 + (i * 37) % Math.max(30, H - my - 40); X.beginPath(); X.ellipse(ox, oy, 10, 5, i, 0, TAU); X.fill(); }
+
+  // zones (bandage)
+  for (const z of R.zones) {
+    X.fillStyle = `rgba(255,207,138,${0.12 * Math.min(1, z.life)})`; X.beginPath(); X.arc(z.x, z.y, z.r, 0, TAU); X.fill();
+    X.save(); X.translate(z.x, z.y); X.rotate(0.6); X.fillStyle = '#ffcf8a'; roundRect(-11, -5, 22, 10, 3); X.fill();
+    X.fillStyle = 'rgba(10,15,31,.35)'; X.fillRect(-4, -5, 8, 10); X.restore();
+  }
+  for (const e of R.en) drawEnemy(e, T);
+  // beams
+  for (const b of R.beams) {
+    const a = b.life / b.max;
+    X.fillStyle = `rgba(255,143,177,${0.25 * a})`; X.fillRect(R.x - b.width, 0, b.width * 2, cy);
+    X.fillStyle = `rgba(255,230,240,${0.85 * a})`; X.fillRect(R.x - b.width / 4, 0, b.width / 2, cy);
+  }
+  // membrane: lipid bilayer drawn as two wavy lines with head groups
+  const hpr = R.hp / R.maxHp;
+  X.lineWidth = 2;
+  for (const off of [-4, 4]) {
+    X.strokeStyle = R.hurt > 0 ? '#ff5c8a' : `rgba(194,168,255,${0.45 + 0.5 * hpr})`;
+    X.beginPath();
+    for (let x = 0; x <= W; x += 8) { const y = my + off + Math.sin(x * 0.05 + T * 2) * 2; x ? X.lineTo(x, y) : X.moveTo(x, y); }
+    X.stroke();
+  }
+  X.fillStyle = `rgba(194,168,255,${0.3 + 0.5 * hpr})`;
+  for (let x = 4; x < W; x += 12) { const y = my + Math.sin(x * 0.05 + T * 2) * 2; X.beginPath(); X.arc(x, y - 6, 2, 0, TAU); X.arc(x, y + 6, 2, 0, TAU); X.fill(); }
+
+  // dagger blades
+  if (R.w.dagger) {
+    const w = R.w.dagger, n = 1 + w.n, rad = 68 * w.size;
+    X.strokeStyle = 'rgba(194,168,255,.15)'; X.lineWidth = 1; X.beginPath(); X.arc(R.x, cy, rad, 0, TAU); X.stroke();
+    for (let i = 0; i < n; i++) {
+      const a = R.daggerAng + i / n * TAU;
+      X.save(); X.translate(R.x + Math.cos(a) * rad, cy + Math.sin(a) * rad); X.rotate(a + Math.PI / 2);
+      X.fillStyle = '#c2a8ff'; X.beginPath(); X.moveTo(0, -13); X.lineTo(5, 4); X.lineTo(0, 9); X.lineTo(-5, 4); X.closePath(); X.fill();
+      X.restore();
+    }
+  }
+  drawPlayer(R.x, cy, T);
+  // bubbles
+  for (const b of R.bubbles) {
+    X.strokeStyle = 'rgba(159,240,255,.85)'; X.lineWidth = 1.5; X.beginPath(); X.arc(b.x, b.y, 9, 0, TAU); X.stroke();
+    X.fillStyle = 'rgba(255,255,255,.7)'; X.beginPath(); X.arc(b.x - 3, b.y - 3, 2, 0, TAU); X.fill();
+  }
+  // shots
+  for (const s of R.shots) {
+    const a = Math.atan2(s.vy, s.vx);
+    X.save(); X.translate(s.x, s.y); X.rotate(a);
+    if (s.k === 'scalpel') { X.fillStyle = '#e6e9ff'; X.beginPath(); X.moveTo(9, 0); X.lineTo(-3, -3); X.lineTo(-9, -1); X.lineTo(-9, 1); X.lineTo(-3, 2); X.closePath(); X.fill(); }
+    else if (s.k === 'needle') { X.strokeStyle = '#5fe1ff'; X.lineWidth = 1.6; X.beginPath(); X.moveTo(-12, 0); X.lineTo(10, 0); X.stroke(); X.fillStyle = '#5fe1ff'; X.fillRect(-14, -2, 4, 4); }
+    else { X.rotate(s.spin); X.fillStyle = '#ffcf8a'; roundRect(-9, -4, 18, 8, 3); X.fill(); }
+    X.restore();
+  }
+  for (const q of R.parts) { X.globalAlpha = Math.min(1, q.t * 2.5); X.fillStyle = q.col; X.fillRect(q.x - 1.5, q.y - 1.5, 3, 3); }
+  X.globalAlpha = 1;
+  X.font = '500 11px "IBM Plex Mono", monospace'; X.textAlign = 'center';
+  for (const t of R.texts) { X.globalAlpha = Math.min(1, t.t * 2.5); X.fillStyle = t.col; X.fillText(t.v, t.x, t.y); }
+  X.globalAlpha = 1;
+  X.restore();
+  if (R.hurt > 0) { X.fillStyle = `rgba(255,92,138,${R.hurt * 0.8})`; X.fillRect(0, my - 6, W, H - my + 6); }
+  X.fillStyle = vignette; X.fillRect(0, 0, W, H);
+  drawToasts();
+}
+function drawGrid(scroll) {
+  // hemocytometer ruling: 50 µm squares, triple lines every 250 µm
+  X.lineWidth = 1;
+  X.strokeStyle = 'rgba(141,148,191,0.07)'; X.beginPath();
+  for (let x = 0.5; x < W; x += 50) { X.moveTo(x, 0); X.lineTo(x, H); }
+  for (let y = (scroll % 50) - 50; y < H; y += 50) { X.moveTo(0, y + .5); X.lineTo(W, y + .5); }
+  X.stroke();
+  X.strokeStyle = 'rgba(141,148,191,0.13)'; X.beginPath();
+  for (let y = (scroll % 250) - 250; y < H; y += 250) for (const o of [-3, 0, 3]) { X.moveTo(0, y + o + .5); X.lineTo(W, y + o + .5); }
+  X.stroke();
+}
+function drawPlayer(x, y, T) {
+  X.fillStyle = 'rgba(200,186,255,0.22)'; X.strokeStyle = 'rgba(214,202,255,0.85)'; X.lineWidth = 1.5;
+  X.beginPath();
+  for (let i = 0; i <= 28; i++) {
+    const a = i / 28 * TAU, r = 21 * (1 + 0.06 * Math.sin(a * 3 + T * 4) + 0.04 * Math.sin(a * 5 - T * 3));
+    i ? X.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r) : X.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+  }
+  X.fill(); X.stroke();
+  X.fillStyle = '#9b7bff';
+  const pts = [[-7, 3], [0, -5], [7, 3]];
+  for (const [a, b] of pts) { X.beginPath(); X.arc(x + a, y + b, 6, 0, TAU); X.fill(); }
+  X.strokeStyle = '#9b7bff'; X.lineWidth = 3; X.beginPath(); X.moveTo(x - 7, y + 3); X.lineTo(x, y - 5); X.lineTo(x + 7, y + 3); X.stroke();
+}
+function drawEnemy(e, T) {
+  const col = e.flash > 0 ? '#ffffff' : ET[e.t].col;
+  X.save(); X.translate(e.x, e.y);
+  if (e.t === 'bacil') {
+    X.rotate(Math.PI / 2 + Math.sin(T * 3 + e.ph) * 0.4);
+    X.strokeStyle = 'rgba(255,92,138,.5)'; X.lineWidth = 1; X.beginPath(); X.moveTo(-e.r * 1.1, 0);
+    for (let i = 1; i <= 6; i++) X.lineTo(-e.r * 1.1 - i * 3, Math.sin(T * 14 + i + e.ph) * 3);
+    X.stroke();
+    X.fillStyle = col; roundRect(-e.r * 1.2, -e.r * .6, e.r * 2.4, e.r * 1.2, e.r * .6); X.fill();
+  } else if (e.t === 'virus') {
+    X.rotate(T * 1.5 + e.ph);
+    X.strokeStyle = col; X.lineWidth = 1.6; X.beginPath();
+    for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; X.moveTo(Math.cos(a) * e.r, Math.sin(a) * e.r); X.lineTo(Math.cos(a) * e.r * 1.5, Math.sin(a) * e.r * 1.5); }
+    X.stroke();
+    X.fillStyle = col; X.beginPath(); X.arc(0, 0, e.r, 0, TAU); X.fill();
+    X.fillStyle = 'rgba(10,15,31,.35)'; X.beginPath(); X.arc(0, 0, e.r * .45, 0, TAU); X.fill();
+  } else if (e.t === 'split') {
+    X.fillStyle = col;
+    X.beginPath(); X.arc(-e.r * .35, 0, e.r * .7, 0, TAU); X.fill();
+    X.beginPath(); X.arc(e.r * .35, 0, e.r * .7, 0, TAU); X.fill();
+    X.strokeStyle = 'rgba(10,15,31,.5)'; X.lineWidth = 2; X.beginPath(); X.moveTo(0, -e.r * .6); X.lineTo(0, e.r * .6); X.stroke();
+  } else if (e.t === 'tank') {
+    X.fillStyle = col;
+    for (const [a, b] of [[-.45, -.35], [.45, -.35], [0, .4], [-.5, .45], [.5, .45], [0, -.1]]) { X.beginPath(); X.arc(a * e.r, b * e.r, e.r * .45, 0, TAU); X.fill(); }
+  } else {
+    X.save(); X.rotate(e.ph + T * .3);
+    X.fillStyle = col; X.beginPath();
+    const n = e.seed.length;
+    for (let i = 0; i <= n; i++) { const a = i / n * TAU, r = e.r * e.seed[i % n] * (1 + .04 * Math.sin(T * 3 + i)); i ? X.lineTo(Math.cos(a) * r, Math.sin(a) * r) : X.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+    X.fill();
+    if (e.t === 'boss') {
+      X.strokeStyle = col; X.lineWidth = 3; X.beginPath();
+      for (let i = 0; i < 16; i++) { const a = i / 16 * TAU; X.moveTo(Math.cos(a) * e.r * .9, Math.sin(a) * e.r * .9); X.lineTo(Math.cos(a) * e.r * 1.3, Math.sin(a) * e.r * 1.3); }
+      X.stroke();
+    }
+    X.restore();
+    if (e.t === 'boss') {
+      const wx = Math.cos(e.weakA) * e.r * .62, wy = Math.sin(e.weakA) * e.r * .62, pulse = 1 + .15 * Math.sin(T * 8);
+      X.fillStyle = 'rgba(95,225,255,.3)'; X.beginPath(); X.arc(wx, wy, 18 * pulse, 0, TAU); X.fill();
+      X.fillStyle = '#5fe1ff'; X.beginPath(); X.arc(wx, wy, 9, 0, TAU); X.fill();
+    } else { X.fillStyle = 'rgba(10,15,31,.55)'; X.beginPath(); X.arc(e.r * .1, -e.r * .05, e.r * .45, 0, TAU); X.fill(); }
+  }
+  X.restore();
+  if (e.hp < e.mhp && e.t !== 'boss') {
+    const w = Math.max(16, e.r * 1.8);
+    X.fillStyle = 'rgba(10,15,31,.7)'; X.fillRect(e.x - w / 2, e.y - e.r - 9, w, 3);
+    X.fillStyle = '#ff5c8a'; X.fillRect(e.x - w / 2, e.y - e.r - 9, w * Math.max(0, e.hp / e.mhp), 3);
+  }
+}
+function roundRect(x, y, w, h, r) { X.beginPath(); X.moveTo(x + r, y); X.arcTo(x + w, y, x + w, y + h, r); X.arcTo(x + w, y + h, x, y + h, r); X.arcTo(x, y + h, x, y, r); X.arcTo(x, y, x + w, y, r); X.closePath(); }
+const idle = Array.from({ length: 22 }, (_, i) => ({ t: ['virus', 'bacil', 'tank', 'split'][i % 4], fx: Math.random(), fy: Math.random(), ph: Math.random() * 6, flash: 0, hp: 1, mhp: 1, seed: [1] }));
+function drawIdle(T) {
+  X.globalAlpha = 0.45;
+  for (const e of idle) { e.r = ET[e.t].r; e.x = e.fx * W + Math.sin(T * .5 + e.ph) * 14; e.y = ((e.fy * H + T * 18) % (H + 60)) - 30; drawEnemy(e, T); }
+  X.globalAlpha = 1;
+}
+
+// ---------- HUD / toasts ----------
+let toasts = [];
+function toast(msg) { toasts.push({ msg, t: 2.4 }); if (toasts.length > 2) toasts.shift(); }
+let lastFrameDt = 0;
+function drawToasts() {
+  let y = safeT + 110;
+  X.font = '700 14px "Zen Kaku Gothic New", sans-serif'; X.textAlign = 'center';
+  for (const t of toasts) {
+    if (mode === 'play') t.t -= lastFrameDt;
+    X.globalAlpha = Math.max(0, Math.min(1, t.t));
+    const w = X.measureText(t.msg).width + 26;
+    X.fillStyle = 'rgba(20,27,51,.88)'; X.fillRect(W / 2 - w / 2, y - 16, w, 26);
+    X.fillStyle = '#e6e9ff'; X.fillText(t.msg, W / 2, y + 2);
+    y += 32;
+  }
+  X.globalAlpha = 1;
+  toasts = toasts.filter(t => t.t > 0);
+}
+let lastHud = '';
+function updateHud() {
+  const boss = R.en.find(e => e.t === 'boss' || e.t === 'elite');
+  const key = [Math.ceil(R.hp), R.maxHp, R.wave, R.coins, boss ? Math.ceil(boss.hp) : -1].join();
+  if (key === lastHud) return; lastHud = key;
+  $('waveTxt').textContent = `第${R.ch}章 · WAVE ${Math.max(1, R.wave)}/${WAVES}`;
+  $('coinTxt').textContent = R.coins;
+  $('hpTxt').textContent = Math.ceil(R.hp);
+  $('hpFill').style.width = (R.hp / R.maxHp * 100) + '%';
+  $('bossBar').hidden = !boss;
+  if (boss) { $('bossName').textContent = ET[boss.t].name; $('bossFill').style.width = Math.max(0, boss.hp / boss.mhp * 100) + '%'; }
+}
+
+// ---------- home ----------
+function weaponIcon(cv, id) {
+  const g = cv.getContext('2d'), s = 2; cv.width = 36 * s; cv.height = 36 * s; g.scale(s, s);
+  g.translate(18, 18); g.fillStyle = 'rgba(155,123,255,.15)'; g.beginPath(); g.arc(0, 0, 17, 0, TAU); g.fill();
+  const col = WEAP[id].col; g.fillStyle = col; g.strokeStyle = col; g.lineWidth = 2;
+  if (id === 'scalpel') { g.rotate(-0.8); g.beginPath(); g.moveTo(12, 0); g.lineTo(-2, -4); g.lineTo(-12, -1.5); g.lineTo(-12, 1.5); g.lineTo(-2, 3); g.fill(); }
+  else if (id === 'dagger') { for (let i = 0; i < 3; i++) { g.save(); g.rotate(i * TAU / 3); g.translate(0, -9); g.beginPath(); g.moveTo(0, -6); g.lineTo(3, 2); g.lineTo(0, 5); g.lineTo(-3, 2); g.fill(); g.restore(); } }
+  else if (id === 'needle') { g.rotate(-0.8); g.beginPath(); g.moveTo(-12, 0); g.lineTo(12, 0); g.stroke(); g.fillRect(-14, -3, 5, 6); }
+  else if (id === 'bubble') { for (const [x, y, r] of [[-4, 3, 7], [6, -5, 5], [7, 7, 3]]) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke(); } }
+  else if (id === 'bandage') { g.rotate(-0.6); roundRectG(g, -13, -5, 26, 10, 4); g.fill(); g.fillStyle = 'rgba(10,15,31,.4)'; g.fillRect(-4, -5, 8, 10); }
+  else { g.fillRect(-2, -15, 4, 30); g.globalAlpha = .35; g.fillRect(-6, -15, 12, 30); }
+}
+function roundRectG(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function renderHome() {
+  $('bankTxt').textContent = SAVE.coins;
+  $('chName').textContent = `第${SAVE.ch}章`;
+  $('chSub').textContent = SAVE.ch < SAVE.maxCh ? 'クリア済み' : SAVE.ch === 1 ? '最初の章' : '未踏破';
+  $('chPrev').disabled = SAVE.ch <= 1;
+  $('chNext').disabled = SAVE.ch >= Math.min(SAVE.maxCh, MAXCH);
+  const slots = $('slots'); slots.textContent = '';
+  for (let i = 0; i < 3; i++) { const d = document.createElement('div'); const id = SAVE.equip[i]; d.className = 'slot' + (id ? ' on' : ''); d.textContent = id ? `${WEAP[id].name} Lv${SAVE.w[id]}` : '空き'; slots.appendChild(d); }
+  const wl = $('wlist'); wl.textContent = '';
+  for (const id of WIDS) {
+    const own = !!SAVE.w[id], lv = SAVE.w[id] || 0, eq = SAVE.equip.includes(id);
+    const card = document.createElement('div'); card.className = 'wcard' + (own ? '' : ' locked');
+    const cv = document.createElement('canvas'); weaponIcon(cv, id);
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = WEAP[id].name;
+    if (own) { const sm = document.createElement('small'); sm.textContent = `Lv ${lv} · 威力 ×${metaMul(lv).toFixed(2)}`; nm.appendChild(sm); }
+    const ds = document.createElement('div'); ds.className = 'ds'; ds.textContent = WEAP[id].desc;
+    const acts = document.createElement('div'); acts.className = 'acts';
+    if (own) {
+      const b1 = document.createElement('button'); b1.type = 'button';
+      b1.textContent = eq ? '装備中' : '装備'; if (eq) b1.className = 'eq';
+      b1.disabled = !eq && SAVE.equip.length >= 3 ? false : false;
+      b1.onclick = () => {
+        if (eq) { if (SAVE.equip.length > 1) SAVE.equip = SAVE.equip.filter(x => x !== id); }
+        else { if (SAVE.equip.length >= 3) SAVE.equip.shift(); SAVE.equip.push(id); }
+        store(); renderHome();
+      };
+      const b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'up';
+      const c = upCost(lv); b2.textContent = `強化 ●${c}`; b2.disabled = SAVE.coins < c;
+      b2.onclick = () => { if (SAVE.coins < c) return; SAVE.coins -= c; SAVE.w[id]++; store(); renderHome(); };
+      acts.append(b1, b2);
+    } else {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'up';
+      b.textContent = `解放 ●${WEAP[id].cost}`; b.disabled = SAVE.coins < WEAP[id].cost;
+      b.onclick = () => { if (SAVE.coins < WEAP[id].cost) return; SAVE.coins -= WEAP[id].cost; SAVE.w[id] = 1; if (SAVE.equip.length < 3) SAVE.equip.push(id); store(); renderHome(); };
+      acts.append(b);
+    }
+    card.append(cv, nm, acts, ds);
+    wl.appendChild(card);
+  }
+}
+
+// ---------- flow ----------
+function start() {
+  resize(); newRun(); lastHud = ''; toasts = [];
+  ['homeScr', 'overScr', 'pauseScr', 'skillScr', 'reviveScr'].forEach(id => $(id).hidden = true);
+  $('hud').hidden = false;
+  openSkills(`第${R.ch}章 出撃準備`);
+}
+function finish(win) {
+  mode = 'over';
+  $('hud').hidden = true; $('skillScr').hidden = true; $('reviveScr').hidden = true;
+  let coins = R.coins;
+  if (win) { coins += 60 * R.ch; if (R.ch >= SAVE.maxCh) { SAVE.maxCh = Math.min(MAXCH, R.ch + 1); SAVE.ch = SAVE.maxCh; } }
+  SAVE.coins += coins; store();
+  $('overEyebrow').textContent = win ? `第${R.ch}章 クリア` : `第${R.ch}章 · WAVE ${R.wave} で敗北`;
+  $('overTitle').textContent = win ? '感染を食い止めた' : '細胞膜が破れた';
+  $('overMsg').textContent = win
+    ? `章クリアボーナス ●${60 * R.ch} 込み。${R.ch < MAXCH ? `第${R.ch + 1}章が開いた。` : '最終章まで制覇した。'}コインで武器を強化して次へ。`
+    : 'コインで武器を強化するか、装備の組み合わせを変えて再挑戦。ボスには鍼かレーザーメスで弱点を狙うと速い。';
+  $('rWave').textContent = R.wave; $('rKill').textContent = R.kills; $('rCoin').textContent = coins;
+  $('overScr').hidden = false;
+}
+function quit() {
+  const coins = Math.floor(R.coins / 2); SAVE.coins += coins; store();
+  R = null; mode = 'home';
+  ['pauseScr', 'hud'].forEach(id => $(id).hidden = true);
+  toHome();
+}
+function toHome() { R = null; mode = 'home'; $('overScr').hidden = true; renderHome(); $('homeScr').hidden = false; }
+function pause(on) {
+  if (on && mode === 'play') {
+    mode = 'pause';
+    $('buildTxt').textContent = R.equip.map(id => { const w = R.w[id]; return `${WEAP[id].name} (威力 ×${(metaMul(w.lv) * w.dmg * R.gdmg).toFixed(1)}・数 ${w.n})`; }).join(' / ') + ` / 会心 ${Math.round(R.crit * 100)}%`;
+    $('pauseScr').hidden = false;
+  } else if (!on && mode === 'pause') { $('pauseScr').hidden = true; mode = 'play'; }
+}
+
+$('startBtn').onclick = start;
+$('homeBtn').onclick = toHome;
+$('resumeBtn').onclick = () => pause(false);
+$('quitBtn').onclick = quit;
+$('pauseBtn').onclick = () => pause(true);
+$('chPrev').onclick = () => { SAVE.ch = Math.max(1, SAVE.ch - 1); store(); renderHome(); };
+$('chNext').onclick = () => { SAVE.ch = Math.min(SAVE.maxCh, SAVE.ch + 1); store(); renderHome(); };
+$('reviveBtn').onclick = () => {
+  if (mode !== 'revive') return;
+  R.revived = true; R.hp = R.maxHp / 2;
+  for (const e of R.en) if (e.atWall && e.t !== 'boss') { e.atWall = false; e.y -= 160; }
+  $('reviveScr').hidden = true; mode = 'play';
+};
+$('giveupBtn').onclick = () => { if (mode === 'revive') finish(false); };
+
+C.addEventListener('pointerdown', e => {
+  if (mode !== 'play' || drag.on) return;
+  drag.on = true; drag.id = e.pointerId; drag.sx = e.clientX; drag.cx = R.x;
+  try { C.setPointerCapture(e.pointerId); } catch (_) {}
+});
+C.addEventListener('pointermove', e => { if (drag.on && e.pointerId === drag.id && R) R.x = drag.cx + (e.clientX - drag.sx) * 1.3; });
+const endDrag = e => { if (e.pointerId === drag.id) drag.on = false; };
+C.addEventListener('pointerup', endDrag); C.addEventListener('pointercancel', endDrag);
+$('app').addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('keydown', e => {
+  if (mode === 'skill' && /^Digit[1-3]$/.test(e.code)) { const b = $('cards').children[+e.code.slice(5) - 1]; if (b) b.click(); return; }
+  if (e.code === 'KeyP' || e.code === 'Escape') { pause(mode === 'play'); return; }
+  if (/^(ArrowLeft|ArrowRight|KeyA|KeyD)$/.test(e.code)) { keys.add(e.code); e.preventDefault(); }
+});
+window.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => { keys.clear(); drag.on = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
+
+function frame(now) {
+  const dt = Math.min(1 / 30, (now - last) / 1000 || 0); last = now; lastFrameDt = dt;
+  if (mode === 'play') update(dt);
+  draw(now);
+  if (R && mode !== 'home' && mode !== 'over') updateHud();
+  requestAnimationFrame(frame);
+}
+resize(); renderHome();
+requestAnimationFrame(t => { last = t; frame(t); });
+})();
+</script>
+
+</html>
