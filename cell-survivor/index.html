@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>セルサバイバー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: full-screen dark-field microscope slide (hemocytometer grid), HUD pinned to the eyepiece edges, overlays as stained cover slips */
+:root {
+  --field: #0a0f1f;        /* dark-field background */
+  --slip: #141b33;         /* cover-slip panels */
+  --ink: #e6e9ff;
+  --dim: #8d94bf;
+  --violet: #9b7bff;       /* crystal violet: you (Gram-positive stain) */
+  --safranin: #ff5c8a;     /* safranin pink: pathogens */
+  --atp: #5fe1ff;          /* ATP / experience */
+  --hp: #ff5c8a;
+  --display: "Dela Gothic One", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; }
+[hidden] { display: none !important; }
+body { background: var(--field); color: var(--ink); font-family: var(--body); overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#app { position: fixed; inset: 0; background: var(--field); touch-action: none; }
+canvas { display: block; width: 100%; height: 100%; }
+
+#hud { position: absolute; left: 0; right: 0; top: 0; padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 0; display: grid; gap: 6px; pointer-events: none; }
+.row { display: flex; align-items: center; gap: 10px; }
+.bar { position: relative; flex: 1; height: 8px; border-radius: 4px; background: rgba(230,233,255,.1); overflow: hidden; }
+.bar > i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 4px; }
+#hpFill { background: var(--hp); }
+#xpFill { background: var(--atp); }
+.tag { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--dim); min-width: 3.6em; letter-spacing: .04em; }
+.tag b { color: var(--ink); font-weight: 500; }
+#stats { justify-content: space-between; margin-top: 2px; }
+#clock { font-family: var(--mono); font-size: 20px; font-variant-numeric: tabular-nums; color: var(--ink); }
+#clock small { color: var(--dim); font-size: 12px; }
+#pauseBtn { pointer-events: auto; font: 500 12px var(--mono); color: var(--ink); background: rgba(20,27,51,.8); border: 1px solid rgba(155,123,255,.4); border-radius: 6px; padding: 6px 10px; }
+#pauseBtn:focus-visible, .btn:focus-visible, .card:focus-visible { outline: 2px solid var(--atp); outline-offset: 2px; }
+
+#scale { position: absolute; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); font: 500 11px var(--mono); color: var(--dim); pointer-events: none; display: grid; gap: 3px; }
+#scale i { display: block; height: 3px; background: var(--dim); width: 50px; }
+
+.overlay { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 16px; background: rgba(6,9,20,.72); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.panel { width: min(440px, 100%); background: var(--slip); border: 1px solid rgba(155,123,255,.28); border-radius: 14px; padding: 22px 20px; display: grid; gap: 14px; max-height: 100%; overflow-y: auto; }
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--atp); }
+h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.15; }
+h1 { font-size: clamp(36px, 11vw, 54px); color: var(--ink); }
+h1 span { color: var(--violet); }
+h2 { font-size: 26px; }
+p { margin: 0; line-height: 1.7; color: var(--dim); font-size: 14px; }
+p strong { color: var(--ink); font-weight: 700; }
+.legend { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; font-size: 13px; color: var(--dim); align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.btn { font: 400 18px var(--display); color: var(--field); background: var(--violet); border: 0; border-radius: 10px; padding: 14px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid rgba(230,233,255,.25); font-size: 15px; }
+.cards { display: grid; gap: 10px; }
+.card { text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; background: rgba(10,15,31,.7); color: var(--ink); border: 1px solid rgba(95,225,255,.25); border-radius: 10px; padding: 12px 14px; cursor: pointer; font-family: var(--body); }
+.card:hover { border-color: var(--atp); }
+.card .nm { font-weight: 700; font-size: 16px; }
+.card .lv { font: 500 11px var(--mono); color: var(--atp); align-self: center; }
+.card .ds { grid-column: 1 / -1; font-size: 13px; color: var(--dim); line-height: 1.5; }
+.card .kd { font: 500 10px var(--mono); letter-spacing: .1em; color: var(--violet); grid-column: 1 / -1; }
+.card.passive .kd { color: var(--safranin); }
+.result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.result div { display: grid; gap: 2px; }
+.result b { font: 500 22px var(--mono); font-variant-numeric: tabular-nums; }
+.result span { font-size: 11px; color: var(--dim); }
+.kbd { font: 500 11px var(--mono); color: var(--dim); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div id="app">
+  <canvas id="c"></canvas>
+  <div id="hud" hidden>
+    <div class="row"><span class="tag">HP <b id="hpTxt">100</b></span><div class="bar"><i id="hpFill"></i></div><button id="pauseBtn" type="button">II</button></div>
+    <div class="row"><span class="tag">Lv <b id="lvTxt">1</b></span><div class="bar"><i id="xpFill"></i></div></div>
+    <div class="row" id="stats"><span class="tag">撃破 <b id="killTxt">0</b></span><span id="clock">00:00<small> / 10:00</small></span><span class="tag" style="text-align:right">敵 <b id="enTxt">0</b></span></div>
+  </div>
+  <div id="scale" hidden><i></i>50 μm</div>
+
+  <div class="overlay" id="titleScr">
+    <div class="panel">
+      <div class="eyebrow">× 400 · 血液塗抹標本</div>
+      <h1>セル<span>サバイバー</span></h1>
+      <p>あなたは<strong>好中球</strong>。侵入してきた病原体から体を守る白血球です。<strong>10分間</strong>生き延びれば免疫成立。</p>
+      <div class="legend">
+        <i class="dot" style="background:#ff5c8a"></i><span>大腸菌・ブドウ球菌。数で押してくる</span>
+        <i class="dot" style="background:#ffb547"></i><span>ウイルス。小さくて速い</span>
+        <i class="dot" style="background:#ff7a45"></i><span>がん細胞。4分半から出現、硬い</span>
+        <i class="dot" style="background:#5fe1ff"></i><span>ATP。集めるとレベルアップ</span>
+      </div>
+      <p>画面をドラッグして移動。攻撃は自動。<span class="kbd">PC: WASD / 矢印キー、P で一時停止</span></p>
+      <button class="btn" id="startBtn" type="button">感染部位へ遊走する</button>
+      <p class="kbd" id="bestTxt"></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="lvScr" hidden>
+    <div class="panel">
+      <div class="eyebrow" id="lvEyebrow">レベルアップ</div>
+      <h2>分化を選ぶ</h2>
+      <div class="cards" id="cards"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseScr" hidden>
+    <div class="panel">
+      <div class="eyebrow">一時停止</div>
+      <h2>標本を固定中</h2>
+      <div id="buildList" class="legend"></div>
+      <button class="btn" id="resumeBtn" type="button">再開</button>
+      <button class="btn ghost" id="quitBtn" type="button">タイトルへ戻る</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overScr" hidden>
+    <div class="panel">
+      <div class="eyebrow" id="overEyebrow">結果</div>
+      <h2 id="overTitle">感染拡大</h2>
+      <p id="overMsg"></p>
+      <div class="result">
+        <div><b id="rTime">0:00</b><span>生存時間</span></div>
+        <div><b id="rLv">1</b><span>レベル</span></div>
+        <div><b id="rKill">0</b><span>撃破数</span></div>
+      </div>
+      <button class="btn" id="retryBtn" type="button">もう一度</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const C = $('c'), X = C.getContext('2d');
+let W = 0, H = 0, DPR = 1, vignette = null;
+const WIN_TIME = 600;
+
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = C.clientWidth; H = C.clientHeight;
+  C.width = Math.round(W * DPR); C.height = Math.round(H * DPR);
+  X.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const R = Math.hypot(W, H) / 2;
+  vignette = X.createRadialGradient(W / 2, H / 2, R * 0.55, W / 2, H / 2, R);
+  vignette.addColorStop(0, 'rgba(4,6,14,0)');
+  vignette.addColorStop(1, 'rgba(4,6,14,0.85)');
+}
+window.addEventListener('resize', resize);
+
+// ---------- storage ----------
+function loadBest() { try { return JSON.parse(localStorage.getItem('cellsurv.best') || 'null'); } catch (e) { return null; } }
+function saveBest(b) { try { localStorage.setItem('cellsurv.best', JSON.stringify(b)); } catch (e) {} }
+
+// ---------- upgrades ----------
+const UPS = [
+  { id: 'antibody', kind: '武器', name: '抗体', max: 6, lv: ['最寄りの病原体へY字の抗体を撃ち込む', '発射数 +1', 'ダメージ +40%', '発射数 +1', '1発で2体まで貫通', '発射数 +1'] },
+  { id: 'lyso', kind: '武器', name: 'リゾチーム', max: 6, lv: ['周囲に酵素を放出し、細胞壁を溶かし続ける', '範囲とダメージ +', '範囲とダメージ +', '範囲とダメージ +', '範囲とダメージ +', '範囲とダメージ +'] },
+  { id: 'gran', kind: '武器', name: 'アズール顆粒', max: 6, lv: ['殺菌顆粒が体のまわりを回る', '顆粒 +1', 'ダメージ +', '顆粒 +1', '顆粒 +1', '顆粒 +1'] },
+  { id: 'cyto', kind: '武器', name: 'サイトカイン', max: 6, lv: ['一定間隔で炎症シグナルの衝撃波を放つ', '間隔短縮・範囲 +', '間隔短縮・範囲 +', '間隔短縮・範囲 +', '間隔短縮・範囲 +', '間隔短縮・範囲 +'] },
+  { id: 'nets', kind: '武器', name: 'NETs', max: 5, lv: ['DNAの網を足元に張り、敵を減速させて削る', '網が広く・長持ち', '網が広く・長持ち', '網が広く・長持ち', '網が広く・長持ち'] },
+  { id: 'mito', kind: '強化', name: 'ミトコンドリア', max: 5, lv: ['全ダメージ +15%', '全ダメージ +15%', '全ダメージ +15%', '全ダメージ +15%', '全ダメージ +15%'] },
+  { id: 'memb', kind: '強化', name: '細胞膜の補強', max: 5, lv: ['最大HP +25、HP 25 回復', '最大HP +25、HP 25 回復', '最大HP +25、HP 25 回復', '最大HP +25、HP 25 回復', '最大HP +25、HP 25 回復'] },
+  { id: 'pseu', kind: '強化', name: '仮足', max: 5, lv: ['移動速度 +10%', '移動速度 +10%', '移動速度 +10%', '移動速度 +10%', '移動速度 +10%'] },
+  { id: 'rcpt', kind: '強化', name: 'ケモカイン受容体', max: 5, lv: ['ATP の吸収範囲 +35%', '吸収範囲 +35%', '吸収範囲 +35%', '吸収範囲 +35%', '吸収範囲 +35%'] },
+  { id: 'ribo', kind: '強化', name: 'リボソーム', max: 5, lv: ['武器の再使用時間 -8%', '再使用時間 -8%', '再使用時間 -8%', '再使用時間 -8%', '再使用時間 -8%'] },
+  { id: 'heal', kind: '強化', name: '自己修復', max: 5, lv: ['毎秒 HP 0.6 回復', '毎秒 HP +0.6', '毎秒 HP +0.6', '毎秒 HP +0.6', '毎秒 HP +0.6'] },
+];
+const UPMAP = Object.fromEntries(UPS.map(u => [u.id, u]));
+
+// ---------- enemy types ----------
+const ET = {
+  bac:  { name: '大腸菌',     hp: 12,   sp: 60, r: 10, dmg: 10, xp: 1,  col: '#ff5c8a' },
+  vir:  { name: 'ウイルス',   hp: 7,    sp: 96, r: 7,  dmg: 7,  xp: 1,  col: '#ffb547' },
+  coc:  { name: 'ブドウ球菌', hp: 34,   sp: 42, r: 15, dmg: 14, xp: 3,  col: '#ff8fb1' },
+  can:  { name: 'がん細胞',   hp: 180,  sp: 32, r: 24, dmg: 22, xp: 10, col: '#ff7a45' },
+  boss: { name: '多剤耐性菌', hp: 2400, sp: 50, r: 44, dmg: 35, xp: 60, col: '#e0457a' },
+};
+
+// ---------- state ----------
+let S = null, mode = 'title', last = 0, uid = 0;
+const keys = new Set();
+const joy = { on: false, id: null, ox: 0, oy: 0, x: 0, y: 0 };
+
+function newGame() {
+  S = {
+    t: 0, kills: 0, level: 1, xp: 0, pending: 0, chests: 0,
+    p: { x: 0, y: 0, r: 15, hp: 100, hurt: 0, face: 0 },
+    up: { antibody: 1 },
+    en: [], shots: [], orbs: [], rings: [], nets: [], parts: [], texts: [], items: [],
+    cd: { antibody: 0.5, lyso: 0, cyto: 1, nets: 1.5 },
+    spawnAcc: 0, nextSwarm: 60, bosses: [180, 360, 540], granAng: 0, shake: 0,
+  };
+}
+const L = id => S.up[id] || 0;
+const stat = {
+  dmg: () => 1 + 0.15 * L('mito'),
+  maxHp: () => 100 + 25 * L('memb'),
+  speed: () => 150 * (1 + 0.1 * L('pseu')),
+  magnet: () => 70 * (1 + 0.35 * L('rcpt')),
+  cd: () => 1 - 0.08 * L('ribo'),
+  regen: () => 0.6 * L('heal'),
+};
+const need = lv => Math.floor(5 + lv * 4 + lv * lv * 0.55);
+
+// ---------- spawning ----------
+function spawn(type, ang, dist) {
+  const d = ET[type], p = S.p;
+  if (ang === undefined) ang = Math.random() * Math.PI * 2;
+  if (dist === undefined) dist = Math.hypot(W, H) / 2 + 40;
+  const scale = type === 'boss' ? 1 + S.t / 300 : 1 + S.t / 150;
+  const seed = []; for (let i = 0; i < 10; i++) seed.push(0.8 + Math.random() * 0.4);
+  S.en.push({
+    id: ++uid, t: type, x: p.x + Math.cos(ang) * dist, y: p.y + Math.sin(ang) * dist,
+    hp: d.hp * scale, mhp: d.hp * scale, r: d.r, sp: d.sp * (0.9 + Math.random() * 0.2), dmg: d.dmg, xp: d.xp,
+    flash: 0, kbx: 0, kby: 0, ang, granCd: 0, seed, ph: Math.random() * 6.28, slow: 0,
+  });
+}
+function pickType() {
+  const t = S.t, w = [['bac', 10]];
+  if (t > 40) w.push(['vir', 6 + t / 60]);
+  if (t > 120) w.push(['coc', 3 + t / 120]);
+  if (t > 270) w.push(['can', 1 + (t - 270) / 90]);
+  let sum = w.reduce((a, b) => a + b[1], 0), r = Math.random() * sum;
+  for (const [k, v] of w) { if ((r -= v) < 0) return k; }
+  return 'bac';
+}
+function doSpawning(dt) {
+  const rate = 1.1 + S.t / 75; // per second: ~9/s at 10:00
+  S.spawnAcc += rate * dt;
+  while (S.spawnAcc >= 1) { S.spawnAcc--; if (S.en.length < 420) spawn(pickType()); }
+  if (S.t >= S.nextSwarm) {
+    S.nextSwarm += 60;
+    const n = 18 + Math.floor(S.t / 30), type = S.t > 300 ? 'coc' : 'vir';
+    for (let i = 0; i < n; i++) spawn(type, (i / n) * Math.PI * 2);
+    toast(type === 'vir' ? 'ウイルスの大群が包囲してくる' : 'ブドウ球菌の群体が包囲してくる');
+  }
+  if (S.bosses.length && S.t >= S.bosses[0]) {
+    S.bosses.shift(); spawn('boss');
+    toast('多剤耐性菌が出現。倒すと遺伝子カプセルを落とす');
+  }
+}
+
+// ---------- combat ----------
+function hurt(e, d) {
+  if (e.dead) return;
+  d *= stat.dmg();
+  e.hp -= d; e.flash = 0.08;
+  if (S.texts.length < 70) S.texts.push({ x: e.x + (Math.random() - .5) * 10, y: e.y - e.r, v: Math.round(d), t: 0.6 });
+  if (e.hp <= 0) kill(e);
+}
+function knock(e, fx, fy, f) { const m = Math.hypot(fx, fy) || 1; const k = e.t === 'boss' ? 0.15 : 1; e.kbx += fx / m * f * k; e.kby += fy / m * f * k; }
+function kill(e) {
+  e.dead = true; S.kills++;
+  const n = e.t === 'boss' ? 14 : e.t === 'can' ? 4 : 1;
+  for (let i = 0; i < n; i++) S.orbs.push({ x: e.x + (Math.random() - .5) * e.r, y: e.y + (Math.random() - .5) * e.r, v: Math.max(1, Math.round(e.xp / n)), mag: false });
+  if (e.t === 'boss') S.items.push({ x: e.x, y: e.y, k: 'chest' });
+  else if (Math.random() < 0.012) S.items.push({ x: e.x, y: e.y, k: 'glu' });
+  const col = ET[e.t].col, pn = e.t === 'boss' ? 30 : 6;
+  for (let i = 0; i < pn; i++) {
+    const a = Math.random() * 6.28, s = 40 + Math.random() * 120;
+    S.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0.5 + Math.random() * 0.3, col });
+  }
+  if (e.t === 'boss') S.shake = 0.4;
+}
+function nearest(x, y, maxD) {
+  let best = null, bd = maxD * maxD;
+  for (const e of S.en) { if (e.dead) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
+  return best;
+}
+
+function weapons(dt) {
+  const p = S.p, cdm = stat.cd();
+  // antibody
+  if (L('antibody')) {
+    S.cd.antibody -= dt;
+    if (S.cd.antibody <= 0) {
+      const lv = L('antibody'), n = [1, 2, 2, 3, 3, 4][lv - 1];
+      const tgt = nearest(p.x, p.y, 520);
+      if (tgt) {
+        S.cd.antibody = 0.85 * cdm;
+        const base = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+        for (let i = 0; i < n; i++) {
+          const a = base + (i - (n - 1) / 2) * 0.16;
+          S.shots.push({ x: p.x, y: p.y, vx: Math.cos(a) * 400, vy: Math.sin(a) * 400, dmg: lv >= 3 ? 14 : 10, pierce: lv >= 5 ? 2 : 1, life: 1.4, hit: new Set() });
+        }
+      } else S.cd.antibody = 0.1;
+    }
+  }
+  // lysozyme aura
+  if (L('lyso')) {
+    S.cd.lyso -= dt;
+    if (S.cd.lyso <= 0) {
+      S.cd.lyso = 0.3;
+      const lv = L('lyso'), r = 50 + 12 * lv, d = (8 + 5 * lv) * 0.3;
+      for (const e of S.en) if (!e.dead && (e.x - p.x) ** 2 + (e.y - p.y) ** 2 < (r + e.r) ** 2) hurt(e, d);
+    }
+  }
+  // granules
+  if (L('gran')) {
+    const lv = L('gran'), n = [2, 3, 3, 4, 5, 6][lv - 1], R = 72, dmg = lv >= 3 ? 18 : 12;
+    S.granAng += dt * 3.2;
+    for (let i = 0; i < n; i++) {
+      const a = S.granAng + i / n * Math.PI * 2, gx = p.x + Math.cos(a) * R, gy = p.y + Math.sin(a) * R;
+      for (const e of S.en) {
+        if (e.dead || e.granCd > S.t) continue;
+        if ((e.x - gx) ** 2 + (e.y - gy) ** 2 < (e.r + 9) ** 2) { e.granCd = S.t + 0.45; hurt(e, dmg); knock(e, e.x - p.x, e.y - p.y, 160); }
+      }
+    }
+  }
+  // cytokine ring
+  if (L('cyto')) {
+    S.cd.cyto -= dt;
+    if (S.cd.cyto <= 0) {
+      const lv = L('cyto');
+      S.cd.cyto = (3.4 - 0.3 * lv) * cdm;
+      S.rings.push({ x: p.x, y: p.y, r: 10, max: 120 + 25 * lv, dmg: 22 + 10 * lv, hit: new Set() });
+    }
+  }
+  // NETs
+  if (L('nets')) {
+    S.cd.nets -= dt;
+    if (S.cd.nets <= 0) {
+      const lv = L('nets');
+      S.cd.nets = 4 * cdm;
+      S.nets.push({ x: p.x, y: p.y, r: 55 + 12 * lv, life: 3 + 0.6 * lv, max: 3 + 0.6 * lv, dps: 8 + 5 * lv, tick: 0, rot: Math.random() * 6 });
+    }
+  }
+}
+
+// ---------- update ----------
+const grid = new Map(), GS = 48;
+function update(dt) {
+  const p = S.p;
+  S.t += dt;
+  if (S.t >= WIN_TIME) return endGame(true);
+
+  // move
+  let mx = 0, my = 0;
+  if (keys.has('ArrowLeft') || keys.has('KeyA')) mx--;
+  if (keys.has('ArrowRight') || keys.has('KeyD')) mx++;
+  if (keys.has('ArrowUp') || keys.has('KeyW')) my--;
+  if (keys.has('ArrowDown') || keys.has('KeyS')) my++;
+  if (joy.on) {
+    const dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy);
+    if (m > 6) { const k = Math.min(1, m / 50); mx = dx / m * k; my = dy / m * k; }
+  }
+  const mm = Math.hypot(mx, my);
+  if (mm > 1) { mx /= mm; my /= mm; }
+  const sp = stat.speed();
+  p.x += mx * sp * dt; p.y += my * sp * dt;
+  if (mm > 0.1) p.face = Math.atan2(my, mx);
+  p.hp = Math.min(stat.maxHp(), p.hp + stat.regen() * dt);
+  p.hurt = Math.max(0, p.hurt - dt);
+
+  doSpawning(dt);
+  weapons(dt);
+
+  // enemies: grid for separation
+  grid.clear();
+  for (const e of S.en) {
+    const k = Math.floor(e.x / GS) * 100003 + Math.floor(e.y / GS);
+    let b = grid.get(k); if (!b) grid.set(k, b = []); b.push(e);
+  }
+  const far = (Math.hypot(W, H) / 2 + 300) ** 2;
+  for (const e of S.en) {
+    if (e.dead) continue;
+    const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
+    // recycle stragglers left far behind
+    if (d * d > far && e.t !== 'boss') { const a = Math.random() * 6.28, r = Math.hypot(W, H) / 2 + 40; e.x = p.x + Math.cos(a) * r; e.y = p.y + Math.sin(a) * r; continue; }
+    let sx = 0, sy = 0;
+    const gx = Math.floor(e.x / GS), gy = Math.floor(e.y / GS);
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+      const b = grid.get((gx + i) * 100003 + gy + j); if (!b) continue;
+      for (const o of b) {
+        if (o === e) continue;
+        const ox = e.x - o.x, oy = e.y - o.y, rr = e.r + o.r, dd = ox * ox + oy * oy;
+        if (dd < rr * rr && dd > 0.01) { const q = Math.sqrt(dd); sx += ox / q * (rr - q); sy += oy / q * (rr - q); }
+      }
+    }
+    const slow = e.slow > S.t ? 0.45 : 1;
+    const v = e.sp * slow;
+    e.x += (dx / d * v + e.kbx + sx * 4) * dt;
+    e.y += (dy / d * v + e.kby + sy * 4) * dt;
+    e.kbx *= Math.pow(0.02, dt); e.kby *= Math.pow(0.02, dt);
+    e.ang = Math.atan2(dy, dx);
+    e.flash = Math.max(0, e.flash - dt);
+    if (d < p.r + e.r) { p.hp -= e.dmg * dt; p.hurt = 0.15; }
+  }
+  if (p.hp <= 0) { p.hp = 0; return endGame(false); }
+
+  // shots
+  for (const s of S.shots) {
+    s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+    for (const e of S.en) {
+      if (e.dead || s.hit.has(e.id)) continue;
+      if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (e.r + 5) ** 2) {
+        s.hit.add(e.id); hurt(e, s.dmg); knock(e, s.vx, s.vy, 120);
+        if (--s.pierce <= 0) { s.life = 0; break; }
+      }
+    }
+  }
+  S.shots = S.shots.filter(s => s.life > 0);
+
+  // rings
+  for (const r of S.rings) {
+    r.r += 380 * dt;
+    for (const e of S.en) {
+      if (e.dead || r.hit.has(e.id)) continue;
+      const d = Math.hypot(e.x - r.x, e.y - r.y);
+      if (d < r.r + e.r && d > r.r - 26 - e.r) { r.hit.add(e.id); hurt(e, r.dmg); knock(e, e.x - r.x, e.y - r.y, 220); }
+    }
+  }
+  S.rings = S.rings.filter(r => r.r < r.max);
+
+  // nets
+  for (const n of S.nets) {
+    n.life -= dt; n.tick -= dt;
+    const tick = n.tick <= 0; if (tick) n.tick = 0.3;
+    for (const e of S.en) {
+      if (e.dead) continue;
+      if ((e.x - n.x) ** 2 + (e.y - n.y) ** 2 < (n.r + e.r * 0.5) ** 2) { e.slow = S.t + 0.2; if (tick) hurt(e, n.dps * 0.3); }
+    }
+  }
+  S.nets = S.nets.filter(n => n.life > 0);
+  S.en = S.en.filter(e => !e.dead);
+
+  // orbs
+  const mag = stat.magnet();
+  for (const o of S.orbs) {
+    const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy) || 1;
+    if (d < mag) o.mag = true;
+    if (o.mag) { const v = 460; o.x += dx / d * v * dt; o.y += dy / d * v * dt; }
+    if (d < p.r + 6) { o.got = true; gainXp(o.v); }
+  }
+  S.orbs = S.orbs.filter(o => !o.got);
+  if (S.orbs.length > 500) { // merge the oldest into one dense orb
+    const old = S.orbs.splice(0, 100); const v = old.reduce((a, o) => a + o.v, 0);
+    S.orbs.push({ x: old[0].x, y: old[0].y, v, mag: false });
+  }
+  for (const it of S.items) {
+    const d = Math.hypot(p.x - it.x, p.y - it.y);
+    if (d < p.r + 14) {
+      it.got = true;
+      if (it.k === 'glu') { p.hp = Math.min(stat.maxHp(), p.hp + 30); toast('グルコースを取り込んだ。HP +30'); }
+      else { S.pending += 2; toast('遺伝子カプセルを取り込んだ。分化 ×2'); }
+    }
+  }
+  S.items = S.items.filter(i => !i.got);
+
+  for (const q of S.parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.92; q.vy *= 0.92; q.t -= dt; }
+  S.parts = S.parts.filter(q => q.t > 0);
+  if (S.parts.length > 400) S.parts.splice(0, S.parts.length - 400);
+  for (const t of S.texts) { t.y -= 30 * dt; t.t -= dt; }
+  S.texts = S.texts.filter(t => t.t > 0);
+  S.shake = Math.max(0, S.shake - dt);
+
+  if (S.pending > 0) openLevelUp();
+}
+function gainXp(v) {
+  S.xp += v;
+  while (S.xp >= need(S.level)) { S.xp -= need(S.level); S.level++; S.pending++; }
+}
+
+// ---------- drawing ----------
+function draw(now) {
+  X.fillStyle = '#0a0f1f'; X.fillRect(0, 0, W, H);
+  if (!S) { drawIdle(now); return; }
+  const p = S.p;
+  let cx = p.x - W / 2, cy = p.y - H / 2;
+  if (S.shake > 0) { cx += (Math.random() - .5) * 12 * S.shake; cy += (Math.random() - .5) * 12 * S.shake; }
+  drawGrid(cx, cy);
+  X.save(); X.translate(-cx, -cy);
+  const T = now / 1000;
+
+  // nets
+  for (const n of S.nets) {
+    const a = Math.min(1, n.life / 0.6, (n.max - n.life) / 0.3 + 0.2);
+    X.strokeStyle = `rgba(155,123,255,${0.35 * a})`; X.lineWidth = 1;
+    X.beginPath();
+    for (let i = 0; i < 9; i++) {
+      const t1 = n.rot + i * 0.7, t2 = n.rot + i * 1.9 + 2;
+      X.moveTo(n.x + Math.cos(t1) * n.r, n.y + Math.sin(t1) * n.r);
+      X.quadraticCurveTo(n.x + Math.cos(t1 + 1) * n.r * 0.2, n.y + Math.sin(t1 + 1) * n.r * 0.2, n.x + Math.cos(t2) * n.r, n.y + Math.sin(t2) * n.r);
+    }
+    X.stroke();
+    X.fillStyle = `rgba(155,123,255,${0.07 * a})`; X.beginPath(); X.arc(n.x, n.y, n.r, 0, 6.29); X.fill();
+  }
+  // lysozyme aura
+  if (L('lyso')) {
+    const r = 50 + 12 * L('lyso');
+    const g = X.createRadialGradient(p.x, p.y, r * 0.3, p.x, p.y, r);
+    g.addColorStop(0, 'rgba(95,225,255,0)'); g.addColorStop(0.85, 'rgba(95,225,255,0.10)'); g.addColorStop(1, 'rgba(95,225,255,0.22)');
+    X.fillStyle = g; X.beginPath(); X.arc(p.x, p.y, r, 0, 6.29); X.fill();
+  }
+  // orbs (ATP)
+  for (const o of S.orbs) {
+    if (o.x < cx - 20 || o.x > cx + W + 20 || o.y < cy - 20 || o.y > cy + H + 20) continue;
+    const s = o.v >= 10 ? 6 : o.v >= 3 ? 4.5 : 3.2;
+    X.fillStyle = o.v >= 10 ? '#c9f6ff' : '#5fe1ff';
+    X.beginPath(); X.moveTo(o.x, o.y - s); X.lineTo(o.x + s, o.y); X.lineTo(o.x, o.y + s); X.lineTo(o.x - s, o.y); X.fill();
+  }
+  // items
+  for (const it of S.items) {
+    const b = Math.sin(T * 4) * 2;
+    if (it.k === 'glu') {
+      X.strokeStyle = '#ffe08a'; X.lineWidth = 2; X.beginPath();
+      for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283 + 0.5; X.lineTo(it.x + Math.cos(a) * 8, it.y + b + Math.sin(a) * 8); }
+      X.closePath(); X.stroke();
+    } else {
+      X.fillStyle = '#9b7bff'; X.strokeStyle = '#e6e9ff'; X.lineWidth = 2;
+      X.beginPath(); X.ellipse(it.x, it.y + b, 14, 9, 0.4, 0, 6.29); X.fill(); X.stroke();
+      X.strokeStyle = '#5fe1ff'; X.beginPath();
+      for (let i = -8; i <= 8; i += 2) { X.moveTo(it.x + i, it.y + b - 4 * Math.sin(i)); X.lineTo(it.x + i, it.y + b + 4 * Math.sin(i)); }
+      X.stroke();
+    }
+  }
+  // enemies
+  for (const e of S.en) {
+    if (e.x < cx - 60 || e.x > cx + W + 60 || e.y < cy - 60 || e.y > cy + H + 60) continue;
+    drawEnemy(e, T);
+  }
+  // rings
+  for (const r of S.rings) {
+    const a = 1 - r.r / r.max;
+    X.strokeStyle = `rgba(255,224,138,${0.7 * a})`; X.lineWidth = 3;
+    X.beginPath(); X.arc(r.x, r.y, r.r, 0, 6.29); X.stroke();
+    X.strokeStyle = `rgba(255,224,138,${0.25 * a})`; X.lineWidth = 12;
+    X.beginPath(); X.arc(r.x, r.y, Math.max(1, r.r - 8), 0, 6.29); X.stroke();
+  }
+  // player
+  drawPlayer(p, T);
+  // granules
+  if (L('gran')) {
+    const n = [2, 3, 3, 4, 5, 6][L('gran') - 1];
+    for (let i = 0; i < n; i++) {
+      const a = S.granAng + i / n * Math.PI * 2, gx = p.x + Math.cos(a) * 72, gy = p.y + Math.sin(a) * 72;
+      X.fillStyle = 'rgba(155,123,255,0.25)'; X.beginPath(); X.arc(gx, gy, 12, 0, 6.29); X.fill();
+      X.fillStyle = '#c2a8ff'; X.beginPath(); X.arc(gx, gy, 6, 0, 6.29); X.fill();
+    }
+  }
+  // shots (Y-shaped antibodies)
+  X.strokeStyle = '#e6e9ff'; X.lineWidth = 2.2; X.lineCap = 'round';
+  for (const s of S.shots) {
+    const a = Math.atan2(s.vy, s.vx);
+    X.save(); X.translate(s.x, s.y); X.rotate(a);
+    X.beginPath(); X.moveTo(-7, 0); X.lineTo(1, 0); X.lineTo(6, -4); X.moveTo(1, 0); X.lineTo(6, 4); X.stroke();
+    X.restore();
+  }
+  for (const q of S.parts) { X.globalAlpha = Math.min(1, q.t * 2); X.fillStyle = q.col; X.fillRect(q.x - 1.5, q.y - 1.5, 3, 3); }
+  X.globalAlpha = 1;
+  X.font = '500 11px "IBM Plex Mono", monospace'; X.textAlign = 'center';
+  for (const t of S.texts) { X.globalAlpha = Math.min(1, t.t * 2.5); X.fillStyle = '#e6e9ff'; X.fillText(t.v, t.x, t.y); }
+  X.globalAlpha = 1;
+  X.restore();
+
+  // boss bar
+  const boss = S.en.find(e => e.t === 'boss');
+  if (boss) {
+    const w = Math.min(320, W - 32), x0 = (W - w) / 2, y0 = H - 46 - safeBottom();
+    X.fillStyle = 'rgba(230,233,255,.12)'; X.fillRect(x0, y0, w, 6);
+    X.fillStyle = '#ff5c8a'; X.fillRect(x0, y0, w * Math.max(0, boss.hp / boss.mhp), 6);
+    X.fillStyle = '#e6e9ff'; X.font = '700 12px "Zen Kaku Gothic New", sans-serif'; X.textAlign = 'center';
+    X.fillText('多剤耐性菌', W / 2, y0 - 6);
+  }
+  // hurt flash
+  if (S.p.hurt > 0) { X.fillStyle = `rgba(255,92,138,${S.p.hurt})`; X.fillRect(0, 0, W, H); }
+  X.fillStyle = vignette; X.fillRect(0, 0, W, H);
+  // joystick
+  if (joy.on) {
+    X.strokeStyle = 'rgba(230,233,255,.25)'; X.lineWidth = 2;
+    X.beginPath(); X.arc(joy.ox, joy.oy, 50, 0, 6.29); X.stroke();
+    const dx = joy.x - joy.ox, dy = joy.y - joy.oy, m = Math.hypot(dx, dy), k = m > 50 ? 50 / m : 1;
+    X.fillStyle = 'rgba(155,123,255,.5)'; X.beginPath(); X.arc(joy.ox + dx * k, joy.oy + dy * k, 20, 0, 6.29); X.fill();
+  }
+}
+let safeB = 0;
+function safeBottom() { return safeB; }
+function drawGrid(cx, cy) {
+  // hemocytometer: 50 µm fine squares, triple-ruled every 250 µm (1 px = 1 µm at this zoom)
+  X.lineWidth = 1;
+  X.strokeStyle = 'rgba(141,148,191,0.07)';
+  X.beginPath();
+  for (let x = Math.floor(cx / 50) * 50; x < cx + W; x += 50) { X.moveTo(x - cx + .5, 0); X.lineTo(x - cx + .5, H); }
+  for (let y = Math.floor(cy / 50) * 50; y < cy + H; y += 50) { X.moveTo(0, y - cy + .5); X.lineTo(W, y - cy + .5); }
+  X.stroke();
+  X.strokeStyle = 'rgba(141,148,191,0.13)';
+  X.beginPath();
+  for (let x = Math.floor(cx / 250) * 250; x < cx + W; x += 250) for (const o of [-3, 0, 3]) { X.moveTo(x - cx + o + .5, 0); X.lineTo(x - cx + o + .5, H); }
+  for (let y = Math.floor(cy / 250) * 250; y < cy + H; y += 250) for (const o of [-3, 0, 3]) { X.moveTo(0, y - cy + o + .5); X.lineTo(W, y - cy + o + .5); }
+  X.stroke();
+}
+function drawPlayer(p, T) {
+  // neutrophil: wobbly pale cytoplasm + 3-lobed nucleus
+  X.fillStyle = 'rgba(200,186,255,0.22)'; X.strokeStyle = 'rgba(214,202,255,0.8)'; X.lineWidth = 1.5;
+  X.beginPath();
+  for (let i = 0; i <= 28; i++) {
+    const a = i / 28 * 6.283, r = p.r * 1.35 * (1 + 0.06 * Math.sin(a * 3 + T * 4) + 0.04 * Math.sin(a * 5 - T * 3));
+    const px = p.x + Math.cos(a) * r, py = p.y + Math.sin(a) * r;
+    i ? X.lineTo(px, py) : X.moveTo(px, py);
+  }
+  X.fill(); X.stroke();
+  X.fillStyle = '#9b7bff';
+  for (let i = 0; i < 3; i++) {
+    const a = p.face + Math.PI + (i - 1) * 1.1, d = p.r * 0.45;
+    X.beginPath(); X.arc(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, p.r * 0.42, 0, 6.29); X.fill();
+  }
+  X.strokeStyle = '#9b7bff'; X.lineWidth = 3; X.beginPath();
+  for (let i = 0; i < 3; i++) { const a = p.face + Math.PI + (i - 1) * 1.1, d = p.r * 0.45; i ? X.lineTo(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d) : X.moveTo(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d); }
+  X.stroke();
+}
+function drawEnemy(e, T) {
+  const col = e.flash > 0 ? '#ffffff' : ET[e.t].col;
+  X.save(); X.translate(e.x, e.y);
+  if (e.t === 'bac') {
+    X.rotate(e.ang);
+    X.strokeStyle = 'rgba(255,92,138,.5)'; X.lineWidth = 1; X.beginPath(); X.moveTo(-e.r * 1.1, 0);
+    for (let i = 1; i <= 6; i++) X.lineTo(-e.r * 1.1 - i * 3, Math.sin(T * 14 + i + e.ph) * 3);
+    X.stroke();
+    X.fillStyle = col; roundRect(-e.r * 1.2, -e.r * 0.6, e.r * 2.4, e.r * 1.2, e.r * 0.6); X.fill();
+  } else if (e.t === 'vir') {
+    X.rotate(T * 2 + e.ph);
+    X.strokeStyle = col; X.lineWidth = 1.6; X.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283; X.moveTo(Math.cos(a) * e.r, Math.sin(a) * e.r); X.lineTo(Math.cos(a) * e.r * 1.6, Math.sin(a) * e.r * 1.6); }
+    X.stroke();
+    X.fillStyle = col; X.beginPath(); X.arc(0, 0, e.r, 0, 6.29); X.fill();
+  } else if (e.t === 'coc') {
+    X.fillStyle = col;
+    const pts = [[-.45, -.35], [.45, -.35], [0, .4], [-.5, .45], [.5, .45]];
+    for (const [a, b] of pts) { X.beginPath(); X.arc(a * e.r, b * e.r, e.r * 0.45, 0, 6.29); X.fill(); }
+  } else {
+    // cancer cell / boss: irregular blob with oversized nucleus
+    const spikes = e.t === 'boss';
+    X.rotate(e.ph + T * 0.3);
+    X.fillStyle = col; X.beginPath();
+    const n = e.seed.length;
+    for (let i = 0; i <= n; i++) {
+      const a = i / n * 6.283, r = e.r * e.seed[i % n] * (1 + 0.04 * Math.sin(T * 3 + i));
+      i ? X.lineTo(Math.cos(a) * r, Math.sin(a) * r) : X.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    X.fill();
+    if (spikes) {
+      X.strokeStyle = col; X.lineWidth = 3; X.beginPath();
+      for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283; X.moveTo(Math.cos(a) * e.r * 0.9, Math.sin(a) * e.r * 0.9); X.lineTo(Math.cos(a) * e.r * 1.3, Math.sin(a) * e.r * 1.3); }
+      X.stroke();
+    }
+    X.fillStyle = 'rgba(10,15,31,.55)'; X.beginPath(); X.arc(e.r * 0.1, -e.r * 0.05, e.r * 0.45, 0, 6.29); X.fill();
+  }
+  X.restore();
+}
+function roundRect(x, y, w, h, r) { X.beginPath(); X.moveTo(x + r, y); X.arcTo(x + w, y, x + w, y + h, r); X.arcTo(x + w, y + h, x, y + h, r); X.arcTo(x, y + h, x, y, r); X.arcTo(x, y, x + w, y, r); X.closePath(); }
+
+// title backdrop: drifting microbes
+const idle = Array.from({ length: 26 }, (_, i) => ({ t: ['bac', 'vir', 'coc'][i % 3], x: Math.random(), y: Math.random(), r: ET[['bac', 'vir', 'coc'][i % 3]].r, ph: Math.random() * 6, ang: Math.random() * 6, flash: 0, seed: [1] }));
+function drawIdle(now) {
+  const T = now / 1000;
+  drawGrid(T * 8, T * 5);
+  for (const e of idle) {
+    const s = { ...e, x: ((e.x * W + T * 12 * Math.cos(e.ph)) % W + W) % W, y: ((e.y * H + T * 12 * Math.sin(e.ph)) % H + H) % H, ang: e.ph };
+    X.globalAlpha = 0.5; drawEnemy(s, T); X.globalAlpha = 1;
+  }
+  X.fillStyle = vignette; X.fillRect(0, 0, W, H);
+}
+
+// ---------- HUD ----------
+const hud = { hpTxt: $('hpTxt'), hpFill: $('hpFill'), lvTxt: $('lvTxt'), xpFill: $('xpFill'), killTxt: $('killTxt'), enTxt: $('enTxt'), clock: $('clock') };
+const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+let lastHud = '';
+function updateHud() {
+  const mh = stat.maxHp(), key = [Math.ceil(S.p.hp), mh, S.level, S.xp, S.kills, S.en.length, Math.floor(S.t)].join();
+  if (key === lastHud) return; lastHud = key;
+  hud.hpTxt.textContent = Math.ceil(S.p.hp);
+  hud.hpFill.style.width = (S.p.hp / mh * 100) + '%';
+  hud.lvTxt.textContent = S.level;
+  hud.xpFill.style.width = (S.xp / need(S.level) * 100) + '%';
+  hud.killTxt.textContent = S.kills;
+  hud.enTxt.textContent = S.en.length;
+  hud.clock.firstChild.nodeValue = fmt(S.t);
+}
+let toastQ = [];
+function toast(msg) { toastQ.push({ msg, t: 2.6 }); if (toastQ.length > 3) toastQ.shift(); }
+function drawToasts(dt) {
+  let y = 108;
+  X.font = '700 13px "Zen Kaku Gothic New", sans-serif'; X.textAlign = 'center';
+  for (const t of toastQ) {
+    t.t -= dt;
+    X.globalAlpha = Math.min(1, t.t);
+    X.fillStyle = 'rgba(20,27,51,.85)';
+    const w = X.measureText(t.msg).width + 24; X.fillRect(W / 2 - w / 2, y + safeTop() - 15, w, 24);
+    X.fillStyle = '#e6e9ff'; X.fillText(t.msg, W / 2, y + safeTop() + 2);
+    y += 30;
+  }
+  X.globalAlpha = 1;
+  toastQ = toastQ.filter(t => t.t > 0);
+}
+let safeT = 0; function safeTop() { return safeT; }
+function measureSafe() {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);visibility:hidden';
+  document.body.appendChild(d); const r = d.getBoundingClientRect(); safeT = r.top; safeB = window.innerHeight - r.bottom; d.remove();
+}
+
+// ---------- level-up ----------
+function options() {
+  const pool = UPS.filter(u => L(u.id) < u.max);
+  const weaponsOwned = UPS.filter(u => u.kind === '武器' && L(u.id) > 0).length;
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  // nudge new weapons to appear early so builds diversify
+  if (weaponsOwned < 3) pool.sort((a, b) => (a.kind === '武器' && !L(a.id) ? -1 : 0) - (b.kind === '武器' && !L(b.id) ? -1 : 0));
+  const pick = pool.slice(0, 1).concat(pool.slice(1).sort(() => Math.random() - .5)).slice(0, 3);
+  return pick;
+}
+function openLevelUp() {
+  mode = 'level';
+  const opts = options(), box = $('cards');
+  box.textContent = '';
+  $('lvEyebrow').textContent = `レベル ${S.level}` + (S.pending > 1 ? ` · 残り ${S.pending} 回` : '');
+  const list = opts.length ? opts : [{ id: '_heal', kind: '補給', name: 'グルコース補給', max: 1, lv: ['HP を 40 回復'] }];
+  list.forEach((u, i) => {
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'card' + (u.kind === '強化' ? ' passive' : '');
+    const cur = L(u.id);
+    b.innerHTML = `<span class="kd"></span><span class="nm"></span><span class="lv"></span><span class="ds"></span>`;
+    b.querySelector('.kd').textContent = `${i + 1} · ${u.kind}`;
+    b.querySelector('.nm').textContent = u.name;
+    b.querySelector('.lv').textContent = u.id === '_heal' ? '' : (cur ? `Lv ${cur} → ${cur + 1}` : 'NEW');
+    b.querySelector('.ds').textContent = u.lv[cur] || u.lv[0];
+    b.onclick = () => choose(u.id);
+    box.appendChild(b);
+  });
+  $('lvScr').hidden = false;
+  setTimeout(() => { const f = box.querySelector('button'); if (f) f.focus({ preventScroll: true }); }, 30);
+}
+function choose(id) {
+  if (mode !== 'level') return;
+  if (id === '_heal') S.p.hp = Math.min(stat.maxHp(), S.p.hp + 40);
+  else {
+    S.up[id] = L(id) + 1;
+    if (id === 'memb') S.p.hp = Math.min(stat.maxHp(), S.p.hp + 25);
+  }
+  S.pending--;
+  $('lvScr').hidden = true;
+  mode = 'play';
+  if (S.pending > 0) openLevelUp();
+}
+
+// ---------- flow ----------
+function start() {
+  newGame(); measureSafe(); lastHud = ''; toastQ = [];
+  ['titleScr', 'overScr', 'pauseScr', 'lvScr'].forEach(id => $(id).hidden = true);
+  $('hud').hidden = false; $('scale').hidden = false;
+  mode = 'play';
+  toast('移動するとあなたの好中球が動く。攻撃は自動');
+}
+function pause(on) {
+  if (on && mode === 'play') {
+    mode = 'pause';
+    const bl = $('buildList'); bl.textContent = '';
+    for (const u of UPS) if (L(u.id)) {
+      const a = document.createElement('i'); a.className = 'dot'; a.style.background = u.kind === '武器' ? 'var(--violet)' : 'var(--safranin)';
+      const b = document.createElement('span'); b.textContent = `${u.name}  Lv ${L(u.id)}`;
+      bl.append(a, b);
+    }
+    $('pauseScr').hidden = false;
+  } else if (!on && mode === 'pause') { $('pauseScr').hidden = true; mode = 'play'; }
+}
+function endGame(win) {
+  mode = 'over';
+  $('hud').hidden = true; $('scale').hidden = true; $('lvScr').hidden = true;
+  $('overEyebrow').textContent = win ? '10:00 生存' : '好中球 死滅';
+  $('overTitle').textContent = win ? '免疫成立' : '感染拡大';
+  const best = loadBest();
+  const score = { t: Math.floor(S.t), kills: S.kills, level: S.level };
+  let isBest = !best || score.t > best.t || (score.t === best.t && score.kills > best.kills);
+  if (isBest) saveBest(score);
+  $('overMsg').textContent = (win ? '病原体の侵入を抑えきった。記憶細胞が今回の敵を覚えている。' : 'あなたは膿の一部になった。次の好中球に後を託す。') + (isBest ? ' 自己ベスト更新。' : best ? ` 自己ベストは ${fmt(best.t)}。` : '');
+  $('rTime').textContent = fmt(S.t).replace(/^0/, '');
+  $('rLv').textContent = S.level;
+  $('rKill').textContent = S.kills;
+  $('overScr').hidden = false;
+  setTimeout(() => $('retryBtn').focus({ preventScroll: true }), 30);
+}
+function toTitle() {
+  S = null; mode = 'title';
+  ['overScr', 'pauseScr', 'lvScr', 'hud', 'scale'].forEach(id => $(id).hidden = true);
+  showBest(); $('titleScr').hidden = false;
+}
+function showBest() {
+  const b = loadBest();
+  $('bestTxt').textContent = b ? `自己ベスト ${fmt(b.t)} · Lv ${b.level} · ${b.kills} 体撃破` : '';
+}
+
+// ---------- input ----------
+$('startBtn').onclick = start;
+$('retryBtn').onclick = start;
+$('resumeBtn').onclick = () => pause(false);
+$('quitBtn').onclick = toTitle;
+$('pauseBtn').onclick = () => pause(true);
+const app = $('app');
+C.addEventListener('pointerdown', e => {
+  if (mode !== 'play' || joy.on) return;
+  joy.on = true; joy.id = e.pointerId; joy.ox = joy.x = e.clientX; joy.oy = joy.y = e.clientY;
+  try { C.setPointerCapture(e.pointerId); } catch (_) {}
+});
+C.addEventListener('pointermove', e => { if (joy.on && e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
+const endJoy = e => { if (e.pointerId === joy.id) joy.on = false; };
+C.addEventListener('pointerup', endJoy); C.addEventListener('pointercancel', endJoy);
+app.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('keydown', e => {
+  if (mode === 'level' && /^Digit[1-3]$/.test(e.code)) { const b = $('cards').children[+e.code.slice(5) - 1]; if (b) b.click(); return; }
+  if (e.code === 'KeyP' || e.code === 'Escape') { pause(mode === 'play'); return; }
+  if (/^(Arrow|Key[WASD])/.test(e.code)) { keys.add(e.code); if (e.code.startsWith('Arrow')) e.preventDefault(); }
+});
+window.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => { keys.clear(); joy.on = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
+
+// ---------- loop ----------
+function frame(now) {
+  const dt = Math.min(1 / 30, (now - last) / 1000 || 0); last = now;
+  if (mode === 'play') update(dt);
+  draw(now);
+  if (S && mode !== 'title') { updateHud(); drawToasts(mode === 'play' ? dt : 0); }
+  requestAnimationFrame(frame);
+}
+resize(); showBest();
+requestAnimationFrame(t => { last = t; frame(t); });
+})();
+</script>
+
+</html>
