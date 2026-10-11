@@ -199,16 +199,16 @@ const cellY = () => memY() + 40;
 // ---------- weapons ----------
 const WEAP = {
   scalpel: { name: 'メス',         cost: 0,    dmg: 10, cd: 0.55, col: '#e6e9ff', desc: '膜に一番近い敵へ刃を飛ばす。万能' },
-  dagger:  { name: '回転ダガー',   cost: 0,    dmg: 7,  cd: 0,    col: '#c2a8ff', desc: '細胞のまわりを刃が回る。膜際に張り付いた敵を刻む' },
-  needle:  { name: '鍼',           cost: 300,  dmg: 30, cd: 1.0,  col: '#5fe1ff', desc: '一番 HP の高い敵を追尾して刺す。ボスの弱点を狙う' },
-  bubble:  { name: '消毒バブル',   cost: 500,  dmg: 16, cd: 1.5,  col: '#9ff0ff', desc: '泡が昇って弾け、まわりをまとめて消毒' },
-  bandage: { name: '絆創膏',       cost: 800,  dmg: 8,  cd: 2.2,  col: '#ffcf8a', desc: '敵に貼り付き、その周囲をじわじわ削り続ける' },
-  laser:   { name: 'レーザーメス', cost: 1200, dmg: 80, cd: 3.2,  col: '#ff8fb1', desc: '細胞の真上一列を焼き切る光線' },
-  syringe: { name: '注射器',       cost: 1600, dmg: 24, cd: 1.3,  col: '#8affc1', desc: '真上へ薬液の針を撃つ。縦一列を全部貫通' },
-  stetho:  { name: '聴診器',       cost: 2000, dmg: 22, cd: 2.6,  col: '#ffe08a', desc: '細胞から衝撃波。膜に張り付いた敵を押し返す' },
-  capsule: { name: '抗生物質カプセル', cost: 2600, dmg: 5, cd: 0,   col: '#ff9f6b', desc: '大きく周回するカプセル。敵の最大HPの4%を上乗せ。ボスに強い' },
-  cryo:    { name: '冷却スプレー', cost: 3200, dmg: 5,  cd: 0.25, col: '#a8d8ff', desc: '真上に冷気を噴き、範囲内の敵を半分の速さにして削る' },
-  electro: { name: '電気メス',     cost: 3800, dmg: 22, cd: 1.5,  col: '#d6c2ff', desc: '最前線の敵から電撃が次々に連鎖する' },
+  dagger:  { name: '回転ダガー',   cost: 0,    dmg: 19,  cd: 0,    col: '#c2a8ff', desc: '細胞のまわりを刃が回る。膜際に張り付いた敵を刻む' },
+  needle:  { name: '鍼',           cost: 300,  dmg: 34, cd: 1.0,  col: '#5fe1ff', desc: '一番 HP の高い敵を追尾して刺す。ボスの弱点を狙う' },
+  bubble:  { name: '消毒バブル',   cost: 500,  dmg: 24, cd: 1.3,  col: '#9ff0ff', desc: '泡が昇って弾け、まわりをまとめて消毒' },
+  bandage: { name: '絆創膏',       cost: 800,  dmg: 10,  cd: 2.2,  col: '#ffcf8a', desc: '敵に貼り付き、その周囲をじわじわ削り続ける' },
+  laser:   { name: 'レーザーメス', cost: 1200, dmg: 52, cd: 3.2,  col: '#ff8fb1', desc: '細胞の真上一列を焼き切る光線' },
+  syringe: { name: '注射器',       cost: 1600, dmg: 20, cd: 1.3,  col: '#8affc1', desc: '真上へ薬液の針を撃つ。縦一列を全部貫通' },
+  stetho:  { name: '聴診器',       cost: 2000, dmg: 40, cd: 2.0,  col: '#ffe08a', desc: '細胞から衝撃波。膜に張り付いた敵を押し返す' },
+  capsule: { name: '抗生物質カプセル', cost: 2600, dmg: 18, cd: 0,  col: '#ff9f6b', desc: '大きく周回するカプセル。敵の最大HPの6%を上乗せ。ボスに強い' },
+  cryo:    { name: '冷却スプレー', cost: 3200, dmg: 8,  cd: 0.25, col: '#a8d8ff', desc: '真上に冷気を噴き、範囲内の敵を半分の速さにして削る' },
+  electro: { name: '電気メス',     cost: 3800, dmg: 17, cd: 1.5,  col: '#d6c2ff', desc: '最前線の敵から電撃が次々に連鎖する' },
 };
 const WIDS = Object.keys(WEAP);
 const upCost = lv => Math.round(40 * Math.pow(lv, 1.55));
@@ -232,7 +232,7 @@ const ET = {
   phage: { name: 'ファージ',     hp: 24,   sp: 50, r: 11, atk: 6,  coin: 2,  col: '#ffd36b' },
   armor: { name: '装甲ウイルス', hp: 52,   sp: 30, r: 15, atk: 8,  coin: 3,  col: '#c9a0ff', armor: 0.5 },
   elite: { name: 'がん細胞',     hp: 430,  sp: 19, r: 30, atk: 14, coin: 25, col: '#ff7a45' },
-  boss:  { name: '巨大ウイルス', hp: 1700, sp: 15, r: 52, atk: 26, coin: 80, col: '#e0457a' },
+  boss:  { name: '巨大ウイルス', hp: 1150, sp: 15, r: 52, atk: 26, coin: 80, col: '#e0457a' },
 };
 
 // ---------- run state ----------
@@ -254,7 +254,7 @@ function newRun() {
 }
 const prog = () => Math.min(1, R.t / BOSS_T);
 const hpMul = () => Math.pow(1.36, R.ch - 1) * (R.ch === 1 ? 0.85 : 1) * (1 + 0.9 * prog()); // ch1 is the tutorial
-const needXp = lv => 4 + lv * 3 + Math.floor(lv * lv * 0.3);
+const needXp = lv => 10 + lv * 8 + Math.floor(lv * lv * 1.3);
 function pickType() {
   const g = prog() + (R.ch - 1) * 0.15, pool = ['virus', 'virus'];
   if (g > 0.08) pool.push('bacil');
@@ -325,25 +325,25 @@ function weapons(dt) {
   for (const id of R.equip) {
     const w = R.w[id];
     if (id === 'dagger') {
-      const n = 1 + w.n, rad = 68 * w.size;
+      const n = 2 + w.n, rad = 74 * w.size;
       R.daggerAng += dt * 4.2 * Math.sqrt(w.rate * R.grate);
       for (let i = 0; i < n; i++) {
         const a = R.daggerAng + i / n * TAU, gx = cx + Math.cos(a) * rad, gy = cy + Math.sin(a) * rad;
         for (const e of R.en) {
           if (e.dead || e.hitCd > R.t) continue;
-          if ((e.x - gx) ** 2 + (e.y - gy) ** 2 < (e.r + 10) ** 2) { e.hitCd = R.t + 0.3; hit(e, dmgOf(id), gx, gy); }
+          if ((e.x - gx) ** 2 + (e.y - gy) ** 2 < (e.r + 14) ** 2) { e.hitCd = R.t + 0.25; hit(e, dmgOf(id), gx, gy); }
         }
       }
       continue;
     }
     if (id === 'capsule') {
-      const n = 1 + w.n, rad = 150 * w.size;
-      R.capAng += dt * 1.7 * Math.sqrt(w.rate * R.grate);
+      const n = 2 + w.n, rad = 105 * w.size, ccy = memY() - rad + 24; // orbit sits outside the membrane
+      R.capAng += dt * 2.6 * Math.sqrt(w.rate * R.grate);
       for (let i = 0; i < n; i++) {
-        const a = -R.capAng + i / n * TAU, gx = cx + Math.cos(a) * rad, gy = cy + Math.sin(a) * rad;
+        const a = -R.capAng + i / n * TAU, gx = cx + Math.cos(a) * rad, gy = ccy + Math.sin(a) * rad;
         for (const e of R.en) {
           if (e.dead || (e.capCd || 0) > R.t) continue;
-          if ((e.x - gx) ** 2 + (e.y - gy) ** 2 < (e.r + 12) ** 2) { e.capCd = R.t + 0.5; hit(e, dmgOf(id) + e.mhp * 0.04 * w.dmg, gx, gy); }
+          if ((e.x - gx) ** 2 + (e.y - gy) ** 2 < (e.r + 12) ** 2) { e.capCd = R.t + 0.5; hit(e, dmgOf(id) + e.mhp * 0.06 * w.dmg, gx, gy); }
         }
       }
       continue;
@@ -401,7 +401,7 @@ function weapons(dt) {
     } else if (id === 'electro') {
       const f = frontline(); if (!f.length) { w.t = 0.1; continue; }
       w.t = cdOf(id);
-      let cur = f[0], px = cx, py = cy - 12; const pts = [[px, py]], done = new Set(), jumps = 3 + 2 * w.n;
+      let cur = f[0], px = cx, py = cy - 12; const pts = [[px, py]], done = new Set(), jumps = 2 + 2 * w.n;
       for (let j = 0; j < jumps && cur; j++) {
         done.add(cur.id); pts.push([cur.x, cur.y]); hit(cur, dmgOf(id) * Math.pow(0.92, j), cur.x, cur.y);
         let nx = null, nd = 130 * 130 * w.size * w.size;
@@ -420,20 +420,20 @@ function skillPool() {
   const L = [];
   for (const id of R.equip) {
     const nm = WEAP[id].name, w = R.w[id];
-    L.push({ wp: nm, name: `${nm} 研磨`, txt: m => `${nm}のダメージ +${Math.round(30 * m)}%`, ap: m => w.dmg += 0.3 * m });
-    if (id !== 'dagger' && id !== 'capsule') L.push({ wp: nm, name: `${nm} 速射`, txt: m => `${nm}の攻撃間隔 -${Math.round(100 - 100 / (1 + 0.18 * m))}%`, ap: m => w.rate *= 1 + 0.18 * m });
-    else if (id === 'capsule') L.push({ wp: nm, name: 'カプセル 加速', txt: m => `周回速度 +${Math.round(15 * m)}%、軌道 +${Math.round(8 * m)}%`, ap: m => { w.rate *= 1 + 0.15 * m; w.size += 0.08 * m; } });
-    else L.push({ wp: nm, name: '回転ダガー 遠心', txt: m => `刃の回転半径 +${Math.round(15 * m)}%、回転速度アップ`, ap: m => { w.size += 0.15 * m; w.rate *= 1 + 0.12 * m; } });
+    L.push({ wp: nm, name: `${nm} 研磨`, txt: m => `${nm}のダメージ +${Math.round(45 * m)}%`, ap: m => w.dmg += 0.45 * m });
+    if (id !== 'dagger' && id !== 'capsule') L.push({ wp: nm, name: `${nm} 速射`, txt: m => `${nm}の攻撃間隔 -${Math.round(100 - 100 / (1 + 0.25 * m))}%`, ap: m => w.rate *= 1 + 0.25 * m });
+    else if (id === 'capsule') L.push({ wp: nm, name: 'カプセル 加速', txt: m => `周回速度 +${Math.round(22 * m)}%、軌道 +${Math.round(8 * m)}%`, ap: m => { w.rate *= 1 + 0.22 * m; w.size += 0.08 * m; } });
+    else L.push({ wp: nm, name: '回転ダガー 遠心', txt: m => `刃の回転半径 +${Math.round(15 * m)}%、回転速度アップ`, ap: m => { w.size += 0.15 * m; w.rate *= 1 + 0.2 * m; } });
     if (w.n < 6) L.push({ wp: nm, min: 1, name: `${nm} 増殖`, txt: m => `${COUNT_TXT[id]} +${m > 2 ? 2 : 1}`, ap: m => w.n += m > 2 ? 2 : 1 });
-    if (['bubble', 'bandage', 'stetho', 'cryo', 'electro'].includes(id)) L.push({ wp: nm, name: `${nm} 拡散`, txt: m => `効果範囲 +${Math.round(20 * m)}%`, ap: m => w.size += 0.2 * m });
+    if (['bubble', 'bandage', 'stetho', 'cryo', 'electro'].includes(id)) L.push({ wp: nm, name: `${nm} 拡散`, txt: m => `効果範囲 +${Math.round(25 * m)}%`, ap: m => w.size += 0.25 * m });
   }
-  L.push({ wp: '全体', name: 'ミトコンドリア活性', txt: m => `全武器のダメージ +${Math.round(12 * m)}%`, ap: m => R.gdmg += 0.12 * m });
-  L.push({ wp: '全体', name: 'ATP 過給', txt: m => `全武器の攻撃速度 +${Math.round(10 * m)}%`, ap: m => R.grate *= 1 + 0.1 * m });
-  L.push({ wp: '全体', name: '会心酵素', txt: m => `会心率 +${Math.round(6 * m)}% (会心はダメージ 2 倍)`, ap: m => R.crit += 0.06 * m });
-  L.push({ wp: '細胞膜', name: '膜の補強', txt: m => `細胞膜の最大値 +${Math.round(25 * m)}、その分回復`, ap: m => { R.maxHp += 25 * m; R.hp += 25 * m; } });
-  L.push({ wp: '細胞膜', name: '緊急修復', txt: m => `細胞膜を ${Math.round(35 * m)} 回復`, ap: m => R.hp = Math.min(R.maxHp, R.hp + 35 * m) });
-  L.push({ wp: '細胞膜', name: '自己再生', txt: m => `細胞膜が毎秒 ${(0.8 * m).toFixed(1)} 回復`, ap: m => R.regen += 0.8 * m });
-  L.push({ wp: '細胞膜', name: 'トゲ状突起', txt: m => `膜に触れた敵へ毎秒 ${Math.round(8 * m * hpMul())} ダメージ`, ap: m => R.thorns += 8 * m * hpMul() });
+  L.push({ wp: '全体', name: 'ミトコンドリア活性', txt: m => `全武器のダメージ +${Math.round(18 * m)}%`, ap: m => R.gdmg += 0.18 * m });
+  L.push({ wp: '全体', name: 'ATP 過給', txt: m => `全武器の攻撃速度 +${Math.round(15 * m)}%`, ap: m => R.grate *= 1 + 0.15 * m });
+  L.push({ wp: '全体', name: '会心酵素', txt: m => `会心率 +${Math.round(8 * m)}% (会心はダメージ 2 倍)`, ap: m => R.crit += 0.08 * m });
+  L.push({ wp: '細胞膜', name: '膜の補強', txt: m => `細胞膜の最大値 +${Math.round(35 * m)}、その分回復`, ap: m => { R.maxHp += 35 * m; R.hp += 35 * m; } });
+  L.push({ wp: '細胞膜', name: '緊急修復', txt: m => `細胞膜を ${Math.round(50 * m)} 回復`, ap: m => R.hp = Math.min(R.maxHp, R.hp + 50 * m) });
+  L.push({ wp: '細胞膜', name: '自己再生', txt: m => `細胞膜が毎秒 ${(1.2 * m).toFixed(1)} 回復`, ap: m => R.regen += 1.2 * m });
+  L.push({ wp: '細胞膜', name: 'トゲ状突起', txt: m => `膜に触れた敵へ毎秒 ${Math.round(12 * m * hpMul())} ダメージ`, ap: m => R.thorns += 12 * m * hpMul() });
   return L;
 }
 function rollRarity(min) {
@@ -679,7 +679,7 @@ function draw(now) {
 
   // dagger blades
   if (R.w.dagger) {
-    const w = R.w.dagger, n = 1 + w.n, rad = 68 * w.size;
+    const w = R.w.dagger, n = 2 + w.n, rad = 74 * w.size;
     X.strokeStyle = 'rgba(194,168,255,.15)'; X.lineWidth = 1; X.beginPath(); X.arc(R.x, cy, rad, 0, TAU); X.stroke();
     for (let i = 0; i < n; i++) {
       const a = R.daggerAng + i / n * TAU;
@@ -696,10 +696,11 @@ function draw(now) {
   }
   drawPlayer(R.x, cy, T);
   if (R.w.capsule) {
-    const w = R.w.capsule, n = 1 + w.n, rad = 150 * w.size;
+    const w = R.w.capsule, n = 2 + w.n, rad = 105 * w.size, ccy = memY() - rad + 24;
+    X.strokeStyle = 'rgba(255,159,107,.12)'; X.lineWidth = 1; X.beginPath(); X.arc(R.x, ccy, rad, 0, TAU); X.stroke();
     for (let i = 0; i < n; i++) {
       const a = -R.capAng + i / n * TAU;
-      X.save(); X.translate(R.x + Math.cos(a) * rad, cy + Math.sin(a) * rad); X.rotate(a);
+      X.save(); X.translate(R.x + Math.cos(a) * rad, ccy + Math.sin(a) * rad); X.rotate(a);
       X.fillStyle = '#ff9f6b'; roundRect(-11, -5, 11, 10, 5); X.fill(); X.fillStyle = '#e6e9ff'; roundRect(0, -5, 11, 10, 5); X.fill();
       X.restore();
     }
