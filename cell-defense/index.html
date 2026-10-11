@@ -41,7 +41,8 @@ button:focus-visible { outline: 2px solid var(--atp); outline-offset: 2px; }
 .tag b { color: var(--ink); font-weight: 500; }
 .coin { color: var(--gold) !important; }
 #waveTxt { font: 400 15px var(--display); color: var(--ink); }
-#pauseBtn { pointer-events: auto; font: 500 12px var(--mono); color: var(--ink); background: rgba(20,27,51,.85); border: 1px solid rgba(155,123,255,.4); border-radius: 6px; padding: 6px 10px; }
+.hudBtn { min-width: 40px; } #speedBtn.fast { color: var(--field); background: var(--atp); border-color: var(--atp); }
+#pauseBtn, #speedBtn { pointer-events: auto; font: 500 12px var(--mono); color: var(--ink); background: rgba(20,27,51,.85); border: 1px solid rgba(155,123,255,.4); border-radius: 6px; padding: 6px 10px; }
 .bar.xp { height: 6px; }
 .bar.xp > i { background: var(--atp); }
 #bossBar { display: grid; gap: 3px; }
@@ -104,7 +105,7 @@ p strong { color: var(--ink); }
 <div id="app">
   <canvas id="c"></canvas>
   <div id="hud" hidden>
-    <div class="row"><span id="waveTxt">第1章 · 00:00</span><span style="flex:1"></span><span class="tag coin">● <b class="coin" id="coinTxt">0</b></span><button id="pauseBtn" type="button">II</button></div>
+    <div class="row"><span id="waveTxt">第1章 · 00:00</span><span style="flex:1"></span><span class="tag coin">● <b class="coin" id="coinTxt">0</b></span><button id="speedBtn" class="hudBtn" type="button" aria-label="ゲーム速度">×1</button><button id="pauseBtn" class="hudBtn" type="button">II</button></div>
     <div class="row"><span class="tag">細胞膜 <b id="hpTxt">100</b></span><div class="bar"><i id="hpFill"></i></div></div>
     <div class="row"><span class="tag">Lv <b id="lvTxt">1</b></span><div class="bar xp"><i id="xpFill"></i></div><span class="tag" id="bossEta">ボスまで 2:30</span></div>
     <div id="bossBar" hidden><span id="bossName">巨大ウイルス</span><div class="bar"><i id="bossFill"></i></div></div>
@@ -124,7 +125,7 @@ p strong { color: var(--ink); }
       <div class="slots" id="slots"></div>
       <div class="wlist" id="wlist"></div>
       <button class="btn" id="startBtn" type="button">出撃</button>
-      <p class="kbd">PC: ← → / A D で移動、P で一時停止。進行はこの端末に保存される。</p>
+      <p class="kbd">PC: ← → / A D で移動、P で一時停止、F で倍速切替。進行はこの端末に保存される。</p>
     </div>
   </div>
 
@@ -203,13 +204,18 @@ const WEAP = {
   bubble:  { name: '消毒バブル',   cost: 500,  dmg: 16, cd: 1.5,  col: '#9ff0ff', desc: '泡が昇って弾け、まわりをまとめて消毒' },
   bandage: { name: '絆創膏',       cost: 800,  dmg: 8,  cd: 2.2,  col: '#ffcf8a', desc: '敵に貼り付き、その周囲をじわじわ削り続ける' },
   laser:   { name: 'レーザーメス', cost: 1200, dmg: 80, cd: 3.2,  col: '#ff8fb1', desc: '細胞の真上一列を焼き切る光線' },
+  syringe: { name: '注射器',       cost: 1600, dmg: 24, cd: 1.3,  col: '#8affc1', desc: '真上へ薬液の針を撃つ。縦一列を全部貫通' },
+  stetho:  { name: '聴診器',       cost: 2000, dmg: 22, cd: 2.6,  col: '#ffe08a', desc: '細胞から衝撃波。膜に張り付いた敵を押し返す' },
+  capsule: { name: '抗生物質カプセル', cost: 2600, dmg: 5, cd: 0,   col: '#ff9f6b', desc: '大きく周回するカプセル。敵の最大HPの4%を上乗せ。ボスに強い' },
+  cryo:    { name: '冷却スプレー', cost: 3200, dmg: 5,  cd: 0.25, col: '#a8d8ff', desc: '真上に冷気を噴き、範囲内の敵を半分の速さにして削る' },
+  electro: { name: '電気メス',     cost: 3800, dmg: 22, cd: 1.5,  col: '#d6c2ff', desc: '最前線の敵から電撃が次々に連鎖する' },
 };
 const WIDS = Object.keys(WEAP);
 const upCost = lv => Math.round(40 * Math.pow(lv, 1.55));
 const metaMul = lv => 1 + 0.15 * (lv - 1);
 
 // ---------- save ----------
-const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
+const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, speed: 1, equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
 let SAVE = load();
 function load() {
   try { const s = JSON.parse(localStorage.getItem('celldef.save') || 'null'); if (s && s.w) return Object.assign(structuredClone(DEFAULT_SAVE), s); } catch (e) {}
@@ -219,12 +225,14 @@ function store() { try { localStorage.setItem('celldef.save', JSON.stringify(SAV
 
 // ---------- enemies ----------
 const ET = {
-  virus: { name: 'ウイルス',     hp: 14,   sp: 40, r: 12, atk: 4,  coin: 1,  col: '#ffb547' },
-  bacil: { name: '桿菌',         hp: 9,    sp: 74, r: 9,  atk: 3,  coin: 1,  col: '#ff5c8a' },
-  split: { name: '分裂菌',       hp: 26,   sp: 34, r: 14, atk: 5,  coin: 2,  col: '#ff8fb1' },
-  tank:  { name: 'ブドウ球菌',   hp: 64,   sp: 23, r: 18, atk: 9,  coin: 3,  col: '#ff7a9c' },
-  elite: { name: 'がん細胞',     hp: 320,  sp: 17, r: 30, atk: 11, coin: 25, col: '#ff7a45' },
-  boss:  { name: '巨大ウイルス', hp: 1300, sp: 14, r: 52, atk: 22, coin: 80, col: '#e0457a' },
+  virus: { name: 'ウイルス',     hp: 19,   sp: 44, r: 12, atk: 5,  coin: 1,  col: '#ffb547' },
+  bacil: { name: '桿菌',         hp: 12,   sp: 82, r: 9,  atk: 4,  coin: 1,  col: '#ff5c8a' },
+  split: { name: '分裂菌',       hp: 34,   sp: 37, r: 14, atk: 6,  coin: 2,  col: '#ff8fb1' },
+  tank:  { name: 'ブドウ球菌',   hp: 88,   sp: 25, r: 18, atk: 11, coin: 3,  col: '#ff7a9c' },
+  phage: { name: 'ファージ',     hp: 24,   sp: 50, r: 11, atk: 6,  coin: 2,  col: '#ffd36b' },
+  armor: { name: '装甲ウイルス', hp: 52,   sp: 30, r: 15, atk: 8,  coin: 3,  col: '#c9a0ff', armor: 0.5 },
+  elite: { name: 'がん細胞',     hp: 430,  sp: 19, r: 30, atk: 14, coin: 25, col: '#ff7a45' },
+  boss:  { name: '巨大ウイルス', hp: 1700, sp: 15, r: 52, atk: 26, coin: 80, col: '#e0457a' },
 };
 
 // ---------- run state ----------
@@ -239,19 +247,21 @@ function newRun() {
     hp: 100, maxHp: 100, x: W / 2, face: 0, hurt: 0,
     gdmg: 1, grate: 1, crit: 0.05, regen: 0, thorns: 0,
     equip: SAVE.equip.slice(),
-    w: {}, en: [], shots: [], bubbles: [], zones: [], beams: [], parts: [], texts: [],
+    w: {}, en: [], shots: [], bubbles: [], zones: [], beams: [], parts: [], texts: [], rings: [], bolts: [], ebul: [], capAng: 0, cryoOn: 0,
     queue: [], spawnT: 0, spawnGap: 1, daggerAng: 0, t: 0, bossT: 0, shake: 0, scroll: 0,
   };
   for (const id of R.equip) R.w[id] = { lv: SAVE.w[id] || 1, dmg: 1, rate: 1, n: 1, size: 1, t: 0.3 };
 }
 const prog = () => Math.min(1, R.t / BOSS_T);
-const hpMul = () => Math.pow(1.32, R.ch - 1) * (1 + 0.8 * prog());
+const hpMul = () => Math.pow(1.36, R.ch - 1) * (R.ch === 1 ? 0.85 : 1) * (1 + 0.9 * prog()); // ch1 is the tutorial
 const needXp = lv => 4 + lv * 3 + Math.floor(lv * lv * 0.3);
 function pickType() {
   const g = prog() + (R.ch - 1) * 0.15, pool = ['virus', 'virus'];
   if (g > 0.08) pool.push('bacil');
   if (g > 0.25) pool.push('split');
+  if (g > 0.35) pool.push('phage');
   if (g > 0.45) pool.push('tank', 'bacil');
+  if (g > 0.65) pool.push('armor');
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -282,6 +292,7 @@ function hit(e, d, px, py, noText) {
     const wp = weakPos(e);
     if ((px - wp.x) ** 2 + (py - wp.y) ** 2 < 20 * 20) { d *= 2.5; col = '#5fe1ff'; label = '弱点'; }
   }
+  if (ET[e.t].armor && label === null) d *= ET[e.t].armor;
   e.hp -= d; e.flash = 0.07;
   if (!noText && R.texts.length < 60) R.texts.push({ x: e.x + (Math.random() - .5) * 12, y: e.y - e.r, v: label ? `${label} ${Math.round(d)}` : Math.round(d), col, t: 0.6 });
   if (e.hp <= 0) kill(e);
@@ -325,6 +336,18 @@ function weapons(dt) {
       }
       continue;
     }
+    if (id === 'capsule') {
+      const n = 1 + w.n, rad = 150 * w.size;
+      R.capAng += dt * 1.7 * Math.sqrt(w.rate * R.grate);
+      for (let i = 0; i < n; i++) {
+        const a = -R.capAng + i / n * TAU, gx = cx + Math.cos(a) * rad, gy = cy + Math.sin(a) * rad;
+        for (const e of R.en) {
+          if (e.dead || (e.capCd || 0) > R.t) continue;
+          if ((e.x - gx) ** 2 + (e.y - gy) ** 2 < (e.r + 12) ** 2) { e.capCd = R.t + 0.5; hit(e, dmgOf(id) + e.mhp * 0.04 * w.dmg, gx, gy); }
+        }
+      }
+      continue;
+    }
     w.t -= dt;
     if (w.t > 0) continue;
     if (id === 'scalpel') {
@@ -358,22 +381,51 @@ function weapons(dt) {
       if (!R.en.some(e => !e.dead && Math.abs(e.x - R.x) < 60 && e.y > 0)) { w.t = 0.15; continue; }
       w.t = cdOf(id);
       R.beams.push({ life: 0.45, max: 0.45, width: 18 * w.size * (1 + 0.5 * (w.n - 1)), dps: dmgOf(id) / 0.45 });
+    } else if (id === 'syringe') {
+      if (!R.en.some(e => !e.dead && e.y > 0)) { w.t = 0.1; continue; }
+      w.t = cdOf(id);
+      for (let i = 0; i < w.n; i++) {
+        const a = -Math.PI / 2 + (i - (w.n - 1) / 2) * 0.12;
+        R.shots.push({ k: 'syringe', x: cx, y: cy - 12, vx: Math.cos(a) * 700, vy: Math.sin(a) * 700, dmg: dmgOf(id), pierce: 99, life: 1.5, hit: new Set() });
+      }
+    } else if (id === 'stetho') {
+      if (!R.en.some(e => !e.dead && Math.hypot(e.x - cx, e.y - cy) < 150 * w.size)) { w.t = 0.1; continue; }
+      w.t = cdOf(id);
+      R.rings.push({ x: cx, y: cy, r: 10, max: 120 * w.size * (1 + 0.15 * (w.n - 1)), dmg: dmgOf(id), hit: new Set() });
+    } else if (id === 'cryo') {
+      w.t = cdOf(id);
+      const reach = 190 * w.size, half = 34 * w.size * (1 + 0.3 * (w.n - 1));
+      let any = false;
+      for (const e of R.en) if (!e.dead && e.y < cy && cy - e.y < reach && Math.abs(e.x - cx) < half + e.r) { any = true; e.slowT = R.t + 0.4; hit(e, dmgOf(id), undefined, undefined, true); }
+      if (any) R.cryoOn = 0.3;
+    } else if (id === 'electro') {
+      const f = frontline(); if (!f.length) { w.t = 0.1; continue; }
+      w.t = cdOf(id);
+      let cur = f[0], px = cx, py = cy - 12; const pts = [[px, py]], done = new Set(), jumps = 3 + 2 * w.n;
+      for (let j = 0; j < jumps && cur; j++) {
+        done.add(cur.id); pts.push([cur.x, cur.y]); hit(cur, dmgOf(id) * Math.pow(0.92, j), cur.x, cur.y);
+        let nx = null, nd = 130 * 130 * w.size * w.size;
+        for (const e of R.en) { if (e.dead || done.has(e.id)) continue; const d = (e.x - cur.x) ** 2 + (e.y - cur.y) ** 2; if (d < nd) { nd = d; nx = e; } }
+        cur = nx;
+      }
+      R.bolts.push({ pts, life: 0.18 });
     }
   }
 }
 
 // ---------- skills ----------
 const RAR = [{ nm: 'ノーマル', m: 1 }, { nm: 'レア', m: 1.6 }, { nm: 'エピック', m: 2.5 }];
-const COUNT_TXT = { scalpel: '刃の本数', dagger: '回転する刃', needle: '同時に刺す鍼', bubble: '一度に出る泡', bandage: '同時に貼る枚数', laser: '光線の太さ' };
+const COUNT_TXT = { scalpel: '刃の本数', dagger: '回転する刃', needle: '同時に刺す鍼', bubble: '一度に出る泡', bandage: '同時に貼る枚数', laser: '光線の太さ', syringe: '同時に撃つ針', stetho: '衝撃波の到達距離', capsule: '周回するカプセル', cryo: '噴射の幅', electro: '連鎖する回数 (+2 ずつ)' };
 function skillPool() {
   const L = [];
   for (const id of R.equip) {
     const nm = WEAP[id].name, w = R.w[id];
     L.push({ wp: nm, name: `${nm} 研磨`, txt: m => `${nm}のダメージ +${Math.round(30 * m)}%`, ap: m => w.dmg += 0.3 * m });
-    if (id !== 'dagger') L.push({ wp: nm, name: `${nm} 速射`, txt: m => `${nm}の攻撃間隔 -${Math.round(100 - 100 / (1 + 0.18 * m))}%`, ap: m => w.rate *= 1 + 0.18 * m });
+    if (id !== 'dagger' && id !== 'capsule') L.push({ wp: nm, name: `${nm} 速射`, txt: m => `${nm}の攻撃間隔 -${Math.round(100 - 100 / (1 + 0.18 * m))}%`, ap: m => w.rate *= 1 + 0.18 * m });
+    else if (id === 'capsule') L.push({ wp: nm, name: 'カプセル 加速', txt: m => `周回速度 +${Math.round(15 * m)}%、軌道 +${Math.round(8 * m)}%`, ap: m => { w.rate *= 1 + 0.15 * m; w.size += 0.08 * m; } });
     else L.push({ wp: nm, name: '回転ダガー 遠心', txt: m => `刃の回転半径 +${Math.round(15 * m)}%、回転速度アップ`, ap: m => { w.size += 0.15 * m; w.rate *= 1 + 0.12 * m; } });
     if (w.n < 6) L.push({ wp: nm, min: 1, name: `${nm} 増殖`, txt: m => `${COUNT_TXT[id]} +${m > 2 ? 2 : 1}`, ap: m => w.n += m > 2 ? 2 : 1 });
-    if (id === 'bubble' || id === 'bandage') L.push({ wp: nm, name: `${nm} 拡散`, txt: m => `効果範囲 +${Math.round(20 * m)}%`, ap: m => w.size += 0.2 * m });
+    if (['bubble', 'bandage', 'stetho', 'cryo', 'electro'].includes(id)) L.push({ wp: nm, name: `${nm} 拡散`, txt: m => `効果範囲 +${Math.round(20 * m)}%`, ap: m => w.size += 0.2 * m });
   }
   L.push({ wp: '全体', name: 'ミトコンドリア活性', txt: m => `全武器のダメージ +${Math.round(12 * m)}%`, ap: m => R.gdmg += 0.12 * m });
   L.push({ wp: '全体', name: 'ATP 過給', txt: m => `全武器の攻撃速度 +${Math.round(10 * m)}%`, ap: m => R.grate *= 1 + 0.1 * m });
@@ -432,7 +484,7 @@ function update(dt) {
     spawn(pickType());
     if (Math.random() < 0.08 + prog() * 0.15) spawn(pickType()); // pairs
   }
-  if (!R.eliteDone && R.t >= ELITE_T) { R.eliteDone = true; spawn('elite', W / 2); toast('がん細胞が来た。硬いぞ'); }
+  if (!R.eliteDone && R.t >= ELITE_T) { R.eliteDone = true; spawn('elite', W / 2); if (R.ch >= 3) { spawn('elite', W * 0.25); spawn('elite', W * 0.75); } toast(R.ch >= 3 ? 'がん細胞が3体来た' : 'がん細胞が来た。硬いぞ'); }
   if (!R.bossDone && R.t >= BOSS_T) { R.bossDone = true; spawn('boss', W / 2); toast(`${ET.boss.name}出現。光る核が弱点`); }
 
   weapons(dt);
@@ -452,9 +504,14 @@ function update(dt) {
       if (R.bossT > 1 && Math.floor(R.bossT / 4) !== Math.floor((R.bossT - dt) / 4)) {
         for (let k = -1; k <= 1; k++) { const s = spawn('virus', e.x + k * 30, e.y + e.r); s.y = e.y + e.r * 0.8; }
       }
+      if (R.bossT > 2 && Math.floor(R.bossT / 2.5) !== Math.floor((R.bossT - dt) / 2.5)) {
+        for (let k = 0; k < 2 + Math.min(3, Math.floor(R.ch / 3)); k++) R.ebul.push({ x: e.x + (Math.random() - .5) * e.r * 2, y: e.y + e.r, vy: 150 + Math.random() * 60, dmg: 7 * (1 + 0.15 * (R.ch - 1)) });
+      }
     } else if (!e.atWall) {
       const sway = e.t === 'bacil' ? Math.sin(R.t * 3 + e.ph) * 30 : Math.sin(R.t * 1.2 + e.ph) * 10;
-      e.y += (e.sp - e.kb) * dt;
+      const dash = e.t === 'phage' && (R.t + e.ph) % 2 < 0.45 ? 3.2 : 1;
+      const slow = (e.slowT || 0) > R.t ? 0.5 : 1;
+      e.y += (e.sp * dash * slow - e.kb) * dt;
       e.x += sway * dt;
       e.kb = Math.max(0, e.kb - 300 * dt);
       e.x = Math.max(e.r, Math.min(W - e.r, e.x));
@@ -526,6 +583,30 @@ function update(dt) {
     }
   }
   R.zones = R.zones.filter(z => z.life > 0);
+
+  // stethoscope rings
+  for (const r of R.rings) {
+    r.r += 420 * dt;
+    for (const e of R.en) {
+      if (e.dead || r.hit.has(e.id)) continue;
+      const d = Math.hypot(e.x - r.x, e.y - r.y);
+      if (d < r.r + e.r) { r.hit.add(e.id); hit(e, r.dmg, e.x, e.y); if (!e.big && e.t !== 'boss') { e.atWall = false; e.y -= 34; e.kb = 140; } }
+    }
+  }
+  R.rings = R.rings.filter(r => r.r < r.max);
+  for (const b of R.bolts) b.life -= dt;
+  R.bolts = R.bolts.filter(b => b.life > 0);
+  R.cryoOn = Math.max(0, R.cryoOn - dt);
+  // boss spit: lands on the membrane unless the cell catches it
+  for (const b of R.ebul) {
+    b.y += b.vy * dt;
+    if (b.y >= my - 4) {
+      b.dead = true;
+      if (Math.abs(b.x - R.x) < 30) { R.texts.push({ x: b.x, y: my - 14, v: 'ブロック', col: '#5fe1ff', t: 0.6 }); }
+      else { R.hp -= b.dmg; R.hurt = 0.2; for (let i = 0; i < 6; i++) R.parts.push({ x: b.x, y: my, vx: (Math.random() - .5) * 120, vy: -Math.random() * 80, t: .4, col: '#e0457a' }); }
+    }
+  }
+  R.ebul = R.ebul.filter(b => !b.dead);
 
   // beams
   for (const b of R.beams) {
@@ -607,7 +688,32 @@ function draw(now) {
       X.restore();
     }
   }
+  if (R.cryoOn > 0 && R.w.cryo) {
+    const w = R.w.cryo, reach = 190 * w.size, half = 34 * w.size * (1 + 0.3 * (w.n - 1));
+    const g = X.createLinearGradient(0, cy, 0, cy - reach);
+    g.addColorStop(0, 'rgba(168,216,255,.35)'); g.addColorStop(1, 'rgba(168,216,255,0)');
+    X.fillStyle = g; X.beginPath(); X.moveTo(R.x - 8, cy - 14); X.lineTo(R.x - half, cy - reach); X.lineTo(R.x + half, cy - reach); X.lineTo(R.x + 8, cy - 14); X.fill();
+  }
   drawPlayer(R.x, cy, T);
+  if (R.w.capsule) {
+    const w = R.w.capsule, n = 1 + w.n, rad = 150 * w.size;
+    for (let i = 0; i < n; i++) {
+      const a = -R.capAng + i / n * TAU;
+      X.save(); X.translate(R.x + Math.cos(a) * rad, cy + Math.sin(a) * rad); X.rotate(a);
+      X.fillStyle = '#ff9f6b'; roundRect(-11, -5, 11, 10, 5); X.fill(); X.fillStyle = '#e6e9ff'; roundRect(0, -5, 11, 10, 5); X.fill();
+      X.restore();
+    }
+  }
+  for (const r of R.rings) {
+    const a = 1 - r.r / r.max;
+    X.strokeStyle = `rgba(255,224,138,${0.8 * a})`; X.lineWidth = 3; X.beginPath(); X.arc(r.x, r.y, r.r, 0, TAU); X.stroke();
+  }
+  for (const b of R.bolts) {
+    X.strokeStyle = `rgba(214,194,255,${b.life / 0.18})`; X.lineWidth = 2; X.beginPath();
+    b.pts.forEach(([x, y], i) => { if (!i) { X.moveTo(x, y); return; } const [px, py] = b.pts[i - 1]; X.lineTo((px + x) / 2 + (Math.random() - .5) * 14, (py + y) / 2 + (Math.random() - .5) * 14); X.lineTo(x, y); });
+    X.stroke();
+  }
+  for (const b of R.ebul) { X.fillStyle = '#e0457a'; X.beginPath(); X.arc(b.x, b.y, 6, 0, TAU); X.fill(); X.fillStyle = 'rgba(224,69,122,.25)'; X.beginPath(); X.arc(b.x, memY(), 14, 0, TAU); X.fill(); }
   // bubbles
   for (const b of R.bubbles) {
     X.strokeStyle = 'rgba(159,240,255,.85)'; X.lineWidth = 1.5; X.beginPath(); X.arc(b.x, b.y, 9, 0, TAU); X.stroke();
@@ -619,6 +725,7 @@ function draw(now) {
     X.save(); X.translate(s.x, s.y); X.rotate(a);
     if (s.k === 'scalpel') { X.fillStyle = '#e6e9ff'; X.beginPath(); X.moveTo(9, 0); X.lineTo(-3, -3); X.lineTo(-9, -1); X.lineTo(-9, 1); X.lineTo(-3, 2); X.closePath(); X.fill(); }
     else if (s.k === 'needle') { X.strokeStyle = '#5fe1ff'; X.lineWidth = 1.6; X.beginPath(); X.moveTo(-12, 0); X.lineTo(10, 0); X.stroke(); X.fillStyle = '#5fe1ff'; X.fillRect(-14, -2, 4, 4); }
+    else if (s.k === 'syringe') { X.fillStyle = '#8affc1'; X.fillRect(-14, -2.5, 18, 5); X.strokeStyle = '#e6e9ff'; X.lineWidth = 1.2; X.beginPath(); X.moveTo(4, 0); X.lineTo(14, 0); X.stroke(); }
     else { X.rotate(s.spin); X.fillStyle = '#ffcf8a'; roundRect(-9, -4, 18, 8, 3); X.fill(); }
     X.restore();
   }
@@ -677,6 +784,16 @@ function drawEnemy(e, T) {
     X.beginPath(); X.arc(-e.r * .35, 0, e.r * .7, 0, TAU); X.fill();
     X.beginPath(); X.arc(e.r * .35, 0, e.r * .7, 0, TAU); X.fill();
     X.strokeStyle = 'rgba(10,15,31,.5)'; X.lineWidth = 2; X.beginPath(); X.moveTo(0, -e.r * .6); X.lineTo(0, e.r * .6); X.stroke();
+  } else if (e.t === 'phage') {
+    X.strokeStyle = col; X.fillStyle = col; X.lineWidth = 1.5;
+    X.beginPath(); X.moveTo(0, -e.r * .2); X.lineTo(0, e.r * .7); X.stroke();
+    X.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + Math.PI / 6; X.lineTo(Math.cos(a) * e.r * .6, -e.r * .6 + Math.sin(a) * e.r * .6); } X.closePath(); X.fill();
+    X.beginPath(); for (const k of [-1, 1]) { X.moveTo(0, e.r * .7); X.lineTo(k * e.r * .8, e.r * 1.1); X.moveTo(0, e.r * .7); X.lineTo(k * e.r * .4, e.r * 1.2); } X.stroke();
+  } else if (e.t === 'armor') {
+    X.rotate(T * .8 + e.ph);
+    X.fillStyle = col; X.beginPath(); X.arc(0, 0, e.r * .7, 0, TAU); X.fill();
+    X.strokeStyle = e.flash > 0 ? '#ffffff' : '#e6e9ff'; X.lineWidth = 3; X.beginPath();
+    for (let i = 0; i <= 6; i++) { const a = i / 6 * TAU; X.lineTo(Math.cos(a) * e.r, Math.sin(a) * e.r); } X.stroke();
   } else if (e.t === 'tank') {
     X.fillStyle = col;
     for (const [a, b] of [[-.45, -.35], [.45, -.35], [0, .4], [-.5, .45], [.5, .45], [0, -.1]]) { X.beginPath(); X.arc(a * e.r, b * e.r, e.r * .45, 0, TAU); X.fill(); }
@@ -706,7 +823,7 @@ function drawEnemy(e, T) {
   }
 }
 function roundRect(x, y, w, h, r) { X.beginPath(); X.moveTo(x + r, y); X.arcTo(x + w, y, x + w, y + h, r); X.arcTo(x + w, y + h, x, y + h, r); X.arcTo(x, y + h, x, y, r); X.arcTo(x, y, x + w, y, r); X.closePath(); }
-const idle = Array.from({ length: 22 }, (_, i) => ({ t: ['virus', 'bacil', 'tank', 'split'][i % 4], fx: Math.random(), fy: Math.random(), ph: Math.random() * 6, flash: 0, hp: 1, mhp: 1, seed: [1] }));
+const idle = Array.from({ length: 24 }, (_, i) => ({ t: ['virus', 'bacil', 'tank', 'split', 'phage', 'armor'][i % 6], fx: Math.random(), fy: Math.random(), ph: Math.random() * 6, flash: 0, hp: 1, mhp: 1, seed: [1] }));
 function drawIdle(T) {
   X.globalAlpha = 0.45;
   for (const e of idle) { e.r = ET[e.t].r; e.x = e.fx * W + Math.sin(T * .5 + e.ph) * 14; e.y = ((e.fy * H + T * 18) % (H + 60)) - 30; drawEnemy(e, T); }
@@ -758,7 +875,12 @@ function weaponIcon(cv, id) {
   else if (id === 'needle') { g.rotate(-0.8); g.beginPath(); g.moveTo(-12, 0); g.lineTo(12, 0); g.stroke(); g.fillRect(-14, -3, 5, 6); }
   else if (id === 'bubble') { for (const [x, y, r] of [[-4, 3, 7], [6, -5, 5], [7, 7, 3]]) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke(); } }
   else if (id === 'bandage') { g.rotate(-0.6); roundRectG(g, -13, -5, 26, 10, 4); g.fill(); g.fillStyle = 'rgba(10,15,31,.4)'; g.fillRect(-4, -5, 8, 10); }
-  else { g.fillRect(-2, -15, 4, 30); g.globalAlpha = .35; g.fillRect(-6, -15, 12, 30); }
+  else if (id === 'laser') { g.fillRect(-2, -15, 4, 30); g.globalAlpha = .35; g.fillRect(-6, -15, 12, 30); }
+  else if (id === 'syringe') { g.rotate(-0.8); g.fillRect(-10, -4, 14, 8); g.fillRect(-14, -1, 4, 2); g.fillRect(-15, -5, 2, 10); g.beginPath(); g.moveTo(4, 0); g.lineTo(14, 0); g.stroke(); }
+  else if (id === 'stetho') { for (const r of [5, 10, 15]) { g.globalAlpha = 1.2 - r / 15; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.stroke(); } }
+  else if (id === 'capsule') { g.rotate(-0.7); roundRectG(g, -12, -5, 12, 10, 5); g.fill(); g.fillStyle = '#e6e9ff'; roundRectG(g, 0, -5, 12, 10, 5); g.fill(); }
+  else if (id === 'cryo') { g.globalAlpha = .5; g.beginPath(); g.moveTo(-3, 12); g.lineTo(-12, -14); g.lineTo(12, -14); g.lineTo(3, 12); g.fill(); g.globalAlpha = 1; g.fillRect(-4, 8, 8, 7); }
+  else { g.beginPath(); g.moveTo(-10, 12); g.lineTo(-2, 0); g.lineTo(-7, -2); g.lineTo(6, -13); g.lineTo(1, 0); g.lineTo(6, 2); g.closePath(); g.fill(); }
 }
 function roundRectG(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 function renderHome() {
@@ -843,6 +965,9 @@ $('homeBtn').onclick = toHome;
 $('resumeBtn').onclick = () => pause(false);
 $('quitBtn').onclick = quit;
 $('pauseBtn').onclick = () => pause(true);
+function setSpeed(v) { SAVE.speed = v; store(); const b = $('speedBtn'); b.textContent = `×${v}`; b.classList.toggle('fast', v > 1); }
+$('speedBtn').onclick = () => setSpeed(SAVE.speed >= 3 ? 1 : SAVE.speed + 1);
+setSpeed(SAVE.speed || 1);
 $('chPrev').onclick = () => { SAVE.ch = Math.max(1, SAVE.ch - 1); store(); renderHome(); };
 $('chNext').onclick = () => { SAVE.ch = Math.min(SAVE.maxCh, SAVE.ch + 1); store(); renderHome(); };
 $('reviveBtn').onclick = () => {
@@ -865,6 +990,7 @@ $('app').addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keydown', e => {
   if (mode === 'skill' && /^Digit[1-3]$/.test(e.code)) { const b = $('cards').children[+e.code.slice(5) - 1]; if (b) b.click(); return; }
   if (e.code === 'KeyP' || e.code === 'Escape') { pause(mode === 'play'); return; }
+  if (e.code === 'KeyF') { $('speedBtn').click(); return; }
   if (/^(ArrowLeft|ArrowRight|KeyA|KeyD)$/.test(e.code)) { keys.add(e.code); e.preventDefault(); }
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
@@ -873,7 +999,8 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 function frame(now) {
   const dt = Math.min(1 / 30, (now - last) / 1000 || 0); last = now; lastFrameDt = dt;
-  if (mode === 'play') update(dt);
+  for (let i = 0; i < (SAVE.speed || 1) && mode === 'play'; i++) update(dt);
+  lastFrameDt = dt * (SAVE.speed || 1);
   draw(now);
   if (R && mode !== 'home' && mode !== 'over') updateHud();
   requestAnimationFrame(frame);
