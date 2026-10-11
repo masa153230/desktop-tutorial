@@ -42,6 +42,8 @@ button:focus-visible { outline: 2px solid var(--atp); outline-offset: 2px; }
 .coin { color: var(--gold) !important; }
 #waveTxt { font: 400 15px var(--display); color: var(--ink); }
 #pauseBtn { pointer-events: auto; font: 500 12px var(--mono); color: var(--ink); background: rgba(20,27,51,.85); border: 1px solid rgba(155,123,255,.4); border-radius: 6px; padding: 6px 10px; }
+.bar.xp { height: 6px; }
+.bar.xp > i { background: var(--atp); }
 #bossBar { display: grid; gap: 3px; }
 #bossBar .bar > i { background: var(--safranin); }
 #bossBar span { font: 700 12px var(--body); color: var(--safranin); }
@@ -102,8 +104,9 @@ p strong { color: var(--ink); }
 <div id="app">
   <canvas id="c"></canvas>
   <div id="hud" hidden>
-    <div class="row"><span id="waveTxt">第1章 · WAVE 1/10</span><span style="flex:1"></span><span class="tag coin">● <b class="coin" id="coinTxt">0</b></span><button id="pauseBtn" type="button">II</button></div>
+    <div class="row"><span id="waveTxt">第1章 · 00:00</span><span style="flex:1"></span><span class="tag coin">● <b class="coin" id="coinTxt">0</b></span><button id="pauseBtn" type="button">II</button></div>
     <div class="row"><span class="tag">細胞膜 <b id="hpTxt">100</b></span><div class="bar"><i id="hpFill"></i></div></div>
+    <div class="row"><span class="tag">Lv <b id="lvTxt">1</b></span><div class="bar xp"><i id="xpFill"></i></div><span class="tag" id="bossEta">ボスまで 2:30</span></div>
     <div id="bossBar" hidden><span id="bossName">巨大ウイルス</span><div class="bar"><i id="bossFill"></i></div></div>
   </div>
 
@@ -111,7 +114,7 @@ p strong { color: var(--ink); }
     <div class="panel">
       <div class="homeTop"><div class="eyebrow">× 400 · 血液塗抹標本</div><span class="tag coin">● <b class="coin" id="bankTxt">0</b></span></div>
       <h1>細胞<span>防衛線</span></h1>
-      <p>上から病原体が押し寄せる。<strong>細胞膜</strong>を破られたら負け。画面をドラッグして免疫細胞を左右に動かし、装備した武器で迎え撃つ。WAVE を越えるたびにスキルを1つ選べる。</p>
+      <p>上から病原体が押し寄せる。<strong>細胞膜</strong>を破られたら負け。画面をドラッグして免疫細胞を左右に動かし、装備した武器で迎え撃つ。敵を倒して経験値が貯まるとスキルを1つ選べる。時間とともに敵は増え、強くなる。<strong>2分半</strong>でボスが来る。倒せば章クリア。</p>
       <div class="chap">
         <button id="chPrev" type="button" aria-label="前の章">◀</button>
         <div><b id="chName">第1章</b><small id="chSub">推奨 Lv 1</small></div>
@@ -127,7 +130,7 @@ p strong { color: var(--ink); }
 
   <div class="overlay" id="skillScr" hidden>
     <div class="panel">
-      <div class="eyebrow" id="skillEyebrow">WAVE 1 クリア</div>
+      <div class="eyebrow" id="skillEyebrow">レベルアップ</div>
       <h2>スキルを選ぶ</h2>
       <div class="cards" id="cards"></div>
     </div>
@@ -159,7 +162,7 @@ p strong { color: var(--ink); }
       <h2 id="overTitle">感染拡大</h2>
       <p id="overMsg"></p>
       <div class="result">
-        <div><b id="rWave">0</b><span>到達 WAVE</span></div>
+        <div><b id="rWave">0:00</b><span>生存時間</span></div>
         <div><b id="rKill">0</b><span>撃破数</span></div>
         <div><b id="rCoin" class="coin">0</b><span>獲得コイン</span></div>
       </div>
@@ -174,7 +177,7 @@ p strong { color: var(--ink); }
 const $ = id => document.getElementById(id);
 const C = $('c'), X = C.getContext('2d');
 let W = 0, H = 0, DPR = 1, vignette = null, safeT = 0, safeB = 0;
-const TAU = Math.PI * 2, WAVES = 10, MAXCH = 20;
+const TAU = Math.PI * 2, BOSS_T = 150, ELITE_T = 75, MAXCH = 20;
 
 function resize() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
@@ -232,7 +235,7 @@ const drag = { on: false, id: null, sx: 0, cx: 0 };
 function newRun() {
   const ch = SAVE.ch;
   R = {
-    ch, wave: 0, kills: 0, coins: 0, revived: false,
+    ch, kills: 0, coins: 0, revived: false, lv: 1, xp: 0, pending: 0, eliteDone: false, bossDone: false,
     hp: 100, maxHp: 100, x: W / 2, face: 0, hurt: 0,
     gdmg: 1, grate: 1, crit: 0.05, regen: 0, thorns: 0,
     equip: SAVE.equip.slice(),
@@ -241,25 +244,15 @@ function newRun() {
   };
   for (const id of R.equip) R.w[id] = { lv: SAVE.w[id] || 1, dmg: 1, rate: 1, n: 1, size: 1, t: 0.3 };
 }
-const hpMul = () => Math.pow(1.32, R.ch - 1) * (1 + 0.09 * (R.wave - 1));
-
-function planWave() {
-  const w = R.wave, n = 9 + w * 3 + R.ch * 2, q = [];
-  for (let i = 0; i < n; i++) {
-    const pool = ['virus', 'virus'];
-    if (w >= 2 || R.ch > 1) pool.push('bacil');
-    if (w >= 3 || R.ch > 2) pool.push('split');
-    if (w >= 4 || R.ch > 3) pool.push('tank');
-    q.push(pool[Math.floor(Math.random() * pool.length)]);
-  }
-  if (w === 5) q.splice(Math.floor(n / 2), 0, 'elite');
-  if (w === 10) q.unshift('boss');
-  R.queue = q;
-  R.spawnGap = Math.max(0.28, 1.15 - w * 0.07 - R.ch * 0.03);
-  R.spawnT = 0.6;
-  if (w === 10) toast(`第${R.ch}章ボス ${ET.boss.name}。光る核が弱点`);
-  else if (w === 5) toast('がん細胞が混じっている。硬いぞ');
-  else toast(`WAVE ${w}`);
+const prog = () => Math.min(1, R.t / BOSS_T);
+const hpMul = () => Math.pow(1.32, R.ch - 1) * (1 + 0.8 * prog());
+const needXp = lv => 4 + lv * 3 + Math.floor(lv * lv * 0.3);
+function pickType() {
+  const g = prog() + (R.ch - 1) * 0.15, pool = ['virus', 'virus'];
+  if (g > 0.08) pool.push('bacil');
+  if (g > 0.25) pool.push('split');
+  if (g > 0.45) pool.push('tank', 'bacil');
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function spawn(type, x, y) {
@@ -297,6 +290,9 @@ function kill(e) {
   e.dead = true; R.kills++;
   const c = Math.round(ET[e.t].coin * (1 + 0.15 * (R.ch - 1)));
   R.coins += c;
+  R.xp += ET[e.t].coin;
+  while (R.xp >= needXp(R.lv)) { R.xp -= needXp(R.lv); R.lv++; R.pending++; }
+  if (e.t === 'boss') R.won = true;
   const col = ET[e.t].col, pn = e.big ? 26 : 7;
   for (let i = 0; i < pn; i++) { const a = Math.random() * TAU, s = 40 + Math.random() * 140; R.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: .4 + Math.random() * .4, col }); }
   if (e.t === 'split') for (let k = -1; k <= 1; k += 2) { const s = spawn('virus', e.x + k * 10, e.y); s.hp = s.mhp = s.mhp * 0.55; s.r = 9; }
@@ -406,13 +402,13 @@ function openSkills(title) {
     b.querySelector('.wp').textContent = s.wp;
     b.querySelector('.nm').textContent = s.name;
     b.querySelector('.ds').textContent = s.txt(m);
-    b.onclick = () => { if (mode !== 'skill') return; s.ap(m); $('skillScr').hidden = true; nextWave(); };
+    b.onclick = () => { if (mode !== 'skill') return; s.ap(m); $('skillScr').hidden = true; afterSkill(); };
     box.appendChild(b);
   });
   $('skillScr').hidden = false;
   setTimeout(() => { const f = box.querySelector('button'); if (f) f.focus({ preventScroll: true }); }, 30);
 }
-function nextWave() { R.wave++; planWave(); mode = 'play'; }
+function afterSkill() { mode = 'play'; if (R.pending > 0) { R.pending--; openSkills(`レベル ${R.lv}`); } }
 
 // ---------- update ----------
 function update(dt) {
@@ -428,15 +424,16 @@ function update(dt) {
   R.hurt = Math.max(0, R.hurt - dt);
 
   // spawn
-  if (R.queue.length) {
-    R.spawnT -= dt;
-    if (R.spawnT <= 0) {
-      const t = R.queue.shift();
-      spawn(t, t === 'boss' || t === 'elite' ? W / 2 : undefined);
-      R.spawnT = R.spawnGap * (0.6 + Math.random() * 0.8);
-      if (Math.random() < 0.12 + R.wave * 0.02 && R.queue.length > 2) { const t2 = R.queue.shift(); spawn(t2); } // pairs
-    }
+  // endless stream that thickens over time; elite at 1:15, boss at 2:30
+  R.spawnT -= dt;
+  if (R.spawnT <= 0) {
+    const gap = Math.max(0.3, 1.15 - prog() * 0.5 - (R.ch - 1) * 0.04) * (R.bossDone ? 1.7 : 1);
+    R.spawnT = gap * (0.6 + Math.random() * 0.8);
+    spawn(pickType());
+    if (Math.random() < 0.08 + prog() * 0.15) spawn(pickType()); // pairs
   }
+  if (!R.eliteDone && R.t >= ELITE_T) { R.eliteDone = true; spawn('elite', W / 2); toast('がん細胞が来た。硬いぞ'); }
+  if (!R.bossDone && R.t >= BOSS_T) { R.bossDone = true; spawn('boss', W / 2); toast(`${ET.boss.name}出現。光る核が弱点`); }
 
   weapons(dt);
 
@@ -549,16 +546,13 @@ function update(dt) {
   R.texts = R.texts.filter(t => t.t > 0);
   R.shake = Math.max(0, R.shake - dt);
 
+  if (R.won) return finish(true);
   if (R.hp <= 0) {
     R.hp = 0;
     if (!R.revived) { mode = 'revive'; $('reviveScr').hidden = false; return; }
     return finish(false);
   }
-  if (!R.queue.length && !R.en.length) {
-    if (R.wave >= WAVES) return finish(true);
-    R.coins += 5 + R.wave * 2;
-    openSkills(`WAVE ${R.wave} クリア`);
-  }
+  if (R.pending > 0) { R.pending--; openSkills(`レベル ${R.lv}`); }
 }
 
 // ---------- drawing ----------
@@ -738,11 +732,15 @@ function drawToasts() {
   toasts = toasts.filter(t => t.t > 0);
 }
 let lastHud = '';
+const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function updateHud() {
   const boss = R.en.find(e => e.t === 'boss' || e.t === 'elite');
-  const key = [Math.ceil(R.hp), R.maxHp, R.wave, R.coins, boss ? Math.ceil(boss.hp) : -1].join();
+  const key = [Math.ceil(R.hp), R.maxHp, Math.floor(R.t), R.lv, R.xp, R.coins, boss ? Math.ceil(boss.hp) : -1].join();
   if (key === lastHud) return; lastHud = key;
-  $('waveTxt').textContent = `第${R.ch}章 · WAVE ${Math.max(1, R.wave)}/${WAVES}`;
+  $('waveTxt').textContent = `第${R.ch}章 · ${fmt(R.t)}`;
+  $('lvTxt').textContent = R.lv;
+  $('xpFill').style.width = (R.xp / needXp(R.lv) * 100) + '%';
+  $('bossEta').textContent = R.bossDone ? 'ボス戦' : `ボスまで ${fmt(BOSS_T - R.t).slice(1)}`;
   $('coinTxt').textContent = R.coins;
   $('hpTxt').textContent = Math.ceil(R.hp);
   $('hpFill').style.width = (R.hp / R.maxHp * 100) + '%';
@@ -817,12 +815,12 @@ function finish(win) {
   let coins = R.coins;
   if (win) { coins += 60 * R.ch; if (R.ch >= SAVE.maxCh) { SAVE.maxCh = Math.min(MAXCH, R.ch + 1); SAVE.ch = SAVE.maxCh; } }
   SAVE.coins += coins; store();
-  $('overEyebrow').textContent = win ? `第${R.ch}章 クリア` : `第${R.ch}章 · WAVE ${R.wave} で敗北`;
+  $('overEyebrow').textContent = win ? `第${R.ch}章 クリア` : `第${R.ch}章 · ${fmt(R.t)} で敗北`;
   $('overTitle').textContent = win ? '感染を食い止めた' : '細胞膜が破れた';
   $('overMsg').textContent = win
     ? `章クリアボーナス ●${60 * R.ch} 込み。${R.ch < MAXCH ? `第${R.ch + 1}章が開いた。` : '最終章まで制覇した。'}コインで武器を強化して次へ。`
     : 'コインで武器を強化するか、装備の組み合わせを変えて再挑戦。ボスには鍼かレーザーメスで弱点を狙うと速い。';
-  $('rWave').textContent = R.wave; $('rKill').textContent = R.kills; $('rCoin').textContent = coins;
+  $('rWave').textContent = fmt(R.t).replace(/^0/, ''); $('rKill').textContent = R.kills; $('rCoin').textContent = coins;
   $('overScr').hidden = false;
 }
 function quit() {
