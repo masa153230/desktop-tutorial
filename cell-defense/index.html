@@ -63,6 +63,8 @@ p strong { color: var(--ink); }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid rgba(230,233,255,.25); font: 700 14px var(--body); padding: 11px; }
 .btn:disabled { opacity: .4; cursor: default; }
 .btn.gold { background: var(--gold); }
+.skillActs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#takeAllBtn:not(:disabled) { border-color: var(--gold); color: var(--gold); }
 .pigBox { display: grid; gap: 10px; padding: 14px; border-radius: 12px; border: 1px solid rgba(255,207,92,.35); background: rgba(255,207,92,.06); }
 .pigBox h3 { color: var(--gold); }
 
@@ -148,6 +150,11 @@ p strong { color: var(--ink); }
       <div class="eyebrow" id="skillEyebrow">レベルアップ</div>
       <h2>スキルを選ぶ</h2>
       <div class="cards" id="cards"></div>
+      <div class="skillActs">
+        <button class="btn ghost" id="rerollBtn" type="button">引き直す</button>
+        <button class="btn ghost" id="takeAllBtn" type="button">全部取る</button>
+      </div>
+      <p class="kbd">引き直しは 1 回の出撃で 2 回、全部取るは 1 回だけ。</p>
     </div>
   </div>
 
@@ -301,7 +308,8 @@ const drag = { on: false, id: null, sx: 0, cx: 0 };
 function newRun(kind = 'chapter') {
   const ch = kind === 'pig' ? SAVE.pigLv : SAVE.ch;
   R = {
-    kind, ch, pig: null, nextPick: 12, shieldFlash: 0, spitTold: false, kills: 0, coins: 0, revived: false, lv: 1, xp: 0, pending: 0, eliteDone: false, bossDone: false,
+    kind, ch, pig: null, nextPick: 12, shieldFlash: 0, spitTold: false, rerolls: 2, takeAlls: 1, opts: [],
+    xpMul: 1, coinMul: 1, bigMul: 1, explode: 0, lifesteal: 0, slowAura: 0, shieldMul: 1, execute: 0, kills: 0, coins: 0, revived: false, lv: 1, xp: 0, pending: 0, eliteDone: false, bossDone: false,
     hp: 100, maxHp: 100, x: W / 2, face: 0, hurt: 0,
     gdmg: 1, grate: 1, crit: 0.05, regen: 0, thorns: 0,
     equip: SAVE.equip.slice(),
@@ -313,6 +321,7 @@ function newRun(kind = 'chapter') {
 const prog = () => Math.min(1, R.t / BOSS_T);
 // gold pig hunt: 60 s, coins in proportion to the share of its HP you strip, bonus for the kill
 const PIG_T = 60, PIG_MAX = 15, PIG_TRIES = 3, SHIELD_W = 36;
+const shieldW = () => SHIELD_W * (R ? R.shieldMul : 1);
 const pigHp = d => Math.round(5200 * Math.pow(1.6, d - 1));
 const pigReward = d => Math.round(260 * Math.pow(1.45, d - 1));
 function pigToday() {
@@ -360,7 +369,9 @@ function hit(e, d, px, py, noText) {
     if ((px - wp.x) ** 2 + (py - wp.y) ** 2 < 20 * 20) { d *= 2.5; col = '#5fe1ff'; label = '弱点'; }
   }
   if (ET[e.t].armor && label === null) d *= ET[e.t].armor;
+  if (e.big) d *= R.bigMul;
   e.hp -= d; e.flash = 0.07;
+  if (R.execute && !e.big && e.hp > 0 && e.hp < e.mhp * R.execute) e.hp = 0;
   if (e.t === 'pig' && Math.random() < 0.35) R.parts.push({ x: e.x + (Math.random() - .5) * e.r, y: e.y, vx: (Math.random() - .5) * 120, vy: -60 - Math.random() * 80, t: .5, col: '#ffcf5c' });
   if (e.t === 'pig') { e.y = Math.max(safeT + 110, e.y - d / e.mhp * 320); e.atWall = false; }
   if (!noText && R.texts.length < 60) R.texts.push({ x: e.x + (Math.random() - .5) * 12, y: e.y - e.r, v: label ? `${label} ${Math.round(d)}` : Math.round(d), col, t: 0.6 });
@@ -369,8 +380,13 @@ function hit(e, d, px, py, noText) {
 function kill(e) {
   e.dead = true; R.kills++;
   const c = Math.round(ET[e.t].coin * (1 + 0.15 * (R.ch - 1)));
-  R.coins += c;
-  R.xp += ET[e.t].coin;
+  R.coins += Math.round(c * R.coinMul);
+  R.xp += ET[e.t].coin * R.xpMul;
+  if (R.lifesteal) R.hp = Math.min(R.maxHp, R.hp + R.lifesteal);
+  if (R.explode && !e.big) {
+    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; R.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, t: .25, col: '#ffcf8a' }); }
+    for (const o of R.en) if (!o.dead && o !== e && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 < (46 + o.r) ** 2) hit(o, R.explode, undefined, undefined, true);
+  }
   while (R.xp >= needXp(R.lv)) { R.xp -= needXp(R.lv); R.lv++; R.pending++; }
   if (e.t === 'boss' || e.t === 'pig') R.won = true;
   const col = ET[e.t].col, pn = e.big ? 26 : 7;
@@ -424,7 +440,7 @@ function weapons(dt) {
       w.t = cdOf(id);
       for (let i = 0; i < w.n; i++) {
         const tg = f[i % f.length], a = Math.atan2(tg.y - cy, tg.x - cx) + (i >= f.length ? (Math.random() - .5) * .3 : 0);
-        R.shots.push({ k: 'scalpel', x: cx, y: cy - 10, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, dmg: dmgOf(id), pierce: 1, life: 1.6, hit: new Set() });
+        R.shots.push({ k: 'scalpel', x: cx, y: cy - 10, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, dmg: dmgOf(id), pierce: w.pierce || 1, life: 1.6, hit: new Set() });
       }
     } else if (id === 'needle') {
       const alive = R.en.filter(e => !e.dead && e.y > 0);
@@ -433,7 +449,7 @@ function weapons(dt) {
       alive.sort((a, b) => b.hp - a.hp);
       for (let i = 0; i < w.n; i++) {
         const tg = alive[i % alive.length];
-        R.shots.push({ k: 'needle', tg, x: cx + (i - (w.n - 1) / 2) * 12, y: cy - 10, vx: (Math.random() - .5) * 200, vy: -380, dmg: dmgOf(id), pierce: 1, life: 3, hit: new Set() });
+        R.shots.push({ k: 'needle', tg, x: cx + (i - (w.n - 1) / 2) * 12, y: cy - 10, vx: (Math.random() - .5) * 200, vy: -380, dmg: dmgOf(id), pierce: w.pierce || 1, life: 3, hit: new Set() });
       }
     } else if (id === 'bubble') {
       w.t = cdOf(id);
@@ -449,7 +465,7 @@ function weapons(dt) {
     } else if (id === 'laser') {
       if (!R.en.some(e => !e.dead && Math.abs(e.x - R.x) < 60 && e.y > 0)) { w.t = 0.15; continue; }
       w.t = cdOf(id);
-      R.beams.push({ life: 0.45, max: 0.45, width: 18 * w.size * (1 + 0.5 * (w.n - 1)), dps: dmgOf(id) / 0.45 });
+      const dur = 0.45 * (w.dur || 1); R.beams.push({ life: dur, max: dur, width: 18 * w.size * (1 + 0.5 * (w.n - 1)), dps: dmgOf(id) / 0.45 });
     } else if (id === 'syringe') {
       if (!R.en.some(e => !e.dead && e.y > 0)) { w.t = 0.1; continue; }
       w.t = cdOf(id);
@@ -494,6 +510,8 @@ function skillPool() {
     else if (id === 'capsule') L.push({ wp: nm, name: 'カプセル 加速', txt: m => `周回速度 +${Math.round(22 * m)}%、軌道 +${Math.round(8 * m)}%`, ap: m => { w.rate *= 1 + 0.22 * m; w.size += 0.08 * m; } });
     else L.push({ wp: nm, name: '回転ダガー 遠心', txt: m => `刃の回転半径 +${Math.round(15 * m)}%、回転速度アップ`, ap: m => { w.size += 0.15 * m; w.rate *= 1 + 0.2 * m; } });
     if (w.n < 6) L.push({ wp: nm, min: 1, name: `${nm} 増殖`, txt: m => `${COUNT_TXT[id]} +${m > 2 ? 2 : 1}`, ap: m => w.n += m > 2 ? 2 : 1 });
+    if (id === 'scalpel' || id === 'needle') L.push({ wp: nm, name: `${nm} 貫通`, txt: m => `1 発で貫く敵 +${m > 2 ? 2 : 1}`, ap: m => w.pierce = (w.pierce || 1) + (m > 2 ? 2 : 1) });
+    if (id === 'laser') L.push({ wp: nm, name: 'レーザー 照射延長', txt: m => `光線の照射時間 +${Math.round(30 * m)}% (総ダメージも増える)`, ap: m => w.dur = (w.dur || 1) + 0.3 * m });
     if (['bubble', 'bandage', 'stetho', 'cryo', 'electro'].includes(id)) L.push({ wp: nm, name: `${nm} 拡散`, txt: m => `効果範囲 +${Math.round(25 * m)}%`, ap: m => w.size += 0.25 * m });
   }
   L.push({ wp: '全体', name: 'ミトコンドリア活性', txt: m => `全武器のダメージ +${Math.round(18 * m)}%`, ap: m => R.gdmg += 0.18 * m });
@@ -502,6 +520,14 @@ function skillPool() {
   L.push({ wp: '細胞膜', name: '膜の補強', txt: m => `細胞膜の最大値 +${Math.round(35 * m)}、その分回復`, ap: m => { R.maxHp += 35 * m; R.hp += 35 * m; } });
   L.push({ wp: '細胞膜', name: '緊急修復', txt: m => `細胞膜を ${Math.round(50 * m)} 回復`, ap: m => R.hp = Math.min(R.maxHp, R.hp + 50 * m) });
   L.push({ wp: '細胞膜', name: '自己再生', txt: m => `細胞膜が毎秒 ${(1.2 * m).toFixed(1)} 回復`, ap: m => R.regen += 1.2 * m });
+  L.push({ wp: '全体', name: '大物狩り', txt: m => `ボス・がん細胞・金ブタへのダメージ +${Math.round(25 * m)}%`, ap: m => R.bigMul += 0.25 * m });
+  L.push({ wp: '全体', name: '自己融解', txt: m => `敵を倒すと周囲に小爆発 (${Math.round(10 * m * hpMul())} ダメージ)`, ap: m => R.explode += 10 * m * hpMul() });
+  L.push({ wp: '全体', name: 'アポトーシス誘導', txt: m => `HP ${Math.round(10 * m)}% 以下の雑魚を即死させる`, ap: m => R.execute = Math.min(0.4, R.execute + 0.1 * m) });
+  L.push({ wp: '成長', name: '代謝促進', txt: m => `獲得経験値 +${Math.round(20 * m)}%`, ap: m => R.xpMul += 0.2 * m });
+  L.push({ wp: '成長', name: '栄養吸収', txt: m => `獲得コイン +${Math.round(15 * m)}%`, ap: m => R.coinMul += 0.15 * m });
+  L.push({ wp: '細胞膜', name: '貪食', txt: m => `敵を倒すたびに細胞膜を ${(0.4 * m).toFixed(1)} 回復`, ap: m => R.lifesteal += 0.4 * m });
+  L.push({ wp: '細胞膜', name: '粘液層', txt: m => `膜の手前 140 の範囲で敵の速度 -${Math.round(15 * m)}%`, ap: m => R.slowAura = Math.min(0.6, R.slowAura + 0.15 * m) });
+  if (R.kind !== 'pig') L.push({ wp: '細胞膜', name: 'シールド拡張', txt: m => `ボス弾を防ぐシールドの幅 +${Math.round(25 * m)}%`, ap: m => R.shieldMul += 0.25 * m });
   L.push({ wp: '細胞膜', name: 'トゲ状突起', txt: m => `膜に触れた敵へ毎秒 ${Math.round(12 * m * hpMul())} ダメージ`, ap: m => R.thorns += 12 * m * hpMul() });
   return L;
 }
@@ -513,21 +539,40 @@ function openSkills(title) {
   mode = 'skill';
   const pool = skillPool();
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  const box = $('cards'); box.textContent = '';
+  R.opts = pool.slice(0, 3).map(s => { const k = rollRarity(s.min); return { s, k, m: RAR[k].m }; });
   $('skillEyebrow').textContent = title;
-  pool.slice(0, 3).forEach((s, i) => {
-    const k = rollRarity(s.min), m = RAR[k].m;
+  renderSkills();
+  $('skillScr').hidden = false;
+  setTimeout(() => { const f = $('cards').querySelector('button'); if (f) f.focus({ preventScroll: true }); }, 30);
+}
+function renderSkills() {
+  const box = $('cards'); box.textContent = '';
+  R.opts.forEach(({ s, k, m }, i) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = `card r${k}`;
     b.innerHTML = '<span class="rr"></span><span class="wp"></span><span class="nm"></span><span class="ds"></span>';
     b.querySelector('.rr').textContent = `${i + 1} · ${RAR[k].nm}`;
     b.querySelector('.wp').textContent = s.wp;
     b.querySelector('.nm').textContent = s.name;
     b.querySelector('.ds').textContent = s.txt(m);
-    b.onclick = () => { if (mode !== 'skill') return; s.ap(m); $('skillScr').hidden = true; afterSkill(); };
+    b.onclick = () => { if (mode !== 'skill') return; s.ap(m); closeSkills(); };
     box.appendChild(b);
   });
-  $('skillScr').hidden = false;
-  setTimeout(() => { const f = box.querySelector('button'); if (f) f.focus({ preventScroll: true }); }, 30);
+  $('rerollBtn').textContent = `引き直す (あと ${R.rerolls})`; $('rerollBtn').disabled = R.rerolls <= 0;
+  $('takeAllBtn').textContent = `全部取る (あと ${R.takeAlls})`; $('takeAllBtn').disabled = R.takeAlls <= 0;
+}
+function closeSkills() { $('skillScr').hidden = true; afterSkill(); }
+function rerollSkills() {
+  if (mode !== 'skill' || R.rerolls <= 0) return;
+  R.rerolls--;
+  const title = $('skillEyebrow').textContent;
+  openSkills(title);
+}
+function takeAllSkills() {
+  if (mode !== 'skill' || R.takeAlls <= 0) return;
+  R.takeAlls--;
+  for (const { s, m } of R.opts) s.ap(m);
+  toast(R.opts.map(o => o.s.name).join('・') + ' を獲得');
+  closeSkills();
 }
 function afterSkill() { mode = 'play'; if (R.pending > 0) { R.pending--; openSkills(`レベル ${R.lv}`); } }
 
@@ -552,7 +597,7 @@ function update(dt) {
     if (R.spawnT <= 0) { R.spawnT = 2.4; spawn('virus'); }
     if (R.t >= R.nextPick) { R.nextPick += 12; R.lv++; R.pending++; }
     const p = R.pig, frac = Math.min(1, 1 - Math.max(0, p.hp) / p.mhp);
-    R.coins = Math.floor(frac * pigReward(R.ch));
+    R.coins = Math.floor(frac * pigReward(R.ch) * R.coinMul);
   } else {
   R.spawnT -= dt;
   if (R.spawnT <= 0) {
@@ -595,7 +640,7 @@ function update(dt) {
     } else if (!e.atWall) {
       const sway = e.t === 'bacil' ? Math.sin(R.t * 3 + e.ph) * 30 : Math.sin(R.t * 1.2 + e.ph) * 10;
       const dash = e.t === 'phage' && (R.t + e.ph) % 2 < 0.45 ? 3.2 : 1;
-      const slow = (e.slowT || 0) > R.t ? 0.5 : 1;
+      const slow = ((e.slowT || 0) > R.t ? 0.5 : 1) * (R.slowAura && e.y > my - 140 ? 1 - R.slowAura : 1);
       e.y += (e.sp * dash * slow - e.kb) * dt;
       e.x += sway * dt;
       e.kb = Math.max(0, e.kb - 300 * dt);
@@ -687,7 +732,7 @@ function update(dt) {
     b.y += b.vy * dt;
     if (b.y >= my - 4) {
       b.dead = true;
-      if (Math.abs(b.x - R.x) < SHIELD_W) {
+      if (Math.abs(b.x - R.x) < shieldW()) {
         R.shieldFlash = 0.35; R.texts.push({ x: b.x, y: my - 18, v: 'ブロック', col: '#5fe1ff', t: 0.6 });
         for (let i = 0; i < 8; i++) R.parts.push({ x: b.x, y: my - 8, vx: (Math.random() - .5) * 160, vy: -40 - Math.random() * 90, t: .4, col: '#5fe1ff' });
       }
@@ -806,7 +851,7 @@ function draw(now) {
   }
   // landing markers: cyan when the shield is under them (will be blocked), red when not
   for (const b of R.ebul) {
-    const safe = Math.abs(b.x - R.x) < SHIELD_W;
+    const safe = Math.abs(b.x - R.x) < shieldW();
     X.strokeStyle = safe ? 'rgba(95,225,255,.6)' : 'rgba(255,92,138,.7)'; X.lineWidth = 2;
     X.beginPath(); X.arc(b.x, memY(), 12, 0, TAU); X.stroke();
     X.setLineDash([3, 5]); X.beginPath(); X.moveTo(b.x, b.y + 8); X.lineTo(b.x, memY() - 12); X.stroke(); X.setLineDash([]);
@@ -814,18 +859,18 @@ function draw(now) {
   }
   // the shield itself: shown whenever the boss is on the field
   if (R.en.some(e => e.t === 'boss') || R.ebul.length) {
-    const sy = memY() - 12, f = R.shieldFlash / 0.35, a = 0.7 + 0.3 * f + 0.1 * Math.sin(T * 6);
+    const sw = shieldW(), sy = memY() - 12, f = R.shieldFlash / 0.35, a = 0.7 + 0.3 * f + 0.1 * Math.sin(T * 6);
     const g = X.createLinearGradient(0, sy - 30, 0, sy + 8);
     g.addColorStop(0, 'rgba(95,225,255,0)'); g.addColorStop(1, `rgba(95,225,255,${0.22 + 0.4 * f})`);
-    X.fillStyle = g; X.fillRect(R.x - SHIELD_W, sy - 30, SHIELD_W * 2, 38);
+    X.fillStyle = g; X.fillRect(R.x - sw, sy - 30, sw * 2, 38);
     X.fillStyle = `rgba(95,225,255,${0.25 + 0.35 * f})`;
-    X.beginPath(); X.moveTo(R.x - SHIELD_W, sy + 8); X.quadraticCurveTo(R.x, sy - 22, R.x + SHIELD_W, sy + 8); X.quadraticCurveTo(R.x, sy - 6, R.x - SHIELD_W, sy + 8); X.fill();
+    X.beginPath(); X.moveTo(R.x - sw, sy + 8); X.quadraticCurveTo(R.x, sy - 22, R.x + sw, sy + 8); X.quadraticCurveTo(R.x, sy - 6, R.x - sw, sy + 8); X.fill();
     X.shadowColor = '#5fe1ff'; X.shadowBlur = 10 + 14 * f;
     X.strokeStyle = `rgba(95,225,255,${a})`; X.lineWidth = 3 + 2 * f;
-    X.beginPath(); X.moveTo(R.x - SHIELD_W, sy + 8); X.quadraticCurveTo(R.x, sy - 22, R.x + SHIELD_W, sy + 8); X.stroke();
+    X.beginPath(); X.moveTo(R.x - sw, sy + 8); X.quadraticCurveTo(R.x, sy - 22, R.x + sw, sy + 8); X.stroke();
     X.shadowBlur = 0;
     X.strokeStyle = `rgba(95,225,255,${0.25 + 0.4 * f})`; X.lineWidth = 1;
-    X.beginPath(); X.moveTo(R.x - SHIELD_W, sy + 8); X.lineTo(R.x - SHIELD_W, sy + 18); X.moveTo(R.x + SHIELD_W, sy + 8); X.lineTo(R.x + SHIELD_W, sy + 18); X.stroke();
+    X.beginPath(); X.moveTo(R.x - sw, sy + 8); X.lineTo(R.x - sw, sy + 18); X.moveTo(R.x + sw, sy + 8); X.lineTo(R.x + sw, sy + 18); X.stroke();
   }
   // bubbles
   for (const b of R.bubbles) {
@@ -1097,7 +1142,7 @@ function finish(win) {
 function finishPig(win) {
   const p = R.pig, full = pigReward(R.ch);
   const frac = p ? Math.min(1, 1 - Math.max(0, p.hp) / p.mhp) : 0;
-  const coins = Math.floor(frac * full) + (win ? Math.round(full * 0.5) : 0);
+  const coins = Math.floor((frac * full + (win ? full * 0.5 : 0)) * R.coinMul);
   const unlocked = win && R.ch >= (SAVE.pigMax || 1) && R.ch < PIG_MAX;
   if (unlocked) SAVE.pigMax = R.ch + 1;
   SAVE.coins += coins; store();
@@ -1125,6 +1170,8 @@ function pause(on) {
 
 $('startBtn').onclick = () => start();
 $('pigBtn').onclick = startPig;
+$('rerollBtn').onclick = rerollSkills;
+$('takeAllBtn').onclick = takeAllSkills;
 $('pigPrev').onclick = () => { SAVE.pigLv = Math.max(1, SAVE.pigLv - 1); store(); renderHome(); };
 $('pigNext').onclick = () => { SAVE.pigLv = Math.min(SAVE.pigMax || 1, SAVE.pigLv + 1); store(); renderHome(); };
 $('homeBtn').onclick = toHome;
@@ -1154,6 +1201,7 @@ const endDrag = e => { if (e.pointerId === drag.id) drag.on = false; };
 C.addEventListener('pointerup', endDrag); C.addEventListener('pointercancel', endDrag);
 $('app').addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keydown', e => {
+  if (mode === 'skill' && e.code === 'KeyR') { rerollSkills(); return; }
   if (mode === 'skill' && /^Digit[1-3]$/.test(e.code)) { const b = $('cards').children[+e.code.slice(5) - 1]; if (b) b.click(); return; }
   if (e.code === 'KeyP' || e.code === 'Escape') { pause(mode === 'play'); return; }
   if (e.code === 'KeyF') { $('speedBtn').click(); return; }
