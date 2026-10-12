@@ -125,7 +125,8 @@ p strong { color: var(--ink); }
       <div class="slots" id="slots"></div>
       <div class="wlist" id="wlist"></div>
       <button class="btn" id="startBtn" type="button">出撃</button>
-      <p class="kbd">PC: ← → / A D で移動、P で一時停止、F で倍速切替。進行はこの端末に保存される。</p>
+      <p class="kbd">PC: ← → / A D で移動、P で一時停止、F で倍速切替。</p>
+      <p class="kbd" id="saveTxt">セーブ: この端末のブラウザに保存中</p>
     </div>
   </div>
 
@@ -221,7 +222,50 @@ function load() {
   try { const s = JSON.parse(localStorage.getItem('celldef.save') || 'null'); if (s && s.w) return Object.assign(structuredClone(DEFAULT_SAVE), s); } catch (e) {}
   return structuredClone(DEFAULT_SAVE);
 }
-function store() { try { localStorage.setItem('celldef.save', JSON.stringify(SAVE)); } catch (e) {} }
+function store() {
+  SAVE.updated = Date.now();
+  try { localStorage.setItem('celldef.save', JSON.stringify(SAVE)); } catch (e) {}
+  cloudPush();
+}
+// Cloud save: the viewer's private db subtree, so progress follows the account
+// across devices and survives cleared browser storage. localStorage stays as the
+// instant local copy; whichever has the newer `updated` stamp wins on load.
+let cloudRef = null, cloudBusy = false, cloudDirty = false;
+const setSaveTxt = t => { $('saveTxt').textContent = t; };
+async function cloudPush() {
+  if (!cloudRef) return;
+  if (cloudBusy) { cloudDirty = true; return; }
+  cloudBusy = true;
+  try {
+    do { cloudDirty = false; await cloudRef.set(structuredClone(SAVE)); } while (cloudDirty);
+    setSaveTxt('セーブ: アカウントに保存済み (どの端末からでも続きができる)');
+  } catch (e) {
+    if (e && e.code === 'invalid_argument') { cloudRef = null; setSaveTxt('セーブ: この端末のブラウザのみ (共有権限が閲覧のみのため)'); }
+    else setSaveTxt('セーブ: アカウントへの保存に失敗。この端末には保存済み');
+  } finally { cloudBusy = false; }
+}
+async function cloudInit() {
+  try {
+    if (!window.claude || !window.claude.use) return;
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    const uid = user && await user.id();
+    if (!db || !uid) { setSaveTxt('セーブ: この端末のブラウザのみ (サインインするとアカウントに保存)'); return; }
+    const ref = db.doc('data/users/' + uid + '/save');
+    const snap = await ref.get();
+    const remote = snap.exists ? snap.data() : null;
+    cloudRef = ref;
+    if (remote && remote.w && (remote.updated || 0) > (SAVE.updated || 0)) {
+      if (mode === 'home') {
+        SAVE = Object.assign(structuredClone(DEFAULT_SAVE), structuredClone(remote));
+        try { localStorage.setItem('celldef.save', JSON.stringify(SAVE)); } catch (e) {}
+        renderHome(); setSpeed(SAVE.speed || 1, false);
+      }
+      setSaveTxt('セーブ: アカウントから読み込み済み');
+    } else if (!remote || (SAVE.updated || 0) > (remote.updated || 0)) {
+      await cloudPush();
+    } else setSaveTxt('セーブ: アカウントに保存済み (どの端末からでも続きができる)');
+  } catch (e) { setSaveTxt('セーブ: この端末のブラウザに保存中'); }
+}
 
 // ---------- enemies ----------
 const ET = {
@@ -966,9 +1010,9 @@ $('homeBtn').onclick = toHome;
 $('resumeBtn').onclick = () => pause(false);
 $('quitBtn').onclick = quit;
 $('pauseBtn').onclick = () => pause(true);
-function setSpeed(v) { SAVE.speed = v; store(); const b = $('speedBtn'); b.textContent = `×${v}`; b.classList.toggle('fast', v > 1); }
+function setSpeed(v, persist = true) { SAVE.speed = v; if (persist) store(); const b = $('speedBtn'); b.textContent = `×${v}`; b.classList.toggle('fast', v > 1); }
 $('speedBtn').onclick = () => setSpeed(SAVE.speed >= 3 ? 1 : SAVE.speed + 1);
-setSpeed(SAVE.speed || 1);
+setSpeed(SAVE.speed || 1, false);
 $('chPrev').onclick = () => { SAVE.ch = Math.max(1, SAVE.ch - 1); store(); renderHome(); };
 $('chNext').onclick = () => { SAVE.ch = Math.min(SAVE.maxCh, SAVE.ch + 1); store(); renderHome(); };
 $('reviveBtn').onclick = () => {
@@ -1006,7 +1050,7 @@ function frame(now) {
   if (R && mode !== 'home' && mode !== 'over') updateHud();
   requestAnimationFrame(frame);
 }
-resize(); renderHome();
+resize(); renderHome(); cloudInit();
 requestAnimationFrame(t => { last = t; frame(t); });
 })();
 </script>
