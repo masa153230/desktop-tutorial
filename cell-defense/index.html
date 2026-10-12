@@ -62,6 +62,9 @@ p strong { color: var(--ink); }
 .btn { font: 400 18px var(--display); color: var(--field); background: var(--violet); border: 0; border-radius: 10px; padding: 14px; }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid rgba(230,233,255,.25); font: 700 14px var(--body); padding: 11px; }
 .btn:disabled { opacity: .4; cursor: default; }
+.btn.gold { background: var(--gold); }
+.pigBox { display: grid; gap: 10px; padding: 14px; border-radius: 12px; border: 1px solid rgba(255,207,92,.35); background: rgba(255,207,92,.06); }
+.pigBox h3 { color: var(--gold); }
 
 .homeTop { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .chap { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; background: var(--slip2); border-radius: 10px; padding: 10px; }
@@ -125,6 +128,16 @@ p strong { color: var(--ink); }
       <div class="slots" id="slots"></div>
       <div class="wlist" id="wlist"></div>
       <button class="btn" id="startBtn" type="button">出撃</button>
+      <div class="pigBox" id="pigBox">
+        <div class="homeTop"><h3>金ブタ狩り</h3><span class="tag" id="pigLeft">今日あと 3 回</span></div>
+        <p id="pigTxt">60 秒で金ブタを削った分だけコインがもらえる。押し返さないと膜まで突っ込んでくる。</p>
+        <div class="chap">
+          <button id="pigPrev" type="button" aria-label="難易度を下げる">◀</button>
+          <div><b id="pigName">難易度 1</b><small id="pigSub">報酬 最大 ●0</small></div>
+          <button id="pigNext" type="button" aria-label="難易度を上げる">▶</button>
+        </div>
+        <button class="btn gold" id="pigBtn" type="button">金ブタ狩りへ</button>
+      </div>
       <p class="kbd">PC: ← → / A D で移動、P で一時停止、F で倍速切替。</p>
       <p class="kbd" id="saveTxt">セーブ: この端末のブラウザに保存中</p>
     </div>
@@ -165,7 +178,7 @@ p strong { color: var(--ink); }
       <p id="overMsg"></p>
       <div class="result">
         <div><b id="rWave">0:00</b><span>生存時間</span></div>
-        <div><b id="rKill">0</b><span>撃破数</span></div>
+        <div><b id="rKill">0</b><span id="rKillLbl">撃破数</span></div>
         <div><b id="rCoin" class="coin">0</b><span>獲得コイン</span></div>
       </div>
       <button class="btn" id="homeBtn" type="button">ホームへ</button>
@@ -216,7 +229,7 @@ const upCost = lv => Math.round(40 * Math.pow(lv, 1.55));
 const metaMul = lv => 1 + 0.15 * (lv - 1);
 
 // ---------- save ----------
-const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, speed: 1, equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
+const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, speed: 1, pigMax: 1, pigLv: 1, pigLeft: 3, pigDay: '', equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
 let SAVE = load();
 function load() {
   try { const s = JSON.parse(localStorage.getItem('celldef.save') || 'null'); if (s && s.w) return Object.assign(structuredClone(DEFAULT_SAVE), s); } catch (e) {}
@@ -276,6 +289,7 @@ const ET = {
   phage: { name: 'ファージ',     hp: 24,   sp: 50, r: 11, atk: 6,  coin: 2,  col: '#ffd36b' },
   armor: { name: '装甲ウイルス', hp: 52,   sp: 30, r: 15, atk: 8,  coin: 3,  col: '#c9a0ff', armor: 0.5 },
   elite: { name: 'がん細胞',     hp: 430,  sp: 19, r: 30, atk: 14, coin: 25, col: '#ff7a45' },
+  pig:   { name: '金ブタ',       hp: 1,    sp: 15, r: 44, atk: 30, coin: 0,  col: '#ffcf5c' },
   boss:  { name: '巨大ウイルス', hp: 1150, sp: 15, r: 52, atk: 26, coin: 80, col: '#e0457a' },
 };
 
@@ -284,10 +298,10 @@ let R = null, mode = 'home', last = 0, uid = 0;
 const keys = new Set();
 const drag = { on: false, id: null, sx: 0, cx: 0 };
 
-function newRun() {
-  const ch = SAVE.ch;
+function newRun(kind = 'chapter') {
+  const ch = kind === 'pig' ? SAVE.pigLv : SAVE.ch;
   R = {
-    ch, kills: 0, coins: 0, revived: false, lv: 1, xp: 0, pending: 0, eliteDone: false, bossDone: false,
+    kind, ch, pig: null, nextPick: 12, shieldFlash: 0, spitTold: false, kills: 0, coins: 0, revived: false, lv: 1, xp: 0, pending: 0, eliteDone: false, bossDone: false,
     hp: 100, maxHp: 100, x: W / 2, face: 0, hurt: 0,
     gdmg: 1, grate: 1, crit: 0.05, regen: 0, thorns: 0,
     equip: SAVE.equip.slice(),
@@ -297,6 +311,15 @@ function newRun() {
   for (const id of R.equip) R.w[id] = { lv: SAVE.w[id] || 1, dmg: 1, rate: 1, n: 1, size: 1, t: 0.3 };
 }
 const prog = () => Math.min(1, R.t / BOSS_T);
+// gold pig hunt: 60 s, coins in proportion to the share of its HP you strip, bonus for the kill
+const PIG_T = 60, PIG_MAX = 15, PIG_TRIES = 3, SHIELD_W = 36;
+const pigHp = d => Math.round(5200 * Math.pow(1.6, d - 1));
+const pigReward = d => Math.round(260 * Math.pow(1.45, d - 1));
+function pigToday() {
+  const day = new Date().toLocaleDateString('sv');
+  if (SAVE.pigDay !== day) { SAVE.pigDay = day; SAVE.pigLeft = PIG_TRIES; }
+  return SAVE.pigLeft;
+}
 const hpMul = () => Math.pow(1.36, R.ch - 1) * (R.ch === 1 ? 0.85 : 1) * (1 + 0.9 * prog()); // ch1 is the tutorial
 const needXp = lv => 10 + lv * 8 + Math.floor(lv * lv * 1.3);
 function pickType() {
@@ -311,7 +334,7 @@ function pickType() {
 
 function spawn(type, x, y) {
   const d = ET[type];
-  const big = type === 'boss' || type === 'elite';
+  const big = type === 'boss' || type === 'elite' || type === 'pig';
   const mul = hpMul() * (type === 'boss' ? 1 + 0.25 * (R.ch - 1) : 1);
   const seed = []; for (let i = 0; i < 10; i++) seed.push(0.82 + Math.random() * 0.36);
   const e = {
@@ -338,6 +361,8 @@ function hit(e, d, px, py, noText) {
   }
   if (ET[e.t].armor && label === null) d *= ET[e.t].armor;
   e.hp -= d; e.flash = 0.07;
+  if (e.t === 'pig' && Math.random() < 0.35) R.parts.push({ x: e.x + (Math.random() - .5) * e.r, y: e.y, vx: (Math.random() - .5) * 120, vy: -60 - Math.random() * 80, t: .5, col: '#ffcf5c' });
+  if (e.t === 'pig') { e.y = Math.max(safeT + 110, e.y - d / e.mhp * 320); e.atWall = false; }
   if (!noText && R.texts.length < 60) R.texts.push({ x: e.x + (Math.random() - .5) * 12, y: e.y - e.r, v: label ? `${label} ${Math.round(d)}` : Math.round(d), col, t: 0.6 });
   if (e.hp <= 0) kill(e);
 }
@@ -347,7 +372,7 @@ function kill(e) {
   R.coins += c;
   R.xp += ET[e.t].coin;
   while (R.xp >= needXp(R.lv)) { R.xp -= needXp(R.lv); R.lv++; R.pending++; }
-  if (e.t === 'boss') R.won = true;
+  if (e.t === 'boss' || e.t === 'pig') R.won = true;
   const col = ET[e.t].col, pn = e.big ? 26 : 7;
   for (let i = 0; i < pn; i++) { const a = Math.random() * TAU, s = 40 + Math.random() * 140; R.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: .4 + Math.random() * .4, col }); }
   if (e.t === 'split') for (let k = -1; k <= 1; k += 2) { const s = spawn('virus', e.x + k * 10, e.y); s.hp = s.mhp = s.mhp * 0.55; s.r = 9; }
@@ -521,6 +546,14 @@ function update(dt) {
 
   // spawn
   // endless stream that thickens over time; elite at 1:15, boss at 2:30
+  if (R.kind === 'pig') {
+    if (!R.pig) { R.pig = spawn('pig', W / 2, safeT + 140); R.pig.hp = R.pig.mhp = pigHp(R.ch); R.pig.atk = 30 * (1 + 0.15 * (R.ch - 1)); toast('金ブタ出現。削るほどコインが出る'); }
+    R.spawnT -= dt;
+    if (R.spawnT <= 0) { R.spawnT = 2.4; spawn('virus'); }
+    if (R.t >= R.nextPick) { R.nextPick += 12; R.lv++; R.pending++; }
+    const p = R.pig, frac = Math.min(1, 1 - Math.max(0, p.hp) / p.mhp);
+    R.coins = Math.floor(frac * pigReward(R.ch));
+  } else {
   R.spawnT -= dt;
   if (R.spawnT <= 0) {
     const gap = Math.max(0.3, 1.15 - prog() * 0.5 - (R.ch - 1) * 0.04) * (R.bossDone ? 1.7 : 1);
@@ -530,6 +563,7 @@ function update(dt) {
   }
   if (!R.eliteDone && R.t >= ELITE_T) { R.eliteDone = true; spawn('elite', W / 2); if (R.ch >= 3) { spawn('elite', W * 0.25); spawn('elite', W * 0.75); } toast(R.ch >= 3 ? 'がん細胞が3体来た' : 'がん細胞が来た。硬いぞ'); }
   if (!R.bossDone && R.t >= BOSS_T) { R.bossDone = true; spawn('boss', W / 2); toast(`${ET.boss.name}出現。光る核が弱点`); }
+  }
 
   weapons(dt);
 
@@ -549,8 +583,15 @@ function update(dt) {
         for (let k = -1; k <= 1; k++) { const s = spawn('virus', e.x + k * 30, e.y + e.r); s.y = e.y + e.r * 0.8; }
       }
       if (R.bossT > 2 && Math.floor(R.bossT / 2.5) !== Math.floor((R.bossT - dt) / 2.5)) {
+        if (!R.spitTold) { R.spitTold = true; toast('赤い弾は細胞の上のシールドで受け止められる'); }
         for (let k = 0; k < 2 + Math.min(3, Math.floor(R.ch / 3)); k++) R.ebul.push({ x: e.x + (Math.random() - .5) * e.r * 2, y: e.y + e.r, vy: 150 + Math.random() * 60, dmg: 7 * (1 + 0.15 * (R.ch - 1)) });
       }
+    } else if (e.t === 'pig') {
+      // trots side to side and charges every 6 s; damage shoves it back up (in hit())
+      e.x = W / 2 + Math.sin(R.t * 0.9) * (W / 2 - e.r - 16);
+      e.face = Math.cos(R.t * 0.9) >= 0 ? 1 : -1;
+      const charge = (R.t % 6) < 0.7 ? 3.4 : 1, slow = (e.slowT || 0) > R.t ? 0.5 : 1;
+      if (!e.atWall) e.y += e.sp * charge * slow * dt;
     } else if (!e.atWall) {
       const sway = e.t === 'bacil' ? Math.sin(R.t * 3 + e.ph) * 30 : Math.sin(R.t * 1.2 + e.ph) * 10;
       const dash = e.t === 'phage' && (R.t + e.ph) % 2 < 0.45 ? 3.2 : 1;
@@ -646,11 +687,15 @@ function update(dt) {
     b.y += b.vy * dt;
     if (b.y >= my - 4) {
       b.dead = true;
-      if (Math.abs(b.x - R.x) < 30) { R.texts.push({ x: b.x, y: my - 14, v: 'ブロック', col: '#5fe1ff', t: 0.6 }); }
+      if (Math.abs(b.x - R.x) < SHIELD_W) {
+        R.shieldFlash = 0.35; R.texts.push({ x: b.x, y: my - 18, v: 'ブロック', col: '#5fe1ff', t: 0.6 });
+        for (let i = 0; i < 8; i++) R.parts.push({ x: b.x, y: my - 8, vx: (Math.random() - .5) * 160, vy: -40 - Math.random() * 90, t: .4, col: '#5fe1ff' });
+      }
       else { R.hp -= b.dmg; R.hurt = 0.2; for (let i = 0; i < 6; i++) R.parts.push({ x: b.x, y: my, vx: (Math.random() - .5) * 120, vy: -Math.random() * 80, t: .4, col: '#e0457a' }); }
     }
   }
   R.ebul = R.ebul.filter(b => !b.dead);
+  R.shieldFlash = Math.max(0, R.shieldFlash - dt);
 
   // beams
   for (const b of R.beams) {
@@ -672,9 +717,10 @@ function update(dt) {
   R.shake = Math.max(0, R.shake - dt);
 
   if (R.won) return finish(true);
+  if (R.kind === 'pig' && R.t >= PIG_T) return finish(false);
   if (R.hp <= 0) {
     R.hp = 0;
-    if (!R.revived) { mode = 'revive'; $('reviveScr').hidden = false; return; }
+    if (!R.revived && R.kind !== 'pig') { mode = 'revive'; $('reviveScr').hidden = false; return; }
     return finish(false);
   }
   if (R.pending > 0) { R.pending--; openSkills(`レベル ${R.lv}`); }
@@ -758,7 +804,29 @@ function draw(now) {
     b.pts.forEach(([x, y], i) => { if (!i) { X.moveTo(x, y); return; } const [px, py] = b.pts[i - 1]; X.lineTo((px + x) / 2 + (Math.random() - .5) * 14, (py + y) / 2 + (Math.random() - .5) * 14); X.lineTo(x, y); });
     X.stroke();
   }
-  for (const b of R.ebul) { X.fillStyle = '#e0457a'; X.beginPath(); X.arc(b.x, b.y, 6, 0, TAU); X.fill(); X.fillStyle = 'rgba(224,69,122,.25)'; X.beginPath(); X.arc(b.x, memY(), 14, 0, TAU); X.fill(); }
+  // landing markers: cyan when the shield is under them (will be blocked), red when not
+  for (const b of R.ebul) {
+    const safe = Math.abs(b.x - R.x) < SHIELD_W;
+    X.strokeStyle = safe ? 'rgba(95,225,255,.6)' : 'rgba(255,92,138,.7)'; X.lineWidth = 2;
+    X.beginPath(); X.arc(b.x, memY(), 12, 0, TAU); X.stroke();
+    X.setLineDash([3, 5]); X.beginPath(); X.moveTo(b.x, b.y + 8); X.lineTo(b.x, memY() - 12); X.stroke(); X.setLineDash([]);
+    X.fillStyle = '#e0457a'; X.beginPath(); X.arc(b.x, b.y, 6, 0, TAU); X.fill();
+  }
+  // the shield itself: shown whenever the boss is on the field
+  if (R.en.some(e => e.t === 'boss') || R.ebul.length) {
+    const sy = memY() - 12, f = R.shieldFlash / 0.35, a = 0.7 + 0.3 * f + 0.1 * Math.sin(T * 6);
+    const g = X.createLinearGradient(0, sy - 30, 0, sy + 8);
+    g.addColorStop(0, 'rgba(95,225,255,0)'); g.addColorStop(1, `rgba(95,225,255,${0.22 + 0.4 * f})`);
+    X.fillStyle = g; X.fillRect(R.x - SHIELD_W, sy - 30, SHIELD_W * 2, 38);
+    X.fillStyle = `rgba(95,225,255,${0.25 + 0.35 * f})`;
+    X.beginPath(); X.moveTo(R.x - SHIELD_W, sy + 8); X.quadraticCurveTo(R.x, sy - 22, R.x + SHIELD_W, sy + 8); X.quadraticCurveTo(R.x, sy - 6, R.x - SHIELD_W, sy + 8); X.fill();
+    X.shadowColor = '#5fe1ff'; X.shadowBlur = 10 + 14 * f;
+    X.strokeStyle = `rgba(95,225,255,${a})`; X.lineWidth = 3 + 2 * f;
+    X.beginPath(); X.moveTo(R.x - SHIELD_W, sy + 8); X.quadraticCurveTo(R.x, sy - 22, R.x + SHIELD_W, sy + 8); X.stroke();
+    X.shadowBlur = 0;
+    X.strokeStyle = `rgba(95,225,255,${0.25 + 0.4 * f})`; X.lineWidth = 1;
+    X.beginPath(); X.moveTo(R.x - SHIELD_W, sy + 8); X.lineTo(R.x - SHIELD_W, sy + 18); X.moveTo(R.x + SHIELD_W, sy + 8); X.lineTo(R.x + SHIELD_W, sy + 18); X.stroke();
+  }
   // bubbles
   for (const b of R.bubbles) {
     X.strokeStyle = 'rgba(159,240,255,.85)'; X.lineWidth = 1.5; X.beginPath(); X.arc(b.x, b.y, 9, 0, TAU); X.stroke();
@@ -829,6 +897,20 @@ function drawEnemy(e, T) {
     X.beginPath(); X.arc(-e.r * .35, 0, e.r * .7, 0, TAU); X.fill();
     X.beginPath(); X.arc(e.r * .35, 0, e.r * .7, 0, TAU); X.fill();
     X.strokeStyle = 'rgba(10,15,31,.5)'; X.lineWidth = 2; X.beginPath(); X.moveTo(0, -e.r * .6); X.lineTo(0, e.r * .6); X.stroke();
+  } else if (e.t === 'pig') {
+    const f = e.face || 1, r = e.r, bob = Math.sin(T * 10) * 2;
+    X.scale(f, 1);
+    X.fillStyle = e.flash > 0 ? '#ffffff' : '#e8a93a';
+    for (const lx of [-.5, -.2, .25, .55]) X.fillRect(lx * r - 4, r * .45 + (lx > 0 ? bob : -bob), 8, r * .35);
+    X.fillStyle = col; X.beginPath(); X.ellipse(0, 0, r * 1.05, r * .72, 0, 0, TAU); X.fill();
+    X.fillStyle = 'rgba(255,255,255,.35)'; X.beginPath(); X.ellipse(-r * .2, -r * .35, r * .45, r * .15, -0.2, 0, TAU); X.fill();
+    X.fillStyle = e.flash > 0 ? '#ffffff' : '#f0b84a';
+    X.beginPath(); X.moveTo(r * .35, -r * .55); X.lineTo(r * .55, -r * .95); X.lineTo(r * .7, -r * .5); X.fill();
+    X.fillStyle = e.flash > 0 ? '#ffffff' : '#ffb0a0'; X.beginPath(); X.ellipse(r * 1.0, r * .05, r * .24, r * .2, 0, 0, TAU); X.fill();
+    X.fillStyle = '#7a4a1a'; X.beginPath(); X.arc(r * .96, r * .02, 2.5, 0, TAU); X.arc(r * 1.08, r * .02, 2.5, 0, TAU); X.fill();
+    X.beginPath(); X.arc(r * .62, -r * .2, 3.5, 0, TAU); X.fill();
+    X.strokeStyle = '#e8a93a'; X.lineWidth = 3; X.beginPath(); X.arc(-r * 1.12, -r * .1, 6, 0.5, TAU - 0.5); X.stroke();
+    X.fillStyle = '#7a4a1a'; X.font = `400 ${Math.round(r * .5)}px "Dela Gothic One", sans-serif`; X.textAlign = 'center'; X.scale(f, 1); X.fillText('¥', -r * .1 * f, r * .2);
   } else if (e.t === 'phage') {
     X.strokeStyle = col; X.fillStyle = col; X.lineWidth = 1.5;
     X.beginPath(); X.moveTo(0, -e.r * .2); X.lineTo(0, e.r * .7); X.stroke();
@@ -861,7 +943,7 @@ function drawEnemy(e, T) {
     } else { X.fillStyle = 'rgba(10,15,31,.55)'; X.beginPath(); X.arc(e.r * .1, -e.r * .05, e.r * .45, 0, TAU); X.fill(); }
   }
   X.restore();
-  if (e.hp < e.mhp && e.t !== 'boss') {
+  if (e.hp < e.mhp && !e.big) {
     const w = Math.max(16, e.r * 1.8);
     X.fillStyle = 'rgba(10,15,31,.7)'; X.fillRect(e.x - w / 2, e.y - e.r - 9, w, 3);
     X.fillStyle = '#ff5c8a'; X.fillRect(e.x - w / 2, e.y - e.r - 9, w * Math.max(0, e.hp / e.mhp), 3);
@@ -880,7 +962,7 @@ let toasts = [];
 function toast(msg) { toasts.push({ msg, t: 2.4 }); if (toasts.length > 2) toasts.shift(); }
 let lastFrameDt = 0;
 function drawToasts() {
-  let y = safeT + 110;
+  let y = safeT + 160;
   X.font = '700 14px "Zen Kaku Gothic New", sans-serif'; X.textAlign = 'center';
   for (const t of toasts) {
     if (mode === 'play') t.t -= lastFrameDt;
@@ -896,13 +978,19 @@ function drawToasts() {
 let lastHud = '';
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function updateHud() {
-  const boss = R.en.find(e => e.t === 'boss' || e.t === 'elite');
+  const boss = R.en.find(e => e.t === 'boss' || e.t === 'pig') || R.en.find(e => e.t === 'elite');
   const key = [Math.ceil(R.hp), R.maxHp, Math.floor(R.t), R.lv, R.xp, R.coins, boss ? Math.ceil(boss.hp) : -1].join();
   if (key === lastHud) return; lastHud = key;
-  $('waveTxt').textContent = `第${R.ch}章 · ${fmt(R.t)}`;
   $('lvTxt').textContent = R.lv;
-  $('xpFill').style.width = (R.xp / needXp(R.lv) * 100) + '%';
-  $('bossEta').textContent = R.bossDone ? 'ボス戦' : `ボスまで ${fmt(BOSS_T - R.t).slice(1)}`;
+  if (R.kind === 'pig') {
+    $('waveTxt').textContent = `金ブタ 難易度${R.ch}`;
+    $('xpFill').style.width = ((R.t % 12) / 12 * 100) + '%';
+    $('bossEta').textContent = `残り ${fmt(Math.max(0, PIG_T - R.t)).slice(1)}`;
+  } else {
+    $('waveTxt').textContent = `第${R.ch}章 · ${fmt(R.t)}`;
+    $('xpFill').style.width = (R.xp / needXp(R.lv) * 100) + '%';
+    $('bossEta').textContent = R.bossDone ? 'ボス戦' : `ボスまで ${fmt(BOSS_T - R.t).slice(1)}`;
+  }
   $('coinTxt').textContent = R.coins;
   $('hpTxt').textContent = Math.ceil(R.hp);
   $('hpFill').style.width = (R.hp / R.maxHp * 100) + '%';
@@ -934,6 +1022,15 @@ function renderHome() {
   $('chSub').textContent = SAVE.ch < SAVE.maxCh ? 'クリア済み' : SAVE.ch === 1 ? '最初の章' : '未踏破';
   $('chPrev').disabled = SAVE.ch <= 1;
   $('chNext').disabled = SAVE.ch >= Math.min(SAVE.maxCh, MAXCH);
+  const pigOpen = SAVE.maxCh >= 3, left = pigToday();
+  SAVE.pigLv = Math.min(SAVE.pigLv || 1, SAVE.pigMax || 1);
+  $('pigName').textContent = `難易度 ${SAVE.pigLv}`;
+  $('pigSub').textContent = `HP ${pigHp(SAVE.pigLv).toLocaleString()} · 報酬 最大 ●${Math.round(pigReward(SAVE.pigLv) * 1.5)}`;
+  $('pigPrev').disabled = SAVE.pigLv <= 1;
+  $('pigNext').disabled = SAVE.pigLv >= Math.min(SAVE.pigMax || 1, PIG_MAX);
+  $('pigLeft').textContent = pigOpen ? `今日あと ${left} 回` : '第2章クリアで解放';
+  $('pigBtn').disabled = !pigOpen || left <= 0;
+  $('pigBtn').textContent = !pigOpen ? '第2章をクリアすると挑める' : left > 0 ? '金ブタ狩りへ' : '今日はもう挑めない (日付が変わると 3 回に戻る)';
   const slots = $('slots'); slots.textContent = '';
   for (let i = 0; i < 3; i++) { const d = document.createElement('div'); const id = SAVE.equip[i]; d.className = 'slot' + (id ? ' on' : ''); d.textContent = id ? `${WEAP[id].name} Lv${SAVE.w[id]}` : '空き'; slots.appendChild(d); }
   const wl = $('wlist'); wl.textContent = '';
@@ -970,15 +1067,22 @@ function renderHome() {
 }
 
 // ---------- flow ----------
-function start() {
-  resize(); newRun(); lastHud = ''; toasts = [];
+function startPig() {
+  if (SAVE.maxCh < 3 || pigToday() <= 0) return;
+  SAVE.pigLeft--; store();
+  start('pig');
+}
+function start(kind = 'chapter') {
+  resize(); newRun(kind); lastHud = ''; toasts = [];
   ['homeScr', 'overScr', 'pauseScr', 'skillScr', 'reviveScr'].forEach(id => $(id).hidden = true);
   $('hud').hidden = false;
-  openSkills(`第${R.ch}章 出撃準備`);
+  openSkills(R.kind === 'pig' ? `金ブタ狩り 難易度${R.ch} 準備` : `第${R.ch}章 出撃準備`);
 }
 function finish(win) {
   mode = 'over';
   $('hud').hidden = true; $('skillScr').hidden = true; $('reviveScr').hidden = true;
+  if (R.kind === 'pig') return finishPig(win);
+  $('rKillLbl').textContent = '撃破数';
   let coins = R.coins;
   if (win) { coins += 60 * R.ch; if (R.ch >= SAVE.maxCh) { SAVE.maxCh = Math.min(MAXCH, R.ch + 1); SAVE.ch = SAVE.maxCh; } }
   SAVE.coins += coins; store();
@@ -990,8 +1094,22 @@ function finish(win) {
   $('rWave').textContent = fmt(R.t).replace(/^0/, ''); $('rKill').textContent = R.kills; $('rCoin').textContent = coins;
   $('overScr').hidden = false;
 }
+function finishPig(win) {
+  const p = R.pig, full = pigReward(R.ch);
+  const frac = p ? Math.min(1, 1 - Math.max(0, p.hp) / p.mhp) : 0;
+  const coins = Math.floor(frac * full) + (win ? Math.round(full * 0.5) : 0);
+  const unlocked = win && R.ch >= (SAVE.pigMax || 1) && R.ch < PIG_MAX;
+  if (unlocked) SAVE.pigMax = R.ch + 1;
+  SAVE.coins += coins; store();
+  $('overEyebrow').textContent = `金ブタ狩り 難易度${R.ch}`;
+  $('overTitle').textContent = win ? '金ブタを仕留めた' : R.hp <= 0 ? '金ブタに膜を破られた' : '時間切れ';
+  $('overMsg').textContent = (win ? `撃破ボーナス ●${Math.round(full * 0.5)} 込み。` : `HP を ${Math.round(frac * 100)}% 削った分の報酬。`) + (unlocked ? `難易度 ${R.ch + 1} が開いた。` : '') + ` 今日はあと ${SAVE.pigLeft} 回挑める。`;
+  $('rWave').textContent = fmt(R.t).replace(/^0/, ''); $('rKill').textContent = `${Math.round(frac * 100)}%`; $('rKillLbl').textContent = '削った HP';
+  $('rCoin').textContent = coins;
+  $('overScr').hidden = false;
+}
 function quit() {
-  const coins = Math.floor(R.coins / 2); SAVE.coins += coins; store();
+  const coins = R.kind === 'pig' ? R.coins : Math.floor(R.coins / 2); SAVE.coins += coins; store();
   R = null; mode = 'home';
   ['pauseScr', 'hud'].forEach(id => $(id).hidden = true);
   toHome();
@@ -1005,7 +1123,10 @@ function pause(on) {
   } else if (!on && mode === 'pause') { $('pauseScr').hidden = true; mode = 'play'; }
 }
 
-$('startBtn').onclick = start;
+$('startBtn').onclick = () => start();
+$('pigBtn').onclick = startPig;
+$('pigPrev').onclick = () => { SAVE.pigLv = Math.max(1, SAVE.pigLv - 1); store(); renderHome(); };
+$('pigNext').onclick = () => { SAVE.pigLv = Math.min(SAVE.pigMax || 1, SAVE.pigLv + 1); store(); renderHome(); };
 $('homeBtn').onclick = toHome;
 $('resumeBtn').onclick = () => pause(false);
 $('quitBtn').onclick = quit;
