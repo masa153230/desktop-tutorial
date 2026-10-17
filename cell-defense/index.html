@@ -67,6 +67,8 @@ p strong { color: var(--ink); }
 #takeAllBtn:not(:disabled) { border-color: var(--gold); color: var(--gold); }
 .pigBox { display: grid; gap: 10px; padding: 14px; border-radius: 12px; border: 1px solid rgba(255,207,92,.35); background: rgba(255,207,92,.06); }
 .pigBox h3 { color: var(--gold); }
+.actBox { border-color: rgba(155,123,255,.4); background: rgba(155,123,255,.07); }
+.actBox h3 { color: var(--violet); }
 
 .homeTop { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .chap { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; background: var(--slip2); border-radius: 10px; padding: 10px; }
@@ -130,6 +132,16 @@ p strong { color: var(--ink); }
       <div class="slots" id="slots"></div>
       <div class="wlist" id="wlist"></div>
       <button class="btn" id="startBtn" type="button">出撃</button>
+      <div class="pigBox actBox" id="actBox">
+        <div class="homeTop"><h3>遠征 (横スクロール)</h3><span class="tag" id="actTag">第1章まで解放</span></div>
+        <p>血管の中を右へ進む。エリアに入ると出口が閉じ、WAVE をしのぐと先へ進める。左半分をドラッグで移動、右半分タップでジャンプ (2 段まで)。攻撃は自動。</p>
+        <div class="chap">
+          <button id="actPrev" type="button" aria-label="前の章">◀</button>
+          <div><b id="actName">第1章</b><small id="actSub">エリア 5 + ボス</small></div>
+          <button id="actNext" type="button" aria-label="次の章">▶</button>
+        </div>
+        <button class="btn" id="actBtn" type="button">遠征に出る</button>
+      </div>
       <div class="pigBox" id="pigBox">
         <div class="homeTop"><h3>黄金アメーバ採集</h3><span class="tag" id="pigLeft">今日あと 3 回</span></div>
         <p id="pigTxt">60 秒で黄金アメーバを削った分だけコインがもらえる。押し返さないと膜まで這い寄ってくる。</p>
@@ -216,6 +228,10 @@ function resize() {
 window.addEventListener('resize', resize);
 const memY = () => H - safeB - 130;   // the defense line
 const cellY = () => memY() + 40;
+const groundY = () => H - safeB - 110;  // floor line in the side-scrolling expedition
+const isAct = () => !!R && R.kind === 'act';
+// where weapons fire from: the player in the expedition, the cell on the membrane otherwise
+const origin = () => isAct() ? [R.px, R.py] : [R.x, cellY()];
 
 // ---------- weapons ----------
 const WEAP = {
@@ -236,7 +252,7 @@ const upCost = lv => Math.round(40 * Math.pow(lv, 1.55));
 const metaMul = lv => 1 + 0.15 * (lv - 1);
 
 // ---------- save ----------
-const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, speed: 1, pigMax: 1, pigLv: 1, pigLeft: 3, pigDay: '', equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
+const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, speed: 1, actMax: 1, actCh: 1, pigMax: 1, pigLv: 1, pigLeft: 3, pigDay: '', equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
 let SAVE = load();
 function load() {
   try { const s = JSON.parse(localStorage.getItem('celldef.save') || 'null'); if (s && s.w) return Object.assign(structuredClone(DEFAULT_SAVE), s); } catch (e) {}
@@ -306,7 +322,7 @@ const keys = new Set();
 const drag = { on: false, id: null, sx: 0, cx: 0 };
 
 function newRun(kind = 'chapter') {
-  const ch = kind === 'pig' ? SAVE.pigLv : SAVE.ch;
+  const ch = kind === 'pig' ? SAVE.pigLv : kind === 'act' ? SAVE.actCh : SAVE.ch;
   R = {
     kind, ch, pig: null, nextPick: 12, shieldFlash: 0, spitTold: false, rerolls: 2, takeAlls: 1, opts: [],
     xpMul: 1, coinMul: 1, bigMul: 1, explode: 0, lifesteal: 0, slowAura: 0, shieldMul: 1, execute: 0, kills: 0, coins: 0, revived: false, lv: 1, xp: 0, pending: 0, eliteDone: false, bossDone: false,
@@ -317,8 +333,12 @@ function newRun(kind = 'chapter') {
     queue: [], spawnT: 0, spawnGap: 1, daggerAng: 0, t: 0, bossT: 0, shake: 0, scroll: 0,
   };
   for (const id of R.equip) R.w[id] = { lv: SAVE.w[id] || 1, dmg: 1, rate: 1, n: 1, size: 1, t: 0.3 };
+  if (kind === 'act') Object.assign(R, {
+    px: 80, py: groundY() - PR, vx: 0, vy: 0, kbx: 0, face: 1, onGround: true, jumps: 0, coyote: 0, inv: 0,
+    camX: 0, lay: actLayout(ch), arena: 0, lock: null, wave: 0, waveQ: [], waveT: 0, abul: [], jumpReq: false, hint: 6,
+  });
 }
-const prog = () => Math.min(1, R.t / BOSS_T);
+const prog = () => R.kind === 'act' ? Math.min(1, R.arena / ACT_ARENAS) : Math.min(1, R.t / BOSS_T);
 // golden amoeba hunt: 60 s, coins in proportion to the share of its HP you strip, bonus for the kill
 const PIG_T = 60, PIG_MAX = 15, PIG_TRIES = 3, SHIELD_W = 36;
 const shieldW = () => SHIELD_W * (R ? R.shieldMul : 1);
@@ -347,6 +367,7 @@ function spawn(type, x, y) {
   const mul = hpMul() * (type === 'boss' ? 1 + 0.25 * (R.ch - 1) : 1);
   const seed = []; for (let i = 0; i < 10; i++) seed.push(0.82 + Math.random() * 0.36);
   const e = {
+    vx: 0, vy: 0, kx: 0, onG: false, shootT: 1 + Math.random() * 2, hopT: 0.8 + Math.random(),
     id: ++uid, t: type, x: x ?? (30 + Math.random() * (W - 60)), y: y ?? -d.r - 10,
     hp: d.hp * mul, mhp: d.hp * mul, r: d.r, sp: d.sp * (0.88 + Math.random() * 0.24) * (1 + 0.03 * (R.ch - 1)),
     atk: d.atk * (1 + 0.12 * (R.ch - 1)), flash: 0, ph: Math.random() * TAU, seed, dot: 0, dotT: 0,
@@ -380,14 +401,14 @@ function hit(e, d, px, py, noText) {
 function kill(e) {
   e.dead = true; R.kills++;
   const c = Math.round(ET[e.t].coin * (1 + 0.15 * (R.ch - 1)));
-  R.coins += Math.round(c * R.coinMul);
+  R.coins += Math.round(c * R.coinMul * (R.kind === 'act' ? 0.6 : 1));  // expedition fields more enemies per run
   R.xp += ET[e.t].coin * R.xpMul;
   if (R.lifesteal) R.hp = Math.min(R.maxHp, R.hp + R.lifesteal);
   if (R.explode && !e.big) {
     for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; R.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, t: .25, col: '#ffcf8a' }); }
     for (const o of R.en) if (!o.dead && o !== e && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 < (46 + o.r) ** 2) hit(o, R.explode, undefined, undefined, true);
   }
-  while (R.xp >= needXp(R.lv)) { R.xp -= needXp(R.lv); R.lv++; R.pending++; }
+  if (R.kind !== 'act') while (R.xp >= needXp(R.lv)) { R.xp -= needXp(R.lv); R.lv++; R.pending++; }  // the expedition levels up per cleared area instead
   if (e.t === 'boss' || e.t === 'pig') R.won = true;
   const col = ET[e.t].col, pn = e.big ? 26 : 7;
   for (let i = 0; i < pn; i++) { const a = Math.random() * TAU, s = 40 + Math.random() * 140; R.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: .4 + Math.random() * .4, col }); }
@@ -403,10 +424,13 @@ function nearestTo(x, y, maxD, skip) {
   for (const e of R.en) { if (e.dead || e === skip) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
   return best;
 }
-function frontline() { return R.en.filter(e => !e.dead && e.y > -10).sort((a, b) => b.y - a.y); }
+function frontline() {
+  if (isAct()) return R.en.filter(e => !e.dead && Math.abs(e.x - R.px) < W).sort((a, b) => Math.abs(a.x - R.px) + Math.abs(a.y - R.py) - Math.abs(b.x - R.px) - Math.abs(b.y - R.py));
+  return R.en.filter(e => !e.dead && e.y > -10).sort((a, b) => b.y - a.y);
+}
 
 function weapons(dt) {
-  const cx = R.x, cy = cellY();
+  const [cx, cy] = origin(), act = isAct();
   for (const id of R.equip) {
     const w = R.w[id];
     if (id === 'dagger') {
@@ -422,7 +446,7 @@ function weapons(dt) {
       continue;
     }
     if (id === 'capsule') {
-      const n = 2 + w.n, rad = 105 * w.size, ccy = memY() - rad + 24; // orbit sits outside the membrane
+      const n = 2 + w.n, rad = (act ? 85 : 105) * w.size, ccy = act ? cy : memY() - rad + 24; // defense: orbit sits outside the membrane
       R.capAng += dt * 2.6 * Math.sqrt(w.rate * R.grate);
       for (let i = 0; i < n; i++) {
         const a = -R.capAng + i / n * TAU, gx = cx + Math.cos(a) * rad, gy = ccy + Math.sin(a) * rad;
@@ -443,7 +467,7 @@ function weapons(dt) {
         R.shots.push({ k: 'scalpel', x: cx, y: cy - 10, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, dmg: dmgOf(id), pierce: w.pierce || 1, life: 1.6, hit: new Set() });
       }
     } else if (id === 'needle') {
-      const alive = R.en.filter(e => !e.dead && e.y > 0);
+      const alive = R.en.filter(e => !e.dead && (act || e.y > 0));
       if (!alive.length) { w.t = 0.1; continue; }
       w.t = cdOf(id);
       alive.sort((a, b) => b.hp - a.hp);
@@ -455,7 +479,7 @@ function weapons(dt) {
       w.t = cdOf(id);
       for (let i = 0; i < w.n; i++) R.bubbles.push({ x: cx + (i - (w.n - 1) / 2) * 26, y: cy - 16, ph: Math.random() * TAU, r: 46 * w.size, dmg: dmgOf(id) });
     } else if (id === 'bandage') {
-      const f = R.en.filter(e => !e.dead && e.y > 0);
+      const f = R.en.filter(e => !e.dead && (act || e.y > 0));
       if (!f.length) { w.t = 0.1; continue; }
       w.t = cdOf(id);
       for (let i = 0; i < w.n; i++) {
@@ -463,14 +487,14 @@ function weapons(dt) {
         R.shots.push({ k: 'bandage', tg, x: cx, y: cy - 10, vx: 0, vy: -300, dmg: dmgOf(id), pierce: 1, life: 3, hit: new Set(), spin: 0 });
       }
     } else if (id === 'laser') {
-      if (!R.en.some(e => !e.dead && Math.abs(e.x - R.x) < 60 && e.y > 0)) { w.t = 0.15; continue; }
+      if (!R.en.some(e => !e.dead && (act ? Math.abs(e.y - cy) < 60 && (e.x - cx) * R.face > 0 && Math.abs(e.x - cx) < W * 0.8 : Math.abs(e.x - R.x) < 60 && e.y > 0))) { w.t = 0.15; continue; }
       w.t = cdOf(id);
-      const dur = 0.45 * (w.dur || 1); R.beams.push({ life: dur, max: dur, width: 18 * w.size * (1 + 0.5 * (w.n - 1)), dps: dmgOf(id) / 0.45 });
+      const dur = 0.45 * (w.dur || 1); R.beams.push({ life: dur, max: dur, width: 18 * w.size * (1 + 0.5 * (w.n - 1)), dps: dmgOf(id) / 0.45, dir: R.face });
     } else if (id === 'syringe') {
-      if (!R.en.some(e => !e.dead && e.y > 0)) { w.t = 0.1; continue; }
+      if (!R.en.some(e => !e.dead && (act || e.y > 0))) { w.t = 0.1; continue; }
       w.t = cdOf(id);
       for (let i = 0; i < w.n; i++) {
-        const a = -Math.PI / 2 + (i - (w.n - 1) / 2) * 0.12;
+        const a = (act ? (R.face > 0 ? 0 : Math.PI) : -Math.PI / 2) + (i - (w.n - 1) / 2) * 0.12;
         R.shots.push({ k: 'syringe', x: cx, y: cy - 12, vx: Math.cos(a) * 700, vy: Math.sin(a) * 700, dmg: dmgOf(id), pierce: 99, life: 1.5, hit: new Set() });
       }
     } else if (id === 'stetho') {
@@ -481,7 +505,7 @@ function weapons(dt) {
       w.t = cdOf(id);
       const reach = 190 * w.size, half = 34 * w.size * (1 + 0.3 * (w.n - 1));
       let any = false;
-      for (const e of R.en) if (!e.dead && e.y < cy && cy - e.y < reach && Math.abs(e.x - cx) < half + e.r) { any = true; e.slowT = R.t + 0.4; hit(e, dmgOf(id), undefined, undefined, true); }
+      for (const e of R.en) if (!e.dead && (act ? (e.x - cx) * R.face > 0 && Math.abs(e.x - cx) < reach && Math.abs(e.y - cy) < half + e.r : e.y < cy && cy - e.y < reach && Math.abs(e.x - cx) < half + e.r)) { any = true; e.slowT = R.t + 0.4; hit(e, dmgOf(id), undefined, undefined, true); }
       if (any) R.cryoOn = 0.3;
     } else if (id === 'electro') {
       const f = frontline(); if (!f.length) { w.t = 0.1; continue; }
@@ -526,9 +550,9 @@ function skillPool() {
   L.push({ wp: '成長', name: '代謝促進', txt: m => `獲得経験値 +${Math.round(20 * m)}%`, ap: m => R.xpMul += 0.2 * m });
   L.push({ wp: '成長', name: '栄養吸収', txt: m => `獲得コイン +${Math.round(15 * m)}%`, ap: m => R.coinMul += 0.15 * m });
   L.push({ wp: '細胞膜', name: '貪食', txt: m => `敵を倒すたびに細胞膜を ${(0.4 * m).toFixed(1)} 回復`, ap: m => R.lifesteal += 0.4 * m });
-  L.push({ wp: '細胞膜', name: '粘液層', txt: m => `膜の手前 140 の範囲で敵の速度 -${Math.round(15 * m)}%`, ap: m => R.slowAura = Math.min(0.6, R.slowAura + 0.15 * m) });
-  if (R.kind !== 'pig') L.push({ wp: '細胞膜', name: 'シールド拡張', txt: m => `ボス弾を防ぐシールドの幅 +${Math.round(25 * m)}%`, ap: m => R.shieldMul += 0.25 * m });
-  L.push({ wp: '細胞膜', name: 'トゲ状突起', txt: m => `膜に触れた敵へ毎秒 ${Math.round(12 * m * hpMul())} ダメージ`, ap: m => R.thorns += 12 * m * hpMul() });
+  L.push({ wp: '細胞膜', name: '粘液層', txt: m => `${R.kind === 'act' ? '細胞のまわり' : '膜の手前'} 140 の範囲で敵の速度 -${Math.round(15 * m)}%`, ap: m => R.slowAura = Math.min(0.6, R.slowAura + 0.15 * m) });
+  if (R.kind === 'chapter') L.push({ wp: '細胞膜', name: 'シールド拡張', txt: m => `ボス弾を防ぐシールドの幅 +${Math.round(25 * m)}%`, ap: m => R.shieldMul += 0.25 * m });
+  L.push({ wp: '細胞膜', name: 'トゲ状突起', txt: m => `${R.kind === 'act' ? '体に' : '膜に'}触れた敵へ毎秒 ${Math.round(12 * m * hpMul())} ダメージ`, ap: m => R.thorns += 12 * m * hpMul() });
   return L;
 }
 function rollRarity(min) {
@@ -576,8 +600,101 @@ function takeAllSkills() {
 }
 function afterSkill() { mode = 'play'; if (R.pending > 0) { R.pending--; openSkills(`レベル ${R.lv}`); } }
 
+// shared projectile / effect simulation for every mode
+function updateFx(dt) {
+  const act = isAct(), my = act ? groundY() : memY(), [ox, oy] = origin();
+  // shots
+  for (const s of R.shots) {
+    if ((s.k === 'needle' || s.k === 'bandage') && s.tg) {
+      if (s.tg.dead) s.tg = s.k === 'needle' ? R.en.filter(e => !e.dead).sort((a, b) => b.hp - a.hp)[0] : nearestTo(s.x, s.y, 300);
+      if (s.tg) {
+        let tx = s.tg.x, ty = s.tg.y;
+        if (s.k === 'needle' && s.tg.t === 'boss') { const wp = weakPos(s.tg); tx = wp.x; ty = wp.y; }
+        const a = Math.atan2(ty - s.y, tx - s.x), sp = s.k === 'needle' ? 520 : 380;
+        const k = Math.min(1, dt * (s.k === 'needle' ? 7 : 10));
+        s.vx += (Math.cos(a) * sp - s.vx) * k; s.vy += (Math.sin(a) * sp - s.vy) * k;
+      }
+    }
+    s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+    if (s.spin !== undefined) s.spin += dt * 10;
+    if (act ? (s.x < R.camX - 80 || s.x > R.camX + W + 80 || s.y < -80 || s.y > H + 40) : (s.y < -60 || s.x < -60 || s.x > W + 60)) s.life = 0;
+    for (const e of R.en) {
+      if (e.dead || s.hit.has(e.id) || s.life <= 0) continue;
+      if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (e.r + 5) ** 2) {
+        s.hit.add(e.id);
+        if (s.k === 'bandage') {
+          R.zones.push({ follow: e, x: e.x, y: e.y, r: 40 * R.w.bandage.size, dps: s.dmg, life: 4.5, tick: 0 });
+          s.life = 0; break;
+        }
+        hit(e, s.dmg, s.x, s.y);
+        if (!e.big) { if (act) e.kx = Math.sign(s.vx || 1) * 160; else e.kb = 90; }
+        if (--s.pierce <= 0) { s.life = 0; break; }
+      }
+    }
+  }
+  R.shots = R.shots.filter(s => s.life > 0);
+
+  // bubbles
+  for (const b of R.bubbles) {
+    b.y -= 120 * dt; b.ph += dt * 3; b.x += Math.sin(b.ph) * 30 * dt;
+    let pop = b.y < 20;
+    if (!pop) for (const e of R.en) if (!e.dead && (e.x - b.x) ** 2 + (e.y - b.y) ** 2 < (e.r + 12) ** 2) { pop = true; break; }
+    if (pop) {
+      b.dead = true;
+      for (const e of R.en) if (!e.dead && (e.x - b.x) ** 2 + (e.y - b.y) ** 2 < (b.r + e.r) ** 2) hit(e, b.dmg, b.x, b.y);
+      for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; R.parts.push({ x: b.x + Math.cos(a) * b.r * 0.6, y: b.y + Math.sin(a) * b.r * 0.6, vx: Math.cos(a) * 60, vy: Math.sin(a) * 60, t: .35, col: '#9ff0ff' }); }
+    }
+  }
+  R.bubbles = R.bubbles.filter(b => !b.dead);
+
+  // bandage zones
+  for (const z of R.zones) {
+    if (z.follow && !z.follow.dead) { z.x = z.follow.x; z.y = z.follow.y; }
+    z.life -= dt; z.tick -= dt;
+    if (z.tick <= 0) {
+      z.tick = 0.4;
+      for (const e of R.en) if (!e.dead && (e.x - z.x) ** 2 + (e.y - z.y) ** 2 < (z.r + e.r) ** 2) hit(e, z.dps * 0.4, undefined, undefined, true);
+    }
+  }
+  R.zones = R.zones.filter(z => z.life > 0);
+
+  // stethoscope rings
+  for (const r of R.rings) {
+    r.r += 420 * dt;
+    for (const e of R.en) {
+      if (e.dead || r.hit.has(e.id)) continue;
+      const d = Math.hypot(e.x - r.x, e.y - r.y);
+      if (d < r.r + e.r) { r.hit.add(e.id); hit(e, r.dmg, e.x, e.y); if (!e.big && e.t !== 'boss') { if (act) e.kx = Math.sign(e.x - r.x || 1) * 320; else { e.atWall = false; e.y -= 34; e.kb = 140; } } }
+    }
+  }
+  R.rings = R.rings.filter(r => r.r < r.max);
+  for (const b of R.bolts) b.life -= dt;
+  R.bolts = R.bolts.filter(b => b.life > 0);
+  R.cryoOn = Math.max(0, R.cryoOn - dt);
+  // beams
+  for (const b of R.beams) {
+    b.life -= dt;
+    for (const e of R.en) if (!e.dead && (act ? Math.abs(e.y - oy) < b.width / 2 + e.r && (e.x - ox) * b.dir > -e.r && Math.abs(e.x - ox) < W : Math.abs(e.x - R.x) < b.width / 2 + e.r && e.y < my)) {
+      const wp = e.t === 'boss' ? weakPos(e) : null;
+      const onWeak = wp && (act ? Math.abs(wp.y - oy) : Math.abs(wp.x - R.x)) < b.width / 2 + 8;
+      e.hp -= b.dps * dt * (onWeak ? 2.5 : 1) * (1 + R.crit); e.flash = 0.05;
+      if (e.hp <= 0) kill(e);
+    }
+  }
+  R.beams = R.beams.filter(b => b.life > 0);
+
+  R.en = R.en.filter(e => !e.dead);
+  for (const q of R.parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= .9; q.vy *= .9; q.t -= dt; }
+  R.parts = R.parts.filter(q => q.t > 0); if (R.parts.length > 350) R.parts.splice(0, R.parts.length - 350);
+  for (const t of R.texts) { t.y -= 28 * dt; t.t -= dt; }
+  R.texts = R.texts.filter(t => t.t > 0);
+  R.shake = Math.max(0, R.shake - dt);
+
+}
+
 // ---------- update ----------
 function update(dt) {
+  if (R.kind === 'act') return updateAct(dt);
   R.t += dt; R.scroll += dt * 14;
   const my = memY();
   // move
@@ -659,74 +776,6 @@ function update(dt) {
     if (Math.abs(d) < rr) { const p = (rr - Math.abs(d)) * 0.5 * Math.sign(d || 1); a.x += p * 0.5; b.x -= p * 0.5; }
   }
 
-  // shots
-  for (const s of R.shots) {
-    if ((s.k === 'needle' || s.k === 'bandage') && s.tg) {
-      if (s.tg.dead) s.tg = s.k === 'needle' ? R.en.filter(e => !e.dead).sort((a, b) => b.hp - a.hp)[0] : nearestTo(s.x, s.y, 300);
-      if (s.tg) {
-        let tx = s.tg.x, ty = s.tg.y;
-        if (s.k === 'needle' && s.tg.t === 'boss') { const wp = weakPos(s.tg); tx = wp.x; ty = wp.y; }
-        const a = Math.atan2(ty - s.y, tx - s.x), sp = s.k === 'needle' ? 520 : 380;
-        const k = Math.min(1, dt * (s.k === 'needle' ? 7 : 10));
-        s.vx += (Math.cos(a) * sp - s.vx) * k; s.vy += (Math.sin(a) * sp - s.vy) * k;
-      }
-    }
-    s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
-    if (s.spin !== undefined) s.spin += dt * 10;
-    if (s.y < -60 || s.x < -60 || s.x > W + 60) s.life = 0;
-    for (const e of R.en) {
-      if (e.dead || s.hit.has(e.id) || s.life <= 0) continue;
-      if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (e.r + 5) ** 2) {
-        s.hit.add(e.id);
-        if (s.k === 'bandage') {
-          R.zones.push({ follow: e, x: e.x, y: e.y, r: 40 * R.w.bandage.size, dps: s.dmg, life: 4.5, tick: 0 });
-          s.life = 0; break;
-        }
-        hit(e, s.dmg, s.x, s.y);
-        if (!e.big) e.kb = 90;
-        if (--s.pierce <= 0) { s.life = 0; break; }
-      }
-    }
-  }
-  R.shots = R.shots.filter(s => s.life > 0);
-
-  // bubbles
-  for (const b of R.bubbles) {
-    b.y -= 120 * dt; b.ph += dt * 3; b.x += Math.sin(b.ph) * 30 * dt;
-    let pop = b.y < 20;
-    if (!pop) for (const e of R.en) if (!e.dead && (e.x - b.x) ** 2 + (e.y - b.y) ** 2 < (e.r + 12) ** 2) { pop = true; break; }
-    if (pop) {
-      b.dead = true;
-      for (const e of R.en) if (!e.dead && (e.x - b.x) ** 2 + (e.y - b.y) ** 2 < (b.r + e.r) ** 2) hit(e, b.dmg, b.x, b.y);
-      for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; R.parts.push({ x: b.x + Math.cos(a) * b.r * 0.6, y: b.y + Math.sin(a) * b.r * 0.6, vx: Math.cos(a) * 60, vy: Math.sin(a) * 60, t: .35, col: '#9ff0ff' }); }
-    }
-  }
-  R.bubbles = R.bubbles.filter(b => !b.dead);
-
-  // bandage zones
-  for (const z of R.zones) {
-    if (z.follow && !z.follow.dead) { z.x = z.follow.x; z.y = z.follow.y; }
-    z.life -= dt; z.tick -= dt;
-    if (z.tick <= 0) {
-      z.tick = 0.4;
-      for (const e of R.en) if (!e.dead && (e.x - z.x) ** 2 + (e.y - z.y) ** 2 < (z.r + e.r) ** 2) hit(e, z.dps * 0.4, undefined, undefined, true);
-    }
-  }
-  R.zones = R.zones.filter(z => z.life > 0);
-
-  // stethoscope rings
-  for (const r of R.rings) {
-    r.r += 420 * dt;
-    for (const e of R.en) {
-      if (e.dead || r.hit.has(e.id)) continue;
-      const d = Math.hypot(e.x - r.x, e.y - r.y);
-      if (d < r.r + e.r) { r.hit.add(e.id); hit(e, r.dmg, e.x, e.y); if (!e.big && e.t !== 'boss') { e.atWall = false; e.y -= 34; e.kb = 140; } }
-    }
-  }
-  R.rings = R.rings.filter(r => r.r < r.max);
-  for (const b of R.bolts) b.life -= dt;
-  R.bolts = R.bolts.filter(b => b.life > 0);
-  R.cryoOn = Math.max(0, R.cryoOn - dt);
   // boss spit: lands on the membrane unless the cell catches it
   for (const b of R.ebul) {
     b.y += b.vy * dt;
@@ -742,24 +791,7 @@ function update(dt) {
   R.ebul = R.ebul.filter(b => !b.dead);
   R.shieldFlash = Math.max(0, R.shieldFlash - dt);
 
-  // beams
-  for (const b of R.beams) {
-    b.life -= dt;
-    for (const e of R.en) if (!e.dead && Math.abs(e.x - R.x) < b.width / 2 + e.r && e.y < my) {
-      const wp = e.t === 'boss' ? weakPos(e) : null;
-      const onWeak = wp && Math.abs(wp.x - R.x) < b.width / 2 + 8;
-      e.hp -= b.dps * dt * (onWeak ? 2.5 : 1) * (1 + R.crit); e.flash = 0.05;
-      if (e.hp <= 0) kill(e);
-    }
-  }
-  R.beams = R.beams.filter(b => b.life > 0);
-
-  R.en = R.en.filter(e => !e.dead);
-  for (const q of R.parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= .9; q.vy *= .9; q.t -= dt; }
-  R.parts = R.parts.filter(q => q.t > 0); if (R.parts.length > 350) R.parts.splice(0, R.parts.length - 350);
-  for (const t of R.texts) { t.y -= 28 * dt; t.t -= dt; }
-  R.texts = R.texts.filter(t => t.t > 0);
-  R.shake = Math.max(0, R.shake - dt);
+  updateFx(dt);
 
   if (R.won) return finish(true);
   if (R.kind === 'pig' && R.t >= PIG_T) return finish(false);
@@ -771,11 +803,254 @@ function update(dt) {
   if (R.pending > 0) { R.pending--; openSkills(`レベル ${R.lv}`); }
 }
 
+
+// ---------- expedition: side-scrolling action with locked wave arenas ----------
+const ACT_ARENAS = 5, ACT_SEG = 900, PR = 18;
+const GROUND_T = new Set(['bacil', 'split', 'tank', 'phage', 'elite']);
+const pad = { on: false, id: null, ox: 0, x: 0 };
+function actLayout(ch) {
+  const aw = Math.min(W, 560), arenas = [], plats = [], cells = [];
+  for (let i = 0; i <= ACT_ARENAS; i++) arenas.push({ x: 560 + i * ACT_SEG, w: aw, waves: i === ACT_ARENAS ? 1 : i >= 2 ? 3 : 2, boss: i === ACT_ARENAS });
+  const len = arenas[ACT_ARENAS].x + aw + 40;
+  let seed = (ch * 7919) % 233280;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let x = 220; x < len - 120; x += 170 + rnd() * 130) plats.push({ x, w: 70 + rnd() * 60, h: rnd() < 0.5 ? 85 : 160 });
+  for (let i = 0; i < 26; i++) cells.push({ x: rnd() * 2400, y: rnd(), r: 14 + rnd() * 16, a: rnd() * TAU });
+  return { arenas, plats, cells, len };
+}
+function pickTypeAct() {
+  const g = prog() + (R.ch - 1) * 0.15, pool = ['virus', 'bacil', 'virus'];
+  if (g > 0.15) pool.push('split');
+  if (g > 0.3) pool.push('phage');
+  if (g > 0.45) pool.push('tank');
+  if (g > 0.6) pool.push('armor');
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function spawnAct(type) {
+  const A = R.lock, gy = groundY(), side = Math.random() < 0.5;
+  let x, y;
+  if (GROUND_T.has(type)) { x = side ? A.x - 20 : A.x + A.w + 20; y = gy - ET[type].r; }
+  else { x = A.x + 30 + Math.random() * (A.w - 60); y = gy - 260 - Math.random() * 90; }
+  const e = spawn(type, x, y);
+  e.ground = GROUND_T.has(type);
+  return e;
+}
+function nextActWave() {
+  const A = R.lock;
+  R.wave++;
+  if (A.boss) {
+    const b = spawn('boss', A.x + A.w * 0.7, groundY() - 190); b.ground = false;
+    toast(`${ET.boss.name}出現。光る核が弱点`); R.waveQ = []; return;
+  }
+  const n = 3 + R.arena * 2 + R.ch + R.wave;
+  R.waveQ = Array.from({ length: n }, pickTypeAct);
+  if (R.wave === A.waves && (R.arena === 2 || R.arena === ACT_ARENAS - 1)) R.waveQ.splice(Math.floor(n / 2), 0, 'elite');
+  R.waveT = 0.6;
+  toast(`エリア ${R.arena + 1} · WAVE ${R.wave}/${A.waves}`);
+}
+function hurtPlayer(d, dir) {
+  if (R.inv > 0) return;
+  R.hp -= d; R.inv = 0.8; R.hurt = 0.25; R.kbx = dir * 260; R.vy = Math.min(R.vy, -260);
+  R.texts.push({ x: R.px, y: R.py - 26, v: `-${Math.round(d)}`, col: '#ff5c8a', t: 0.6 });
+}
+function shootAt(e, sp, spread, n, dmg) {
+  const a0 = Math.atan2(R.py - e.y, R.px - e.x);
+  for (let i = 0; i < n; i++) { const a = a0 + (i - (n - 1) / 2) * spread; R.abul.push({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg }); }
+}
+function updateAct(dt) {
+  R.t += dt;
+  const gy = groundY(), L = R.lay, chMul = 1 + 0.12 * (R.ch - 1);
+  R.hp = Math.min(R.maxHp, R.hp + R.regen * dt);
+  R.hurt = Math.max(0, R.hurt - dt); R.inv = Math.max(0, R.inv - dt); R.hint = Math.max(0, R.hint - dt);
+
+  // --- player ---
+  let mv = 0;
+  if (keys.has('ArrowLeft') || keys.has('KeyA')) mv--;
+  if (keys.has('ArrowRight') || keys.has('KeyD')) mv++;
+  if (pad.on) { const d = pad.x - pad.ox; if (Math.abs(d) > 8) mv = Math.max(-1, Math.min(1, d / 36)); }
+  if (mv) R.face = Math.sign(mv);
+  else { const n = nearestTo(R.px, R.py, 520); if (n) R.face = n.x >= R.px ? 1 : -1; }
+  if (R.jumpReq) {
+    R.jumpReq = false;
+    if (R.onGround || R.coyote > 0) { R.vy = -610; R.jumps = 1; R.coyote = 0; }
+    else if (R.jumps < 2) { R.vy = -540; R.jumps = 2; for (let i = 0; i < 6; i++) R.parts.push({ x: R.px, y: R.py + PR, vx: (Math.random() - .5) * 120, vy: 40 + Math.random() * 60, t: .3, col: '#c2a8ff' }); }
+  }
+  R.vy = Math.min(900, R.vy + 1600 * dt);
+  R.kbx *= Math.pow(0.01, dt);
+  const oldY = R.py;
+  R.px += (mv * 220 + R.kbx) * dt; R.py += R.vy * dt;
+  R.onGround = false;
+  if (R.py + PR >= gy) { R.py = gy - PR; R.vy = 0; R.onGround = true; }
+  if (R.vy >= 0) for (const p of L.plats) {   // one-way platforms: land only when falling onto them
+    const top = gy - p.h;
+    if (R.px > p.x - 6 && R.px < p.x + p.w + 6 && oldY + PR <= top + 2 && R.py + PR >= top) { R.py = top - PR; R.vy = 0; R.onGround = true; }
+  }
+  if (R.onGround) { R.jumps = 0; R.coyote = 0.1; } else R.coyote = Math.max(0, R.coyote - dt);
+  const lo = R.lock ? R.lock.x : 0, hi = R.lock ? R.lock.x + R.lock.w : L.len;
+  R.px = Math.max(lo + PR, Math.min(hi - PR, R.px));
+  const camT = R.lock ? R.lock.x + R.lock.w / 2 - W / 2 : R.px - W * 0.38;
+  R.camX += (Math.max(0, Math.min(Math.max(0, L.len - W), camT)) - R.camX) * Math.min(1, dt * 6);
+
+  // --- arenas & waves ---
+  const A = L.arenas[R.arena];
+  if (!R.lock && A && R.px > A.x + A.w * 0.35) { R.lock = A; R.wave = 0; nextActWave(); }
+  if (R.lock) {
+    if (R.waveQ.length) { R.waveT -= dt; if (R.waveT <= 0) { spawnAct(R.waveQ.shift()); R.waveT = Math.max(0.3, 0.85 - R.ch * 0.03) * (0.6 + Math.random() * 0.8); } }
+    else if (!R.en.length && !R.lock.boss) {
+      if (R.wave < R.lock.waves) nextActWave();
+      else { R.lock = null; R.arena++; R.coins += Math.round((8 + R.arena * 4) * R.coinMul); R.lv++; R.pending++; toast('エリア制圧。右へ進め'); }
+    }
+  }
+
+  weapons(dt);
+
+  // --- enemies ---
+  for (const e of R.en) {
+    if (e.dead) continue;
+    e.flash = Math.max(0, e.flash - dt);
+    const dx = R.px - e.x, dy = R.py - e.y, d = Math.hypot(dx, dy) || 1;
+    const slow = ((e.slowT || 0) > R.t ? 0.5 : 1) * (R.slowAura && d < 140 ? 1 - R.slowAura : 1);
+    e.kx *= Math.pow(0.02, dt);
+    e.shootT -= dt;
+    if (e.t === 'boss') {
+      const B = R.lock || A;
+      e.weakA += dt * 1.4; R.bossT += dt;
+      e.x = B.x + B.w * 0.62 + Math.sin(R.t * 0.55) * B.w * 0.26;
+      e.y = gy - 200 + Math.sin(R.t * 1.1) * 55;
+      if (e.shootT <= 0) {
+        e.shootT = 2.6;
+        const n = 10 + Math.min(6, R.ch);
+        for (let i = 0; i < n; i++) { const a = i / n * TAU + R.t; R.abul.push({ x: e.x, y: e.y, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, dmg: 9 * chMul }); }
+        shootAt(e, 230, 0.18, 3, 9 * chMul);
+      }
+      if (Math.floor(R.bossT / 5) !== Math.floor((R.bossT - dt) / 5)) for (let k = 0; k < 2; k++) { const v = spawn('virus', e.x, e.y + 30); v.ground = false; }
+    } else if (e.ground) {
+      e.vy = Math.min(900, e.vy + 1600 * dt);
+      if (e.t === 'phage') {
+        e.hopT -= dt;
+        if (e.hopT <= 0 && e.onG) { e.vy = -520; e.vx = Math.sign(dx) * 190; e.hopT = 1.3; }
+        if (e.onG) e.vx = 0;
+      } else e.vx = Math.sign(dx) * e.sp * slow * (e.t === 'bacil' ? 1.6 : e.t === 'elite' ? 0.9 : 1.1);
+      e.x += (e.vx + e.kx) * dt; e.y += e.vy * dt;
+      e.onG = false;
+      if (e.y + e.r >= gy) { e.y = gy - e.r; e.vy = 0; e.onG = true; }
+      if (e.t === 'elite' && e.shootT <= 0) { e.shootT = 2.4; shootAt(e, 200, 0.25, 3, 10 * chMul); }
+    } else {
+      const sp = e.sp * slow * 0.85;
+      e.x += (dx / d * sp + e.kx) * dt;
+      e.y += (dy / d * sp * 0.6 + Math.sin(R.t * 2 + e.ph) * 26) * dt;
+      e.y = Math.min(e.y, gy - e.r);
+      if (e.t === 'armor' && e.shootT <= 0) { e.shootT = 3; shootAt(e, 190, 0, 1, 8 * chMul); }
+    }
+    if (R.lock) e.x = Math.max(R.lock.x - 30, Math.min(R.lock.x + R.lock.w + 30, e.x));
+    if (d < e.r + PR - 4) {
+      hurtPlayer(6 + e.atk * 1.3, dx > 0 ? 1 : -1);
+      if (R.thorns) { e.hp -= R.thorns * dt * 8; if (e.hp <= 0) kill(e); }
+    }
+  }
+  // --- enemy bullets ---
+  for (const b of R.abul) {
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if ((b.x - R.px) ** 2 + (b.y - R.py) ** 2 < (PR + 5) ** 2 && R.inv <= 0) { hurtPlayer(b.dmg, b.vx > 0 ? 1 : -1); b.dead = true; }
+    if (b.y > gy || b.y < -40 || b.x < R.camX - 60 || b.x > R.camX + W + 60) b.dead = true;
+  }
+  R.abul = R.abul.filter(b => !b.dead);
+
+  updateFx(dt);
+
+  if (R.won) return finish(true);
+  if (R.hp <= 0) {
+    R.hp = 0;
+    if (!R.revived) { mode = 'revive'; $('reviveScr').hidden = false; return; }
+    return finish(false);
+  }
+  if (R.pending > 0) { R.pending--; openSkills(`エリア ${R.arena} 制圧`); }
+}
+function drawErythrocyte(x, y, r, a) {
+  X.save(); X.translate(x, y); X.rotate(a);
+  X.fillStyle = 'rgba(224,69,122,.16)'; X.beginPath(); X.ellipse(0, 0, r, r * 0.42, 0, 0, TAU); X.fill();
+  X.fillStyle = 'rgba(10,15,31,.25)'; X.beginPath(); X.ellipse(0, 0, r * 0.45, r * 0.16, 0, 0, TAU); X.fill();
+  X.restore();
+}
+function drawAct(T) {
+  const gy = groundY(), L = R.lay, [ox, oy] = origin(), cam = Math.round(R.camX);
+  X.save();
+  if (R.shake > 0) X.translate((Math.random() - .5) * 14 * R.shake, (Math.random() - .5) * 14 * R.shake);
+  // vessel lumen: hemocytometer ruling plus drifting red cells at 30% parallax
+  X.lineWidth = 1; X.strokeStyle = 'rgba(141,148,191,0.07)'; X.beginPath();
+  for (let x = -(cam % 50) + .5; x < W; x += 50) { X.moveTo(x, 0); X.lineTo(x, gy); }
+  for (let y = gy - 50; y > 0; y -= 50) { X.moveTo(0, y + .5); X.lineTo(W, y + .5); }
+  X.stroke();
+  for (const c of L.cells) { const x = ((c.x - cam * 0.3 + T * 8) % 2400 + 2400) % 2400 - 100; if (x < W + 60) drawErythrocyte(x, safeT + 60 + c.y * (gy - safeT - 120), c.r, c.a + T * 0.2); }
+  X.save(); X.translate(-cam, 0);
+  // vessel wall (floor) and one-way platforms drawn as lipid bilayers
+  X.fillStyle = 'rgba(155,123,255,0.09)'; X.fillRect(cam - 10, gy, W + 20, H - gy);
+  const bilayer = (x0, x1, y) => {
+    X.strokeStyle = 'rgba(194,168,255,.75)'; X.lineWidth = 2;
+    for (const off of [-3, 3]) { X.beginPath(); X.moveTo(x0, y + off); X.lineTo(x1, y + off); X.stroke(); }
+    X.fillStyle = 'rgba(194,168,255,.6)';
+    for (let x = x0 + 4; x < x1; x += 10) { X.beginPath(); X.arc(x, y - 5, 1.8, 0, TAU); X.arc(x, y + 5, 1.8, 0, TAU); X.fill(); }
+  };
+  bilayer(cam - 10, cam + W + 10, gy);
+  for (const p of L.plats) if (p.x + p.w > cam - 20 && p.x < cam + W + 20) bilayer(p.x, p.x + p.w, gy - p.h);
+  // arena gates
+  for (const A of L.arenas) {
+    if (A.x > cam + W + 40 || A.x + A.w < cam - 40) continue;
+    const locked = R.lock === A;
+    for (const gx of [A.x, A.x + A.w]) {
+      X.strokeStyle = locked ? `rgba(255,92,138,${0.55 + 0.25 * Math.sin(T * 6)})` : 'rgba(141,148,191,.18)'; X.lineWidth = locked ? 4 : 1;
+      X.setLineDash(locked ? [] : [4, 8]); X.beginPath(); X.moveTo(gx, safeT + 120); X.lineTo(gx, gy); X.stroke(); X.setLineDash([]);
+    }
+    if (!locked && A === L.arenas[R.arena]) { X.fillStyle = 'rgba(230,233,255,.5)'; X.font = '700 12px "Zen Kaku Gothic New", sans-serif'; X.textAlign = 'center'; X.fillText(A.boss ? 'ボスエリア' : `エリア ${R.arena + 1}`, A.x + A.w / 2, gy - 200); }
+  }
+  drawZones();
+  for (const e of R.en) drawEnemy(e, T);
+  for (const b of R.beams) {
+    const a = b.life / b.max, x1 = b.dir > 0 ? ox : ox - W, w = W;
+    X.fillStyle = `rgba(255,143,177,${0.25 * a})`; X.fillRect(x1, oy - b.width, w, b.width * 2);
+    X.fillStyle = `rgba(255,230,240,${0.85 * a})`; X.fillRect(x1, oy - b.width / 4, w, b.width / 2);
+  }
+  drawDagger(ox, oy);
+  if (R.cryoOn > 0 && R.w.cryo) {
+    const w = R.w.cryo, reach = 190 * w.size, half = 34 * w.size * (1 + 0.3 * (w.n - 1)), f = R.face;
+    const g = X.createLinearGradient(ox, 0, ox + f * reach, 0);
+    g.addColorStop(0, 'rgba(200,240,138,.35)'); g.addColorStop(1, 'rgba(200,240,138,0)');
+    X.fillStyle = g; X.beginPath(); X.moveTo(ox + f * 14, oy - 8); X.lineTo(ox + f * reach, oy - half); X.lineTo(ox + f * reach, oy + half); X.lineTo(ox + f * 14, oy + 8); X.fill();
+  }
+  if (!(R.inv > 0 && Math.floor(T * 20) % 2)) {
+    drawPlayer(ox, oy, T);
+    X.fillStyle = '#e6e9ff'; X.beginPath(); X.arc(ox + R.face * 9, oy - 6, 2.4, 0, TAU); X.fill();   // eye shows facing
+  }
+  drawCapsule(ox, oy, true);
+  drawRingsBolts();
+  for (const b of R.abul) { X.fillStyle = 'rgba(224,69,122,.3)'; X.beginPath(); X.arc(b.x, b.y, 9, 0, TAU); X.fill(); X.fillStyle = '#e0457a'; X.beginPath(); X.arc(b.x, b.y, 5, 0, TAU); X.fill(); }
+  drawProjectiles();
+  X.restore();
+  X.restore();
+  if (R.hurt > 0) { X.fillStyle = `rgba(255,92,138,${R.hurt * 0.6})`; X.fillRect(0, 0, W, H); }
+  X.fillStyle = vignette; X.fillRect(0, 0, W, H);
+  // touch controls
+  const by = H - safeB - 58;
+  X.strokeStyle = 'rgba(230,233,255,.22)'; X.lineWidth = 2;
+  X.beginPath(); X.arc(W - 62, by, 36, 0, TAU); X.stroke();
+  X.fillStyle = 'rgba(230,233,255,.55)'; X.font = '700 12px "Zen Kaku Gothic New", sans-serif'; X.textAlign = 'center'; X.fillText('ジャンプ', W - 62, by + 4);
+  if (pad.on) {
+    X.beginPath(); X.arc(pad.ox, by, 40, 0, TAU); X.stroke();
+    const k = Math.max(-40, Math.min(40, pad.x - pad.ox));
+    X.fillStyle = 'rgba(155,123,255,.5)'; X.beginPath(); X.arc(pad.ox + k, by, 18, 0, TAU); X.fill();
+  } else if (R.hint > 0) {
+    X.globalAlpha = Math.min(1, R.hint); X.fillStyle = 'rgba(230,233,255,.6)';
+    X.fillText('← 左半分をドラッグで移動 →', W * 0.27, by + 4); X.globalAlpha = 1;
+  }
+  drawToasts();
+}
+
 // ---------- drawing ----------
 function draw(now) {
   X.fillStyle = '#0a0f1f'; X.fillRect(0, 0, W, H);
   const T = now / 1000;
   if (!R) { drawGrid(T * 14); drawIdle(T); X.fillStyle = vignette; X.fillRect(0, 0, W, H); return; }
+  if (R.kind === 'act') return drawAct(T);
   X.save();
   if (R.shake > 0) X.translate((Math.random() - .5) * 14 * R.shake, (Math.random() - .5) * 14 * R.shake);
   drawGrid(R.scroll);
@@ -787,13 +1062,7 @@ function draw(now) {
   X.fillStyle = 'rgba(155,123,255,0.12)';
   for (let i = 0; i < 7; i++) { const ox = ((i * 97 + T * 6) % (W + 40)) - 20, oy = my + 30 + (i * 37) % Math.max(30, H - my - 40); X.beginPath(); X.ellipse(ox, oy, 10, 5, i, 0, TAU); X.fill(); }
 
-  // zones (complement)
-  for (const z of R.zones) {
-    X.fillStyle = `rgba(255,207,138,${0.12 * Math.min(1, z.life)})`; X.beginPath(); X.arc(z.x, z.y, z.r, 0, TAU); X.fill();
-    X.save(); X.translate(z.x, z.y); X.rotate(R.t * 2); X.strokeStyle = '#ffcf8a'; X.lineWidth = 2;
-    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; X.beginPath(); X.arc(Math.cos(a) * 9, Math.sin(a) * 9, 3.5, 0, TAU); X.stroke(); }
-    X.restore();
-  }
+  drawZones();
   for (const e of R.en) drawEnemy(e, T);
   // beams
   for (const b of R.beams) {
@@ -813,18 +1082,7 @@ function draw(now) {
   X.fillStyle = `rgba(194,168,255,${0.3 + 0.5 * hpr})`;
   for (let x = 4; x < W; x += 12) { const y = my + Math.sin(x * 0.05 + T * 2) * 2; X.beginPath(); X.arc(x, y - 6, 2, 0, TAU); X.arc(x, y + 6, 2, 0, TAU); X.fill(); }
 
-  // dagger blades
-  if (R.w.dagger) {
-    const w = R.w.dagger, n = 2 + w.n, rad = 74 * w.size;
-    X.strokeStyle = 'rgba(194,168,255,.15)'; X.lineWidth = 1; X.beginPath(); X.arc(R.x, cy, rad, 0, TAU); X.stroke();
-    for (let i = 0; i < n; i++) {
-      const a = R.daggerAng + i / n * TAU;
-      X.save(); X.translate(R.x + Math.cos(a) * rad, cy + Math.sin(a) * rad); X.rotate(a + Math.PI / 2);
-      X.fillStyle = 'rgba(194,168,255,.3)'; X.beginPath(); X.arc(0, 0, 13, 0, TAU); X.fill();
-      X.fillStyle = '#c2a8ff'; X.beginPath(); X.arc(0, 0, 7, 0, TAU); X.fill();
-      X.restore();
-    }
-  }
+  drawDagger(R.x, cy);
   if (R.cryoOn > 0 && R.w.cryo) {
     const w = R.w.cryo, reach = 190 * w.size, half = 34 * w.size * (1 + 0.3 * (w.n - 1));
     const g = X.createLinearGradient(0, cy, 0, cy - reach);
@@ -832,31 +1090,8 @@ function draw(now) {
     X.fillStyle = g; X.beginPath(); X.moveTo(R.x - 8, cy - 14); X.lineTo(R.x - half, cy - reach); X.lineTo(R.x + half, cy - reach); X.lineTo(R.x + 8, cy - 14); X.fill();
   }
   drawPlayer(R.x, cy, T);
-  if (R.w.capsule) {
-    const w = R.w.capsule, n = 2 + w.n, rad = 105 * w.size, ccy = memY() - rad + 24;
-    X.strokeStyle = 'rgba(255,159,107,.12)'; X.lineWidth = 1; X.beginPath(); X.arc(R.x, ccy, rad, 0, TAU); X.stroke();
-    for (let i = 0; i < n; i++) {
-      const a = -R.capAng + i / n * TAU;
-      X.save(); X.translate(R.x + Math.cos(a) * rad, ccy + Math.sin(a) * rad); X.rotate(a);
-      X.fillStyle = 'rgba(255,159,107,.85)'; X.beginPath();
-      for (let k = 0; k <= 10; k++) { const b = k / 10 * TAU, rr = 12 * (1 + 0.18 * Math.sin(b * 3 + R.t * 5)); k ? X.lineTo(Math.cos(b) * rr, Math.sin(b) * rr) : X.moveTo(Math.cos(b) * rr, Math.sin(b) * rr); }
-      X.fill(); X.fillStyle = '#7a3d1a'; X.beginPath(); X.arc(2, 0, 4, 0, TAU); X.fill();
-      X.restore();
-    }
-  }
-  for (const r of R.rings) {
-    const a = 1 - r.r / r.max;
-    X.strokeStyle = `rgba(255,224,138,${0.8 * a})`; X.lineWidth = 3; X.beginPath(); X.arc(r.x, r.y, r.r, 0, TAU); X.stroke();
-  }
-  for (const b of R.bolts) {
-    // NETs: two intertwined DNA strands between targets
-    for (const ph of [0, Math.PI]) {
-      X.strokeStyle = `rgba(214,194,255,${b.life / 0.18})`; X.lineWidth = 1.6; X.beginPath();
-      b.pts.forEach(([x, y], i) => { if (!i) { X.moveTo(x, y); return; } const [px, py] = b.pts[i - 1], L = Math.hypot(x - px, y - py) || 1, nx = -(y - py) / L, ny = (x - px) / L;
-        for (let k = 1; k <= 8; k++) { const t = k / 8, w = Math.sin(t * TAU * 2 + ph) * 5; X.lineTo(px + (x - px) * t + nx * w, py + (y - py) * t + ny * w); } });
-      X.stroke();
-    }
-  }
+  drawCapsule(R.x, cy, false);
+  drawRingsBolts();
   // landing markers: cyan when the shield is under them (will be blocked), red when not
   for (const b of R.ebul) {
     const safe = Math.abs(b.x - R.x) < shieldW();
@@ -880,6 +1115,66 @@ function draw(now) {
     X.strokeStyle = `rgba(95,225,255,${0.25 + 0.4 * f})`; X.lineWidth = 1;
     X.beginPath(); X.moveTo(R.x - sw, sy + 8); X.lineTo(R.x - sw, sy + 18); X.moveTo(R.x + sw, sy + 8); X.lineTo(R.x + sw, sy + 18); X.stroke();
   }
+  drawProjectiles();
+  X.restore();
+  if (R.hurt > 0) { X.fillStyle = `rgba(255,92,138,${R.hurt * 0.8})`; X.fillRect(0, my - 6, W, H - my + 6); }
+  X.fillStyle = vignette; X.fillRect(0, 0, W, H);
+  drawToasts();
+}
+// ---------- shared effect drawing (world coordinates) ----------
+function drawZones() {
+  // zones (complement)
+  for (const z of R.zones) {
+    X.fillStyle = `rgba(255,207,138,${0.12 * Math.min(1, z.life)})`; X.beginPath(); X.arc(z.x, z.y, z.r, 0, TAU); X.fill();
+    X.save(); X.translate(z.x, z.y); X.rotate(R.t * 2); X.strokeStyle = '#ffcf8a'; X.lineWidth = 2;
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; X.beginPath(); X.arc(Math.cos(a) * 9, Math.sin(a) * 9, 3.5, 0, TAU); X.stroke(); }
+    X.restore();
+  }
+}
+function drawDagger(ox, oy) {
+  // dagger blades
+  if (R.w.dagger) {
+    const w = R.w.dagger, n = 2 + w.n, rad = 74 * w.size;
+    X.strokeStyle = 'rgba(194,168,255,.15)'; X.lineWidth = 1; X.beginPath(); X.arc(ox, oy, rad, 0, TAU); X.stroke();
+    for (let i = 0; i < n; i++) {
+      const a = R.daggerAng + i / n * TAU;
+      X.save(); X.translate(ox + Math.cos(a) * rad, oy + Math.sin(a) * rad); X.rotate(a + Math.PI / 2);
+      X.fillStyle = 'rgba(194,168,255,.3)'; X.beginPath(); X.arc(0, 0, 13, 0, TAU); X.fill();
+      X.fillStyle = '#c2a8ff'; X.beginPath(); X.arc(0, 0, 7, 0, TAU); X.fill();
+      X.restore();
+    }
+  }
+}
+function drawCapsule(ox, oy, act) {
+  if (R.w.capsule) {
+    const w = R.w.capsule, n = 2 + w.n, rad = (act ? 85 : 105) * w.size, ccy = act ? oy : memY() - rad + 24;
+    X.strokeStyle = 'rgba(255,159,107,.12)'; X.lineWidth = 1; X.beginPath(); X.arc(ox, ccy, rad, 0, TAU); X.stroke();
+    for (let i = 0; i < n; i++) {
+      const a = -R.capAng + i / n * TAU;
+      X.save(); X.translate(ox + Math.cos(a) * rad, ccy + Math.sin(a) * rad); X.rotate(a);
+      X.fillStyle = 'rgba(255,159,107,.85)'; X.beginPath();
+      for (let k = 0; k <= 10; k++) { const b = k / 10 * TAU, rr = 12 * (1 + 0.18 * Math.sin(b * 3 + R.t * 5)); k ? X.lineTo(Math.cos(b) * rr, Math.sin(b) * rr) : X.moveTo(Math.cos(b) * rr, Math.sin(b) * rr); }
+      X.fill(); X.fillStyle = '#7a3d1a'; X.beginPath(); X.arc(2, 0, 4, 0, TAU); X.fill();
+      X.restore();
+    }
+  }
+}
+function drawRingsBolts() {
+  for (const r of R.rings) {
+    const a = 1 - r.r / r.max;
+    X.strokeStyle = `rgba(255,224,138,${0.8 * a})`; X.lineWidth = 3; X.beginPath(); X.arc(r.x, r.y, r.r, 0, TAU); X.stroke();
+  }
+  for (const b of R.bolts) {
+    // NETs: two intertwined DNA strands between targets
+    for (const ph of [0, Math.PI]) {
+      X.strokeStyle = `rgba(214,194,255,${b.life / 0.18})`; X.lineWidth = 1.6; X.beginPath();
+      b.pts.forEach(([x, y], i) => { if (!i) { X.moveTo(x, y); return; } const [px, py] = b.pts[i - 1], L = Math.hypot(x - px, y - py) || 1, nx = -(y - py) / L, ny = (x - px) / L;
+        for (let k = 1; k <= 8; k++) { const t = k / 8, w = Math.sin(t * TAU * 2 + ph) * 5; X.lineTo(px + (x - px) * t + nx * w, py + (y - py) * t + ny * w); } });
+      X.stroke();
+    }
+  }
+}
+function drawProjectiles() {
   // bubbles
   for (const b of R.bubbles) {
     X.strokeStyle = 'rgba(159,240,255,.85)'; X.lineWidth = 1.5; X.beginPath(); X.arc(b.x, b.y, 9, 0, TAU); X.stroke();
@@ -900,10 +1195,6 @@ function draw(now) {
   X.font = '500 11px "IBM Plex Mono", monospace'; X.textAlign = 'center';
   for (const t of R.texts) { X.globalAlpha = Math.min(1, t.t * 2.5); X.fillStyle = t.col; X.fillText(t.v, t.x, t.y); }
   X.globalAlpha = 1;
-  X.restore();
-  if (R.hurt > 0) { X.fillStyle = `rgba(255,92,138,${R.hurt * 0.8})`; X.fillRect(0, my - 6, W, H - my + 6); }
-  X.fillStyle = vignette; X.fillRect(0, 0, W, H);
-  drawToasts();
 }
 function drawGrid(scroll) {
   // hemocytometer ruling: 50 µm squares, triple lines every 250 µm
@@ -1032,10 +1323,14 @@ let lastHud = '';
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function updateHud() {
   const boss = R.en.find(e => e.t === 'boss' || e.t === 'pig') || R.en.find(e => e.t === 'elite');
-  const key = [Math.ceil(R.hp), R.maxHp, Math.floor(R.t), R.lv, R.xp, R.coins, boss ? Math.ceil(boss.hp) : -1].join();
+  const key = [Math.ceil(R.hp), R.maxHp, Math.floor(R.t), R.lv, R.xp, R.coins, boss ? Math.ceil(boss.hp) : -1, R.wave, R.arena, R.lock ? 1 : 0, R.kind === 'act' ? Math.floor(R.px / 40) : 0].join();
   if (key === lastHud) return; lastHud = key;
   $('lvTxt').textContent = R.lv;
-  if (R.kind === 'pig') {
+  if (R.kind === 'act') {
+    $('waveTxt').textContent = `遠征 第${R.ch}章`;
+    $('xpFill').style.width = Math.min(100, R.px / R.lay.len * 100) + '%';
+    $('bossEta').textContent = R.lock ? (R.lock.boss ? 'ボス戦' : `WAVE ${R.wave}/${R.lock.waves}`) : `エリア ${Math.min(R.arena + 1, ACT_ARENAS + 1)}/${ACT_ARENAS + 1} →`;
+  } else if (R.kind === 'pig') {
     $('waveTxt').textContent = `黄金アメーバ 難易度${R.ch}`;
     $('xpFill').style.width = ((R.t % 12) / 12 * 100) + '%';
     $('bossEta').textContent = `残り ${fmt(Math.max(0, PIG_T - R.t)).slice(1)}`;
@@ -1076,6 +1371,12 @@ function renderHome() {
   $('chSub').textContent = SAVE.ch < SAVE.maxCh ? 'クリア済み' : SAVE.ch === 1 ? '最初の章' : '未踏破';
   $('chPrev').disabled = SAVE.ch <= 1;
   $('chNext').disabled = SAVE.ch >= Math.min(SAVE.maxCh, MAXCH);
+  SAVE.actCh = Math.min(SAVE.actCh || 1, SAVE.actMax || 1);
+  $('actName').textContent = `第${SAVE.actCh}章`;
+  $('actSub').textContent = SAVE.actCh < (SAVE.actMax || 1) ? 'クリア済み · エリア 5 + ボス' : 'エリア 5 + ボス';
+  $('actTag').textContent = `第${SAVE.actMax || 1}章まで解放`;
+  $('actPrev').disabled = SAVE.actCh <= 1;
+  $('actNext').disabled = SAVE.actCh >= Math.min(SAVE.actMax || 1, MAXCH);
   const pigOpen = SAVE.maxCh >= 3, left = pigToday();
   SAVE.pigLv = Math.min(SAVE.pigLv || 1, SAVE.pigMax || 1);
   $('pigName').textContent = `難易度 ${SAVE.pigLv}`;
@@ -1130,12 +1431,13 @@ function start(kind = 'chapter') {
   resize(); newRun(kind); lastHud = ''; toasts = [];
   ['homeScr', 'overScr', 'pauseScr', 'skillScr', 'reviveScr'].forEach(id => $(id).hidden = true);
   $('hud').hidden = false;
-  openSkills(R.kind === 'pig' ? `黄金アメーバ採集 難易度${R.ch} 準備` : `第${R.ch}章 出撃準備`);
+  openSkills(R.kind === 'pig' ? `黄金アメーバ採集 難易度${R.ch} 準備` : R.kind === 'act' ? `遠征 第${R.ch}章 出撃準備` : `第${R.ch}章 出撃準備`);
 }
 function finish(win) {
   mode = 'over';
   $('hud').hidden = true; $('skillScr').hidden = true; $('reviveScr').hidden = true;
   if (R.kind === 'pig') return finishPig(win);
+  if (R.kind === 'act') return finishAct(win);
   $('rKillLbl').textContent = '撃破数';
   let coins = R.coins;
   if (win) { coins += 60 * R.ch; if (R.ch >= SAVE.maxCh) { SAVE.maxCh = Math.min(MAXCH, R.ch + 1); SAVE.ch = SAVE.maxCh; } }
@@ -1146,6 +1448,18 @@ function finish(win) {
     ? `章クリアボーナス ●${60 * R.ch} 込み。${R.ch < MAXCH ? `第${R.ch + 1}章が開いた。` : '最終章まで制覇した。'}コインで武器を強化して次へ。`
     : 'コインで武器を強化するか、装備の組み合わせを変えて再挑戦。ボスにはパーフォリンかインターフェロンで光る核を狙うと速い。';
   $('rWave').textContent = fmt(R.t).replace(/^0/, ''); $('rKill').textContent = R.kills; $('rCoin').textContent = coins;
+  $('overScr').hidden = false;
+}
+function finishAct(win) {
+  const bonus = win ? Math.round(80 * R.ch * R.coinMul) : 0, coins = R.coins + bonus;
+  const unlocked = win && R.ch >= (SAVE.actMax || 1) && R.ch < MAXCH;
+  if (unlocked) { SAVE.actMax = R.ch + 1; SAVE.actCh = SAVE.actMax; }
+  SAVE.coins += coins; store();
+  $('overEyebrow').textContent = win ? `遠征 第${R.ch}章 踏破` : `遠征 第${R.ch}章 · エリア ${Math.min(R.arena + 1, ACT_ARENAS + 1)} で倒れた`;
+  $('overTitle').textContent = win ? '血管を制圧した' : '好中球が力尽きた';
+  $('overMsg').textContent = win ? `踏破ボーナス ●${bonus} 込み。${unlocked ? `第${R.ch + 1}章が開いた。` : ''}` : '敵の弾は赤く光る。2 段ジャンプで飛び越えるか、足場に逃げよう。';
+  $('rWave').textContent = fmt(R.t).replace(/^0/, ''); $('rKill').textContent = R.kills; $('rKillLbl').textContent = '撃破数';
+  $('rCoin').textContent = coins;
   $('overScr').hidden = false;
 }
 function finishPig(win) {
@@ -1179,6 +1493,9 @@ function pause(on) {
 
 $('startBtn').onclick = () => start();
 $('pigBtn').onclick = startPig;
+$('actBtn').onclick = () => start('act');
+$('actPrev').onclick = () => { SAVE.actCh = Math.max(1, SAVE.actCh - 1); store(); renderHome(); };
+$('actNext').onclick = () => { SAVE.actCh = Math.min(SAVE.actMax || 1, SAVE.actCh + 1); store(); renderHome(); };
 $('rerollBtn').onclick = rerollSkills;
 $('takeAllBtn').onclick = takeAllSkills;
 $('pigPrev').onclick = () => { SAVE.pigLv = Math.max(1, SAVE.pigLv - 1); store(); renderHome(); };
@@ -1195,18 +1512,25 @@ $('chNext').onclick = () => { SAVE.ch = Math.min(SAVE.maxCh, SAVE.ch + 1); store
 $('reviveBtn').onclick = () => {
   if (mode !== 'revive') return;
   R.revived = true; R.hp = R.maxHp / 2;
+  if (R.kind === 'act') { R.inv = 2; R.abul = []; for (const e of R.en) if (!e.big) e.kx = Math.sign(e.x - R.px || 1) * 500; }
   for (const e of R.en) if (e.atWall && e.t !== 'boss') { e.atWall = false; e.y -= 160; }
   $('reviveScr').hidden = true; mode = 'play';
 };
 $('giveupBtn').onclick = () => { if (mode === 'revive') finish(false); };
 
 C.addEventListener('pointerdown', e => {
-  if (mode !== 'play' || drag.on) return;
+  if (mode !== 'play') return;
+  if (isAct()) {
+    if (e.clientX < W * 0.5 && !pad.on) { pad.on = true; pad.id = e.pointerId; pad.ox = pad.x = e.clientX; try { C.setPointerCapture(e.pointerId); } catch (_) {} }
+    else R.jumpReq = true;
+    return;
+  }
+  if (drag.on) return;
   drag.on = true; drag.id = e.pointerId; drag.sx = e.clientX; drag.cx = R.x;
   try { C.setPointerCapture(e.pointerId); } catch (_) {}
 });
-C.addEventListener('pointermove', e => { if (drag.on && e.pointerId === drag.id && R) R.x = drag.cx + (e.clientX - drag.sx) * 1.3; });
-const endDrag = e => { if (e.pointerId === drag.id) drag.on = false; };
+C.addEventListener('pointermove', e => { if (pad.on && e.pointerId === pad.id) pad.x = e.clientX; if (drag.on && e.pointerId === drag.id && R) R.x = drag.cx + (e.clientX - drag.sx) * 1.3; });
+const endDrag = e => { if (e.pointerId === drag.id) drag.on = false; if (e.pointerId === pad.id) pad.on = false; };
 C.addEventListener('pointerup', endDrag); C.addEventListener('pointercancel', endDrag);
 $('app').addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keydown', e => {
@@ -1214,10 +1538,11 @@ window.addEventListener('keydown', e => {
   if (mode === 'skill' && /^Digit[1-3]$/.test(e.code)) { const b = $('cards').children[+e.code.slice(5) - 1]; if (b) b.click(); return; }
   if (e.code === 'KeyP' || e.code === 'Escape') { pause(mode === 'play'); return; }
   if (e.code === 'KeyF') { $('speedBtn').click(); return; }
+  if (isAct() && mode === 'play' && !e.repeat && /^(Space|ArrowUp|KeyW)$/.test(e.code)) { R.jumpReq = true; e.preventDefault(); return; }
   if (/^(ArrowLeft|ArrowRight|KeyA|KeyD)$/.test(e.code)) { keys.add(e.code); e.preventDefault(); }
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
-window.addEventListener('blur', () => { keys.clear(); drag.on = false; });
+window.addEventListener('blur', () => { keys.clear(); drag.on = false; pad.on = false; });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
 
 function frame(now) {
