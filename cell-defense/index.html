@@ -131,14 +131,14 @@ p strong { color: var(--ink); }
       <div class="wlist" id="wlist"></div>
       <button class="btn" id="startBtn" type="button">出撃</button>
       <div class="pigBox" id="pigBox">
-        <div class="homeTop"><h3>金ブタ狩り</h3><span class="tag" id="pigLeft">今日あと 3 回</span></div>
-        <p id="pigTxt">60 秒で金ブタを削った分だけコインがもらえる。押し返さないと膜まで突っ込んでくる。</p>
+        <div class="homeTop"><h3>黄金アメーバ採集</h3><span class="tag" id="pigLeft">今日あと 3 回</span></div>
+        <p id="pigTxt">60 秒で黄金アメーバを削った分だけコインがもらえる。押し返さないと膜まで這い寄ってくる。</p>
         <div class="chap">
           <button id="pigPrev" type="button" aria-label="難易度を下げる">◀</button>
           <div><b id="pigName">難易度 1</b><small id="pigSub">報酬 最大 ●0</small></div>
           <button id="pigNext" type="button" aria-label="難易度を上げる">▶</button>
         </div>
-        <button class="btn gold" id="pigBtn" type="button">金ブタ狩りへ</button>
+        <button class="btn gold" id="pigBtn" type="button">黄金アメーバ採集へ</button>
       </div>
       <p class="kbd">PC: ← → / A D で移動、P で一時停止、F で倍速切替。</p>
       <p class="kbd" id="saveTxt">セーブ: この端末のブラウザに保存中</p>
@@ -219,17 +219,17 @@ const cellY = () => memY() + 40;
 
 // ---------- weapons ----------
 const WEAP = {
-  scalpel: { name: 'メス',         cost: 0,    dmg: 10, cd: 0.55, col: '#e6e9ff', desc: '膜に一番近い敵へ刃を飛ばす。万能' },
-  dagger:  { name: '回転ダガー',   cost: 0,    dmg: 19,  cd: 0,    col: '#c2a8ff', desc: '細胞のまわりを刃が回る。膜際に張り付いた敵を刻む' },
-  needle:  { name: '鍼',           cost: 300,  dmg: 34, cd: 1.0,  col: '#5fe1ff', desc: '一番 HP の高い敵を追尾して刺す。ボスの弱点を狙う' },
-  bubble:  { name: '消毒バブル',   cost: 500,  dmg: 24, cd: 1.3,  col: '#9ff0ff', desc: '泡が昇って弾け、まわりをまとめて消毒' },
-  bandage: { name: '絆創膏',       cost: 800,  dmg: 10,  cd: 2.2,  col: '#ffcf8a', desc: '敵に貼り付き、その周囲をじわじわ削り続ける' },
-  laser:   { name: 'レーザーメス', cost: 1200, dmg: 52, cd: 3.2,  col: '#ff8fb1', desc: '細胞の真上一列を焼き切る光線' },
-  syringe: { name: '注射器',       cost: 1600, dmg: 20, cd: 1.3,  col: '#8affc1', desc: '真上へ薬液の針を撃つ。縦一列を全部貫通' },
-  stetho:  { name: '聴診器',       cost: 2000, dmg: 40, cd: 2.0,  col: '#ffe08a', desc: '細胞から衝撃波。膜に張り付いた敵を押し返す' },
-  capsule: { name: '抗生物質カプセル', cost: 2600, dmg: 18, cd: 0,  col: '#ff9f6b', desc: '大きく周回するカプセル。敵の最大HPの6%を上乗せ。ボスに強い' },
-  cryo:    { name: '冷却スプレー', cost: 3200, dmg: 8,  cd: 0.25, col: '#a8d8ff', desc: '真上に冷気を噴き、範囲内の敵を半分の速さにして削る' },
-  electro: { name: '電気メス',     cost: 3800, dmg: 17, cd: 1.5,  col: '#d6c2ff', desc: '最前線の敵から電撃が次々に連鎖する' },
+  scalpel: { name: '抗体',         cost: 0,    dmg: 10, cd: 0.55, col: '#e6e9ff', desc: '膜に一番近い敵へ Y 字の抗体を撃つ。万能' },
+  dagger:  { name: 'アズール顆粒', cost: 0,    dmg: 19, cd: 0,    col: '#c2a8ff', desc: '殺菌顆粒が細胞のまわりを回る。膜際に張り付いた敵を削る' },
+  needle:  { name: 'パーフォリン', cost: 300,  dmg: 34, cd: 1.0,  col: '#5fe1ff', desc: '一番 HP の高い敵を追って穴をあける。ボスの核を狙う' },
+  bubble:  { name: '活性酸素',     cost: 500,  dmg: 24, cd: 1.3,  col: '#9ff0ff', desc: '泡が昇って弾け、まわりをまとめて酸化させる' },
+  bandage: { name: '補体',         cost: 800,  dmg: 10, cd: 2.2,  col: '#ffcf8a', desc: '敵に取り付いて穴をあけ、周囲ごとじわじわ溶かす' },
+  laser:   { name: 'インターフェロン', cost: 1200, dmg: 52, cd: 3.2, col: '#ff8fb1', desc: '細胞の真上一列に警報を放ち、焼き払う' },
+  syringe: { name: '抗菌ペプチド', cost: 1600, dmg: 20, cd: 1.3,  col: '#8affc1', desc: '真上へ細長いペプチドを撃つ。縦一列を全部貫通' },
+  stetho:  { name: '炎症波',       cost: 2000, dmg: 40, cd: 2.0,  col: '#ffe08a', desc: '細胞から炎症の衝撃波。膜に張り付いた敵を押し返す' },
+  capsule: { name: 'マクロファージ', cost: 2600, dmg: 18, cd: 0,  col: '#ff9f6b', desc: '大きく周回する食細胞。敵の最大HPの6%を上乗せ。ボスに強い' },
+  cryo:    { name: '凝集素',       cost: 3200, dmg: 8,  cd: 0.25, col: '#c8f08a', desc: '真上に凝集素をまき、範囲内の敵を固めて半分の速さにし、削る' },
+  electro: { name: 'NETs',         cost: 3800, dmg: 17, cd: 1.5,  col: '#d6c2ff', desc: 'DNA の網を投げ、最前線の敵から次々に絡めとる' },
 };
 const WIDS = Object.keys(WEAP);
 const upCost = lv => Math.round(40 * Math.pow(lv, 1.55));
@@ -296,7 +296,7 @@ const ET = {
   phage: { name: 'ファージ',     hp: 24,   sp: 50, r: 11, atk: 6,  coin: 2,  col: '#ffd36b' },
   armor: { name: '装甲ウイルス', hp: 52,   sp: 30, r: 15, atk: 8,  coin: 3,  col: '#c9a0ff', armor: 0.5 },
   elite: { name: 'がん細胞',     hp: 430,  sp: 19, r: 30, atk: 14, coin: 25, col: '#ff7a45' },
-  pig:   { name: '金ブタ',       hp: 1,    sp: 15, r: 44, atk: 30, coin: 0,  col: '#ffcf5c' },
+  pig:   { name: '黄金アメーバ',       hp: 1,    sp: 15, r: 44, atk: 30, coin: 0,  col: '#ffcf5c' },
   boss:  { name: '巨大ウイルス', hp: 1150, sp: 15, r: 52, atk: 26, coin: 80, col: '#e0457a' },
 };
 
@@ -319,7 +319,7 @@ function newRun(kind = 'chapter') {
   for (const id of R.equip) R.w[id] = { lv: SAVE.w[id] || 1, dmg: 1, rate: 1, n: 1, size: 1, t: 0.3 };
 }
 const prog = () => Math.min(1, R.t / BOSS_T);
-// gold pig hunt: 60 s, coins in proportion to the share of its HP you strip, bonus for the kill
+// golden amoeba hunt: 60 s, coins in proportion to the share of its HP you strip, bonus for the kill
 const PIG_T = 60, PIG_MAX = 15, PIG_TRIES = 3, SHIELD_W = 36;
 const shieldW = () => SHIELD_W * (R ? R.shieldMul : 1);
 const pigHp = d => Math.round(5200 * Math.pow(1.6, d - 1));
@@ -500,18 +500,18 @@ function weapons(dt) {
 
 // ---------- skills ----------
 const RAR = [{ nm: 'ノーマル', m: 1 }, { nm: 'レア', m: 1.6 }, { nm: 'エピック', m: 2.5 }];
-const COUNT_TXT = { scalpel: '刃の本数', dagger: '回転する刃', needle: '同時に刺す鍼', bubble: '一度に出る泡', bandage: '同時に貼る枚数', laser: '光線の太さ', syringe: '同時に撃つ針', stetho: '衝撃波の到達距離', capsule: '周回するカプセル', cryo: '噴射の幅', electro: '連鎖する回数 (+2 ずつ)' };
+const COUNT_TXT = { scalpel: '抗体の本数', dagger: '回る顆粒', needle: '同時に放つパーフォリン', bubble: '一度に出る泡', bandage: '同時に取り付く数', laser: '警報の太さ', syringe: '同時に撃つペプチド', stetho: '衝撃波の到達距離', capsule: '周回するマクロファージ', cryo: 'まく幅', electro: '絡めとる回数 (+2 ずつ)' };
 function skillPool() {
   const L = [];
   for (const id of R.equip) {
     const nm = WEAP[id].name, w = R.w[id];
     L.push({ wp: nm, name: `${nm} 研磨`, txt: m => `${nm}のダメージ +${Math.round(45 * m)}%`, ap: m => w.dmg += 0.45 * m });
     if (id !== 'dagger' && id !== 'capsule') L.push({ wp: nm, name: `${nm} 速射`, txt: m => `${nm}の攻撃間隔 -${Math.round(100 - 100 / (1 + 0.25 * m))}%`, ap: m => w.rate *= 1 + 0.25 * m });
-    else if (id === 'capsule') L.push({ wp: nm, name: 'カプセル 加速', txt: m => `周回速度 +${Math.round(22 * m)}%、軌道 +${Math.round(8 * m)}%`, ap: m => { w.rate *= 1 + 0.22 * m; w.size += 0.08 * m; } });
-    else L.push({ wp: nm, name: '回転ダガー 遠心', txt: m => `刃の回転半径 +${Math.round(15 * m)}%、回転速度アップ`, ap: m => { w.size += 0.15 * m; w.rate *= 1 + 0.2 * m; } });
+    else if (id === 'capsule') L.push({ wp: nm, name: 'マクロファージ 加速', txt: m => `周回速度 +${Math.round(22 * m)}%、軌道 +${Math.round(8 * m)}%`, ap: m => { w.rate *= 1 + 0.22 * m; w.size += 0.08 * m; } });
+    else L.push({ wp: nm, name: 'アズール顆粒 遠心', txt: m => `顆粒の回転半径 +${Math.round(15 * m)}%、回転速度アップ`, ap: m => { w.size += 0.15 * m; w.rate *= 1 + 0.2 * m; } });
     if (w.n < 6) L.push({ wp: nm, min: 1, name: `${nm} 増殖`, txt: m => `${COUNT_TXT[id]} +${m > 2 ? 2 : 1}`, ap: m => w.n += m > 2 ? 2 : 1 });
     if (id === 'scalpel' || id === 'needle') L.push({ wp: nm, name: `${nm} 貫通`, txt: m => `1 発で貫く敵 +${m > 2 ? 2 : 1}`, ap: m => w.pierce = (w.pierce || 1) + (m > 2 ? 2 : 1) });
-    if (id === 'laser') L.push({ wp: nm, name: 'レーザー 照射延長', txt: m => `光線の照射時間 +${Math.round(30 * m)}% (総ダメージも増える)`, ap: m => w.dur = (w.dur || 1) + 0.3 * m });
+    if (id === 'laser') L.push({ wp: nm, name: 'インターフェロン 持続', txt: m => `警報の照射時間 +${Math.round(30 * m)}% (総ダメージも増える)`, ap: m => w.dur = (w.dur || 1) + 0.3 * m });
     if (['bubble', 'bandage', 'stetho', 'cryo', 'electro'].includes(id)) L.push({ wp: nm, name: `${nm} 拡散`, txt: m => `効果範囲 +${Math.round(25 * m)}%`, ap: m => w.size += 0.25 * m });
   }
   L.push({ wp: '全体', name: 'ミトコンドリア活性', txt: m => `全武器のダメージ +${Math.round(18 * m)}%`, ap: m => R.gdmg += 0.18 * m });
@@ -520,7 +520,7 @@ function skillPool() {
   L.push({ wp: '細胞膜', name: '膜の補強', txt: m => `細胞膜の最大値 +${Math.round(35 * m)}、その分回復`, ap: m => { R.maxHp += 35 * m; R.hp += 35 * m; } });
   L.push({ wp: '細胞膜', name: '緊急修復', txt: m => `細胞膜を ${Math.round(50 * m)} 回復`, ap: m => R.hp = Math.min(R.maxHp, R.hp + 50 * m) });
   L.push({ wp: '細胞膜', name: '自己再生', txt: m => `細胞膜が毎秒 ${(1.2 * m).toFixed(1)} 回復`, ap: m => R.regen += 1.2 * m });
-  L.push({ wp: '全体', name: '大物狩り', txt: m => `ボス・がん細胞・金ブタへのダメージ +${Math.round(25 * m)}%`, ap: m => R.bigMul += 0.25 * m });
+  L.push({ wp: '全体', name: '大物狩り', txt: m => `ボス・がん細胞・黄金アメーバへのダメージ +${Math.round(25 * m)}%`, ap: m => R.bigMul += 0.25 * m });
   L.push({ wp: '全体', name: '自己融解', txt: m => `敵を倒すと周囲に小爆発 (${Math.round(10 * m * hpMul())} ダメージ)`, ap: m => R.explode += 10 * m * hpMul() });
   L.push({ wp: '全体', name: 'アポトーシス誘導', txt: m => `HP ${Math.round(10 * m)}% 以下の雑魚を即死させる`, ap: m => R.execute = Math.min(0.4, R.execute + 0.1 * m) });
   L.push({ wp: '成長', name: '代謝促進', txt: m => `獲得経験値 +${Math.round(20 * m)}%`, ap: m => R.xpMul += 0.2 * m });
@@ -592,7 +592,7 @@ function update(dt) {
   // spawn
   // endless stream that thickens over time; elite at 1:15, boss at 2:30
   if (R.kind === 'pig') {
-    if (!R.pig) { R.pig = spawn('pig', W / 2, safeT + 140); R.pig.hp = R.pig.mhp = pigHp(R.ch); R.pig.atk = 30 * (1 + 0.15 * (R.ch - 1)); toast('金ブタ出現。削るほどコインが出る'); }
+    if (!R.pig) { R.pig = spawn('pig', W / 2, safeT + 140); R.pig.hp = R.pig.mhp = pigHp(R.ch); R.pig.atk = 30 * (1 + 0.15 * (R.ch - 1)); toast('黄金アメーバ出現。削るほどコインが出る'); }
     R.spawnT -= dt;
     if (R.spawnT <= 0) { R.spawnT = 2.4; spawn('virus'); }
     if (R.t >= R.nextPick) { R.nextPick += 12; R.lv++; R.pending++; }
@@ -632,7 +632,7 @@ function update(dt) {
         for (let k = 0; k < 2 + Math.min(3, Math.floor(R.ch / 3)); k++) R.ebul.push({ x: e.x + (Math.random() - .5) * e.r * 2, y: e.y + e.r, vy: 150 + Math.random() * 60, dmg: 7 * (1 + 0.15 * (R.ch - 1)) });
       }
     } else if (e.t === 'pig') {
-      // trots side to side and charges every 6 s; damage shoves it back up (in hit())
+      // oozes side to side and lunges every 6 s; damage shoves it back up (in hit())
       e.x = W / 2 + Math.sin(R.t * 0.9) * (W / 2 - e.r - 16);
       e.face = Math.cos(R.t * 0.9) >= 0 ? 1 : -1;
       const charge = (R.t % 6) < 0.7 ? 3.4 : 1, slow = (e.slowT || 0) > R.t ? 0.5 : 1;
@@ -787,11 +787,12 @@ function draw(now) {
   X.fillStyle = 'rgba(155,123,255,0.12)';
   for (let i = 0; i < 7; i++) { const ox = ((i * 97 + T * 6) % (W + 40)) - 20, oy = my + 30 + (i * 37) % Math.max(30, H - my - 40); X.beginPath(); X.ellipse(ox, oy, 10, 5, i, 0, TAU); X.fill(); }
 
-  // zones (bandage)
+  // zones (complement)
   for (const z of R.zones) {
     X.fillStyle = `rgba(255,207,138,${0.12 * Math.min(1, z.life)})`; X.beginPath(); X.arc(z.x, z.y, z.r, 0, TAU); X.fill();
-    X.save(); X.translate(z.x, z.y); X.rotate(0.6); X.fillStyle = '#ffcf8a'; roundRect(-11, -5, 22, 10, 3); X.fill();
-    X.fillStyle = 'rgba(10,15,31,.35)'; X.fillRect(-4, -5, 8, 10); X.restore();
+    X.save(); X.translate(z.x, z.y); X.rotate(R.t * 2); X.strokeStyle = '#ffcf8a'; X.lineWidth = 2;
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; X.beginPath(); X.arc(Math.cos(a) * 9, Math.sin(a) * 9, 3.5, 0, TAU); X.stroke(); }
+    X.restore();
   }
   for (const e of R.en) drawEnemy(e, T);
   // beams
@@ -819,14 +820,15 @@ function draw(now) {
     for (let i = 0; i < n; i++) {
       const a = R.daggerAng + i / n * TAU;
       X.save(); X.translate(R.x + Math.cos(a) * rad, cy + Math.sin(a) * rad); X.rotate(a + Math.PI / 2);
-      X.fillStyle = '#c2a8ff'; X.beginPath(); X.moveTo(0, -13); X.lineTo(5, 4); X.lineTo(0, 9); X.lineTo(-5, 4); X.closePath(); X.fill();
+      X.fillStyle = 'rgba(194,168,255,.3)'; X.beginPath(); X.arc(0, 0, 13, 0, TAU); X.fill();
+      X.fillStyle = '#c2a8ff'; X.beginPath(); X.arc(0, 0, 7, 0, TAU); X.fill();
       X.restore();
     }
   }
   if (R.cryoOn > 0 && R.w.cryo) {
     const w = R.w.cryo, reach = 190 * w.size, half = 34 * w.size * (1 + 0.3 * (w.n - 1));
     const g = X.createLinearGradient(0, cy, 0, cy - reach);
-    g.addColorStop(0, 'rgba(168,216,255,.35)'); g.addColorStop(1, 'rgba(168,216,255,0)');
+    g.addColorStop(0, 'rgba(200,240,138,.35)'); g.addColorStop(1, 'rgba(200,240,138,0)');
     X.fillStyle = g; X.beginPath(); X.moveTo(R.x - 8, cy - 14); X.lineTo(R.x - half, cy - reach); X.lineTo(R.x + half, cy - reach); X.lineTo(R.x + 8, cy - 14); X.fill();
   }
   drawPlayer(R.x, cy, T);
@@ -836,7 +838,9 @@ function draw(now) {
     for (let i = 0; i < n; i++) {
       const a = -R.capAng + i / n * TAU;
       X.save(); X.translate(R.x + Math.cos(a) * rad, ccy + Math.sin(a) * rad); X.rotate(a);
-      X.fillStyle = '#ff9f6b'; roundRect(-11, -5, 11, 10, 5); X.fill(); X.fillStyle = '#e6e9ff'; roundRect(0, -5, 11, 10, 5); X.fill();
+      X.fillStyle = 'rgba(255,159,107,.85)'; X.beginPath();
+      for (let k = 0; k <= 10; k++) { const b = k / 10 * TAU, rr = 12 * (1 + 0.18 * Math.sin(b * 3 + R.t * 5)); k ? X.lineTo(Math.cos(b) * rr, Math.sin(b) * rr) : X.moveTo(Math.cos(b) * rr, Math.sin(b) * rr); }
+      X.fill(); X.fillStyle = '#7a3d1a'; X.beginPath(); X.arc(2, 0, 4, 0, TAU); X.fill();
       X.restore();
     }
   }
@@ -845,9 +849,13 @@ function draw(now) {
     X.strokeStyle = `rgba(255,224,138,${0.8 * a})`; X.lineWidth = 3; X.beginPath(); X.arc(r.x, r.y, r.r, 0, TAU); X.stroke();
   }
   for (const b of R.bolts) {
-    X.strokeStyle = `rgba(214,194,255,${b.life / 0.18})`; X.lineWidth = 2; X.beginPath();
-    b.pts.forEach(([x, y], i) => { if (!i) { X.moveTo(x, y); return; } const [px, py] = b.pts[i - 1]; X.lineTo((px + x) / 2 + (Math.random() - .5) * 14, (py + y) / 2 + (Math.random() - .5) * 14); X.lineTo(x, y); });
-    X.stroke();
+    // NETs: two intertwined DNA strands between targets
+    for (const ph of [0, Math.PI]) {
+      X.strokeStyle = `rgba(214,194,255,${b.life / 0.18})`; X.lineWidth = 1.6; X.beginPath();
+      b.pts.forEach(([x, y], i) => { if (!i) { X.moveTo(x, y); return; } const [px, py] = b.pts[i - 1], L = Math.hypot(x - px, y - py) || 1, nx = -(y - py) / L, ny = (x - px) / L;
+        for (let k = 1; k <= 8; k++) { const t = k / 8, w = Math.sin(t * TAU * 2 + ph) * 5; X.lineTo(px + (x - px) * t + nx * w, py + (y - py) * t + ny * w); } });
+      X.stroke();
+    }
   }
   // landing markers: cyan when the shield is under them (will be blocked), red when not
   for (const b of R.ebul) {
@@ -881,10 +889,10 @@ function draw(now) {
   for (const s of R.shots) {
     const a = Math.atan2(s.vy, s.vx);
     X.save(); X.translate(s.x, s.y); X.rotate(a);
-    if (s.k === 'scalpel') { X.fillStyle = '#e6e9ff'; X.beginPath(); X.moveTo(9, 0); X.lineTo(-3, -3); X.lineTo(-9, -1); X.lineTo(-9, 1); X.lineTo(-3, 2); X.closePath(); X.fill(); }
+    if (s.k === 'scalpel') { X.strokeStyle = '#e6e9ff'; X.lineWidth = 2.2; X.lineCap = 'round'; X.beginPath(); X.moveTo(-8, 0); X.lineTo(1, 0); X.lineTo(7, -5); X.moveTo(1, 0); X.lineTo(7, 5); X.stroke(); }
     else if (s.k === 'needle') { X.strokeStyle = '#5fe1ff'; X.lineWidth = 1.6; X.beginPath(); X.moveTo(-12, 0); X.lineTo(10, 0); X.stroke(); X.fillStyle = '#5fe1ff'; X.fillRect(-14, -2, 4, 4); }
-    else if (s.k === 'syringe') { X.fillStyle = '#8affc1'; X.fillRect(-14, -2.5, 18, 5); X.strokeStyle = '#e6e9ff'; X.lineWidth = 1.2; X.beginPath(); X.moveTo(4, 0); X.lineTo(14, 0); X.stroke(); }
-    else { X.rotate(s.spin); X.fillStyle = '#ffcf8a'; roundRect(-9, -4, 18, 8, 3); X.fill(); }
+    else if (s.k === 'syringe') { X.strokeStyle = '#8affc1'; X.lineWidth = 2; X.beginPath(); for (let i = -14; i <= 12; i += 2) X.lineTo(i, Math.sin(i * 0.9) * 2.5); X.stroke(); }
+    else { X.rotate(s.spin); X.strokeStyle = '#ffcf8a'; X.lineWidth = 2; for (const [a, b] of [[-5, 0], [3, -4], [3, 4]]) { X.beginPath(); X.arc(a, b, 3.5, 0, TAU); X.stroke(); } }
     X.restore();
   }
   for (const q of R.parts) { X.globalAlpha = Math.min(1, q.t * 2.5); X.fillStyle = q.col; X.fillRect(q.x - 1.5, q.y - 1.5, 3, 3); }
@@ -943,19 +951,19 @@ function drawEnemy(e, T) {
     X.beginPath(); X.arc(e.r * .35, 0, e.r * .7, 0, TAU); X.fill();
     X.strokeStyle = 'rgba(10,15,31,.5)'; X.lineWidth = 2; X.beginPath(); X.moveTo(0, -e.r * .6); X.lineTo(0, e.r * .6); X.stroke();
   } else if (e.t === 'pig') {
-    const f = e.face || 1, r = e.r, bob = Math.sin(T * 10) * 2;
-    X.scale(f, 1);
-    X.fillStyle = e.flash > 0 ? '#ffffff' : '#e8a93a';
-    for (const lx of [-.5, -.2, .25, .55]) X.fillRect(lx * r - 4, r * .45 + (lx > 0 ? bob : -bob), 8, r * .35);
-    X.fillStyle = col; X.beginPath(); X.ellipse(0, 0, r * 1.05, r * .72, 0, 0, TAU); X.fill();
-    X.fillStyle = 'rgba(255,255,255,.35)'; X.beginPath(); X.ellipse(-r * .2, -r * .35, r * .45, r * .15, -0.2, 0, TAU); X.fill();
-    X.fillStyle = e.flash > 0 ? '#ffffff' : '#f0b84a';
-    X.beginPath(); X.moveTo(r * .35, -r * .55); X.lineTo(r * .55, -r * .95); X.lineTo(r * .7, -r * .5); X.fill();
-    X.fillStyle = e.flash > 0 ? '#ffffff' : '#ffb0a0'; X.beginPath(); X.ellipse(r * 1.0, r * .05, r * .24, r * .2, 0, 0, TAU); X.fill();
-    X.fillStyle = '#7a4a1a'; X.beginPath(); X.arc(r * .96, r * .02, 2.5, 0, TAU); X.arc(r * 1.08, r * .02, 2.5, 0, TAU); X.fill();
-    X.beginPath(); X.arc(r * .62, -r * .2, 3.5, 0, TAU); X.fill();
-    X.strokeStyle = '#e8a93a'; X.lineWidth = 3; X.beginPath(); X.arc(-r * 1.12, -r * .1, 6, 0.5, TAU - 0.5); X.stroke();
-    X.fillStyle = '#7a4a1a'; X.font = `400 ${Math.round(r * .5)}px "Dela Gothic One", sans-serif`; X.textAlign = 'center'; X.scale(f, 1); X.fillText('¥', -r * .1 * f, r * .2);
+    // golden amoeba: wobbling body with pseudopods, nucleus, and stored coin granules
+    const r = e.r, n = 14;
+    X.fillStyle = e.flash > 0 ? '#ffffff' : col; X.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const a = i / n * TAU, pod = Math.max(0, Math.sin(a * 3 + T * 2.2)) * 0.28;
+      const rr = r * (0.9 + pod + 0.05 * Math.sin(a * 5 - T * 3));
+      i ? X.lineTo(Math.cos(a) * rr, Math.sin(a) * rr * 0.85) : X.moveTo(Math.cos(a) * rr, Math.sin(a) * rr * 0.85);
+    }
+    X.closePath(); X.fill();
+    X.strokeStyle = 'rgba(255,255,255,.45)'; X.lineWidth = 2; X.stroke();
+    X.fillStyle = 'rgba(122,74,26,.45)'; X.beginPath(); X.ellipse(-r * .15, -r * .05, r * .32, r * .26, 0.3, 0, TAU); X.fill();
+    X.fillStyle = '#fff3c4';
+    for (let i = 0; i < 6; i++) { const a = i * 1.9 + T * .6; X.beginPath(); X.arc(Math.cos(a) * r * .55, Math.sin(a) * r * .4, 3.2, 0, TAU); X.fill(); }
   } else if (e.t === 'phage') {
     X.strokeStyle = col; X.fillStyle = col; X.lineWidth = 1.5;
     X.beginPath(); X.moveTo(0, -e.r * .2); X.lineTo(0, e.r * .7); X.stroke();
@@ -1028,7 +1036,7 @@ function updateHud() {
   if (key === lastHud) return; lastHud = key;
   $('lvTxt').textContent = R.lv;
   if (R.kind === 'pig') {
-    $('waveTxt').textContent = `金ブタ 難易度${R.ch}`;
+    $('waveTxt').textContent = `黄金アメーバ 難易度${R.ch}`;
     $('xpFill').style.width = ((R.t % 12) / 12 * 100) + '%';
     $('bossEta').textContent = `残り ${fmt(Math.max(0, PIG_T - R.t)).slice(1)}`;
   } else {
@@ -1048,17 +1056,18 @@ function weaponIcon(cv, id) {
   const g = cv.getContext('2d'), s = 2; cv.width = 36 * s; cv.height = 36 * s; g.scale(s, s);
   g.translate(18, 18); g.fillStyle = 'rgba(155,123,255,.15)'; g.beginPath(); g.arc(0, 0, 17, 0, TAU); g.fill();
   const col = WEAP[id].col; g.fillStyle = col; g.strokeStyle = col; g.lineWidth = 2;
-  if (id === 'scalpel') { g.rotate(-0.8); g.beginPath(); g.moveTo(12, 0); g.lineTo(-2, -4); g.lineTo(-12, -1.5); g.lineTo(-12, 1.5); g.lineTo(-2, 3); g.fill(); }
-  else if (id === 'dagger') { for (let i = 0; i < 3; i++) { g.save(); g.rotate(i * TAU / 3); g.translate(0, -9); g.beginPath(); g.moveTo(0, -6); g.lineTo(3, 2); g.lineTo(0, 5); g.lineTo(-3, 2); g.fill(); g.restore(); } }
-  else if (id === 'needle') { g.rotate(-0.8); g.beginPath(); g.moveTo(-12, 0); g.lineTo(12, 0); g.stroke(); g.fillRect(-14, -3, 5, 6); }
+  g.lineCap = 'round';
+  if (id === 'scalpel') { g.lineWidth = 3; g.beginPath(); g.moveTo(0, 12); g.lineTo(0, 0); g.lineTo(-8, -10); g.moveTo(0, 0); g.lineTo(8, -10); g.stroke(); }
+  else if (id === 'dagger') { for (let i = 0; i < 3; i++) { const a = i * TAU / 3; g.beginPath(); g.arc(Math.cos(a) * 9, Math.sin(a) * 9, 4.5, 0, TAU); g.fill(); } g.globalAlpha = .3; g.beginPath(); g.arc(0, 0, 9, 0, TAU); g.stroke(); }
+  else if (id === 'needle') { g.rotate(-0.8); g.beginPath(); g.moveTo(-12, 0); g.lineTo(12, 0); g.stroke(); g.beginPath(); g.moveTo(12, 0); g.lineTo(6, -4); g.lineTo(6, 4); g.fill(); }
   else if (id === 'bubble') { for (const [x, y, r] of [[-4, 3, 7], [6, -5, 5], [7, 7, 3]]) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke(); } }
-  else if (id === 'bandage') { g.rotate(-0.6); roundRectG(g, -13, -5, 26, 10, 4); g.fill(); g.fillStyle = 'rgba(10,15,31,.4)'; g.fillRect(-4, -5, 8, 10); }
+  else if (id === 'bandage') { for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; g.beginPath(); g.arc(Math.cos(a) * 8, Math.sin(a) * 8, 3.5, 0, TAU); g.stroke(); } }
   else if (id === 'laser') { g.fillRect(-2, -15, 4, 30); g.globalAlpha = .35; g.fillRect(-6, -15, 12, 30); }
-  else if (id === 'syringe') { g.rotate(-0.8); g.fillRect(-10, -4, 14, 8); g.fillRect(-14, -1, 4, 2); g.fillRect(-15, -5, 2, 10); g.beginPath(); g.moveTo(4, 0); g.lineTo(14, 0); g.stroke(); }
+  else if (id === 'syringe') { g.beginPath(); for (let y = -14; y <= 14; y += 2) g.lineTo(Math.sin(y * 0.6) * 4, y); g.stroke(); }
   else if (id === 'stetho') { for (const r of [5, 10, 15]) { g.globalAlpha = 1.2 - r / 15; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.stroke(); } }
-  else if (id === 'capsule') { g.rotate(-0.7); roundRectG(g, -12, -5, 12, 10, 5); g.fill(); g.fillStyle = '#e6e9ff'; roundRectG(g, 0, -5, 12, 10, 5); g.fill(); }
-  else if (id === 'cryo') { g.globalAlpha = .5; g.beginPath(); g.moveTo(-3, 12); g.lineTo(-12, -14); g.lineTo(12, -14); g.lineTo(3, 12); g.fill(); g.globalAlpha = 1; g.fillRect(-4, 8, 8, 7); }
-  else { g.beginPath(); g.moveTo(-10, 12); g.lineTo(-2, 0); g.lineTo(-7, -2); g.lineTo(6, -13); g.lineTo(1, 0); g.lineTo(6, 2); g.closePath(); g.fill(); }
+  else if (id === 'capsule') { g.beginPath(); for (let k = 0; k <= 12; k++) { const b = k / 12 * TAU, rr = 11 * (1 + 0.2 * Math.sin(b * 3)); k ? g.lineTo(Math.cos(b) * rr, Math.sin(b) * rr) : g.moveTo(Math.cos(b) * rr, Math.sin(b) * rr); } g.fill(); g.fillStyle = '#7a3d1a'; g.beginPath(); g.arc(2, 0, 4, 0, TAU); g.fill(); }
+  else if (id === 'cryo') { g.globalAlpha = .5; g.beginPath(); g.moveTo(-3, 12); g.lineTo(-12, -14); g.lineTo(12, -14); g.lineTo(3, 12); g.fill(); g.globalAlpha = 1; for (const [x, y] of [[-5, -8], [4, -6], [0, 0]]) { g.beginPath(); g.arc(x, y, 2.5, 0, TAU); g.fill(); } }
+  else { g.lineWidth = 1.6; for (const ph of [0, Math.PI]) { g.beginPath(); for (let y = -14; y <= 14; y += 2) g.lineTo(Math.sin(y * 0.4 + ph) * 6, y); g.stroke(); } }
 }
 function roundRectG(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 function renderHome() {
@@ -1075,7 +1084,7 @@ function renderHome() {
   $('pigNext').disabled = SAVE.pigLv >= Math.min(SAVE.pigMax || 1, PIG_MAX);
   $('pigLeft').textContent = pigOpen ? `今日あと ${left} 回` : '第2章クリアで解放';
   $('pigBtn').disabled = !pigOpen || left <= 0;
-  $('pigBtn').textContent = !pigOpen ? '第2章をクリアすると挑める' : left > 0 ? '金ブタ狩りへ' : '今日はもう挑めない (日付が変わると 3 回に戻る)';
+  $('pigBtn').textContent = !pigOpen ? '第2章をクリアすると挑める' : left > 0 ? '黄金アメーバ採集へ' : '今日はもう挑めない (日付が変わると 3 回に戻る)';
   const slots = $('slots'); slots.textContent = '';
   for (let i = 0; i < 3; i++) { const d = document.createElement('div'); const id = SAVE.equip[i]; d.className = 'slot' + (id ? ' on' : ''); d.textContent = id ? `${WEAP[id].name} Lv${SAVE.w[id]}` : '空き'; slots.appendChild(d); }
   const wl = $('wlist'); wl.textContent = '';
@@ -1121,7 +1130,7 @@ function start(kind = 'chapter') {
   resize(); newRun(kind); lastHud = ''; toasts = [];
   ['homeScr', 'overScr', 'pauseScr', 'skillScr', 'reviveScr'].forEach(id => $(id).hidden = true);
   $('hud').hidden = false;
-  openSkills(R.kind === 'pig' ? `金ブタ狩り 難易度${R.ch} 準備` : `第${R.ch}章 出撃準備`);
+  openSkills(R.kind === 'pig' ? `黄金アメーバ採集 難易度${R.ch} 準備` : `第${R.ch}章 出撃準備`);
 }
 function finish(win) {
   mode = 'over';
@@ -1135,7 +1144,7 @@ function finish(win) {
   $('overTitle').textContent = win ? '感染を食い止めた' : '細胞膜が破れた';
   $('overMsg').textContent = win
     ? `章クリアボーナス ●${60 * R.ch} 込み。${R.ch < MAXCH ? `第${R.ch + 1}章が開いた。` : '最終章まで制覇した。'}コインで武器を強化して次へ。`
-    : 'コインで武器を強化するか、装備の組み合わせを変えて再挑戦。ボスには鍼かレーザーメスで弱点を狙うと速い。';
+    : 'コインで武器を強化するか、装備の組み合わせを変えて再挑戦。ボスにはパーフォリンかインターフェロンで光る核を狙うと速い。';
   $('rWave').textContent = fmt(R.t).replace(/^0/, ''); $('rKill').textContent = R.kills; $('rCoin').textContent = coins;
   $('overScr').hidden = false;
 }
@@ -1146,8 +1155,8 @@ function finishPig(win) {
   const unlocked = win && R.ch >= (SAVE.pigMax || 1) && R.ch < PIG_MAX;
   if (unlocked) SAVE.pigMax = R.ch + 1;
   SAVE.coins += coins; store();
-  $('overEyebrow').textContent = `金ブタ狩り 難易度${R.ch}`;
-  $('overTitle').textContent = win ? '金ブタを仕留めた' : R.hp <= 0 ? '金ブタに膜を破られた' : '時間切れ';
+  $('overEyebrow').textContent = `黄金アメーバ採集 難易度${R.ch}`;
+  $('overTitle').textContent = win ? '黄金アメーバを分解した' : R.hp <= 0 ? '黄金アメーバに膜を破られた' : '時間切れ';
   $('overMsg').textContent = (win ? `撃破ボーナス ●${Math.round(full * 0.5)} 込み。` : `HP を ${Math.round(frac * 100)}% 削った分の報酬。`) + (unlocked ? `難易度 ${R.ch + 1} が開いた。` : '') + ` 今日はあと ${SAVE.pigLeft} 回挑める。`;
   $('rWave').textContent = fmt(R.t).replace(/^0/, ''); $('rKill').textContent = `${Math.round(frac * 100)}%`; $('rKillLbl').textContent = '削った HP';
   $('rCoin').textContent = coins;
