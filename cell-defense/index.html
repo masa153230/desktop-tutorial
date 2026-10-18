@@ -63,6 +63,21 @@ p strong { color: var(--ink); }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid rgba(230,233,255,.25); font: 700 14px var(--body); padding: 11px; }
 .btn:disabled { opacity: .4; cursor: default; }
 .btn.gold { background: var(--gold); }
+.wHead { display: flex; align-items: center; gap: 12px; }
+.wHead canvas { width: 48px; height: 48px; }
+.tree { display: grid; gap: 8px; }
+.trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(10,15,31,.6); border: 1px solid rgba(230,233,255,.08); }
+.trow b { font-size: 14px; }
+.trow b small { font: 500 11px var(--mono); color: var(--atp); margin-left: 6px; }
+.trow span { grid-column: 1; font-size: 12px; color: var(--dim); line-height: 1.45; }
+.trow button { grid-row: 1 / span 2; grid-column: 2; font: 700 12px var(--body); border-radius: 7px; padding: 8px 10px; border: 1px solid rgba(255,207,92,.5); background: transparent; color: var(--gold); white-space: nowrap; }
+.trow button:disabled { opacity: .35; cursor: default; }
+.pips { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.pips i { width: 7px; height: 7px; border-radius: 2px; background: rgba(230,233,255,.15); }
+.pips i.on { background: var(--atp); }
+.slot.lockd { border-style: dashed; color: var(--dim); font: 500 11px var(--body); background: transparent; }
+.slot.buy { border-color: var(--gold); color: var(--gold); cursor: pointer; }
+.slots { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
 .skillActs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 #takeAllBtn:not(:disabled) { border-color: var(--gold); color: var(--gold); }
 .pigBox { display: grid; gap: 10px; padding: 14px; border-radius: 12px; border: 1px solid rgba(255,207,92,.35); background: rgba(255,207,92,.06); }
@@ -128,7 +143,7 @@ p strong { color: var(--ink); }
         <div><b id="chName">第1章</b><small id="chSub">推奨 Lv 1</small></div>
         <button id="chNext" type="button" aria-label="次の章">▶</button>
       </div>
-      <h3>出撃武器 (3 枠)</h3>
+      <h3 id="slotTitle">出撃武器 (3 枠)</h3>
       <div class="slots" id="slots"></div>
       <div class="wlist" id="wlist"></div>
       <button class="btn" id="startBtn" type="button">出撃</button>
@@ -177,6 +192,19 @@ p strong { color: var(--ink); }
       <p id="buildTxt"></p>
       <button class="btn" id="resumeBtn" type="button">再開</button>
       <button class="btn ghost" id="quitBtn" type="button">撤退してホームへ (コインは半分)</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="wpnScr" hidden>
+    <div class="panel">
+      <div class="wHead"><canvas id="wpnIcon"></canvas><div><div class="eyebrow" id="wpnKind">武器の強化</div><h2 id="wpnName">抗体</h2></div></div>
+      <p id="wpnDesc"></p>
+      <div class="tree" id="wpnTree"></div>
+      <div class="skillActs">
+        <button class="btn ghost" id="wpnEquip" type="button">装備する</button>
+        <button class="btn" id="wpnClose" type="button">閉じる</button>
+      </div>
+      <p class="kbd"><span class="coin">●</span> <b id="wpnCoins">0</b> 所持</p>
     </div>
   </div>
 
@@ -250,9 +278,21 @@ const WEAP = {
 const WIDS = Object.keys(WEAP);
 const upCost = lv => Math.round(40 * Math.pow(lv, 1.55));
 const metaMul = lv => 1 + 0.15 * (lv - 1);
+// per-weapon upgrade tree. "pow" is the original weapon level (SAVE.w[id]); the rest live in SAVE.wt[id]
+const PIERCE_EXT = new Set(['scalpel', 'needle']);
+const ORBIT = new Set(['dagger', 'capsule']);
+const TREE = [
+  { k: 'pow', name: '威力', max: 30, cost: lv => upCost(lv), eff: (id, lv) => `ダメージ ×${metaMul(lv).toFixed(2)} → ×${metaMul(lv + 1).toFixed(2)}` },
+  { k: 'spd', name: '連射', max: 5, cost: lv => Math.round(90 * Math.pow(lv + 1, 1.7)), eff: id => ORBIT.has(id) ? '回転速度 +8% / Lv' : '攻撃間隔 -7% / Lv' },
+  { k: 'num', name: '数', max: 2, cost: lv => Math.round(700 * Math.pow(lv + 1, 2)), eff: id => `${COUNT_TXT[id]} +1 / Lv` },
+  { k: 'ext', name: '特性', max: 3, cost: lv => Math.round(160 * Math.pow(lv + 1, 1.7)), eff: id => PIERCE_EXT.has(id) ? '貫通する敵 +1 / Lv' : id === 'syringe' ? '当たり判定 +12% / Lv' : id === 'laser' ? '警報の太さ +12% / Lv' : id === 'electro' ? '絡めとる距離 +12% / Lv' : '効果範囲 +12% / Lv' },
+];
+const treeLv = (id, k) => k === 'pow' ? (SAVE.w[id] || 1) : ((SAVE.wt[id] || {})[k] || 0);
+// extra equip slots: chapter to have cleared, and price
+const SLOT_REQ = { 4: { ch: 3, cost: 1500 }, 5: { ch: 6, cost: 5000 } };
 
 // ---------- save ----------
-const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, speed: 1, actMax: 1, actCh: 1, pigMax: 1, pigLv: 1, pigLeft: 3, pigDay: '', equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
+const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, speed: 1, slots: 3, wt: {}, actMax: 1, actCh: 1, pigMax: 1, pigLv: 1, pigLeft: 3, pigDay: '', equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
 let SAVE = load();
 function load() {
   try { const s = JSON.parse(localStorage.getItem('celldef.save') || 'null'); if (s && s.w) return Object.assign(structuredClone(DEFAULT_SAVE), s); } catch (e) {}
@@ -341,7 +381,10 @@ function newRun(kind = 'chapter') {
     w: {}, en: [], shots: [], bubbles: [], zones: [], beams: [], parts: [], texts: [], rings: [], bolts: [], ebul: [], capAng: 0, cryoOn: 0,
     queue: [], spawnT: 0, spawnGap: 1, daggerAng: 0, t: 0, bossT: 0, shake: 0, scroll: 0,
   };
-  for (const id of R.equip) R.w[id] = { lv: SAVE.w[id] || 1, dmg: 1, rate: 1, n: 1, size: 1, t: 0.3 };
+  for (const id of R.equip) {
+    const t = SAVE.wt[id] || {}, pe = PIERCE_EXT.has(id);
+    R.w[id] = { lv: SAVE.w[id] || 1, dmg: 1, rate: 1 + 0.08 * (t.spd || 0), n: 1 + (t.num || 0), size: 1 + (pe ? 0 : 0.12 * (t.ext || 0)), pierce: pe ? 1 + (t.ext || 0) : undefined, t: 0.3 };
+  }
   if (kind === 'act') Object.assign(R, {
     px: 80, py: groundY() - PR, vx: 0, vy: 0, kbx: 0, face: 1, onGround: true, jumps: 0, coyote: 0, inv: 0,
     camX: 0, lay: actLayout(ch), arena: 0, lock: null, wave: 0, waveQ: [], waveT: 0, abul: [], jumpReq: false, hint: 6,
@@ -560,7 +603,7 @@ function weapons(dt) {
       w.t = cdOf(id);
       for (let i = 0; i < w.n; i++) {
         const a = (act ? (R.face > 0 ? 0 : Math.PI) : -Math.PI / 2) + (i - (w.n - 1) / 2) * 0.12;
-        R.shots.push({ k: 'syringe', x: cx, y: cy - 12, vx: Math.cos(a) * 700, vy: Math.sin(a) * 700, dmg: dmgOf(id), pierce: 99, life: 1.5, hit: new Set() });
+        R.shots.push({ k: 'syringe', rad: 5 * w.size, x: cx, y: cy - 12, vx: Math.cos(a) * 700, vy: Math.sin(a) * 700, dmg: dmgOf(id), pierce: 99, life: 1.5, hit: new Set() });
       }
     } else if (id === 'stetho') {
       if (!R.en.some(e => !e.dead && Math.hypot(e.x - cx, e.y - cy) < 150 * w.size)) { w.t = 0.1; continue; }
@@ -686,7 +729,7 @@ function updateFx(dt) {
     for (const e of R.en) {
       if (e.dead || s.hit.has(e.id) || s.life <= 0) continue;
       if (e.id === s.skip || (s.tg && s.tg.part && e === s.tg.host)) continue;   // shots aimed at a part pass through its owner
-      if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (e.r + 5) ** 2) {
+      if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (e.r + (s.rad || 5)) ** 2) {
         s.hit.add(e.id);
         if (s.k === 'bandage') {
           R.zones.push({ follow: e, x: e.x, y: e.y, r: 40 * R.w.bandage.size, dps: s.dmg, life: 4.5, tick: 0 });
@@ -1507,38 +1550,84 @@ function renderHome() {
   $('pigLeft').textContent = pigOpen ? `今日あと ${left} 回` : '第2章クリアで解放';
   $('pigBtn').disabled = !pigOpen || left <= 0;
   $('pigBtn').textContent = !pigOpen ? '第2章をクリアすると挑める' : left > 0 ? '黄金アメーバ採集へ' : '今日はもう挑めない (日付が変わると 3 回に戻る)';
+  SAVE.slots = Math.max(3, Math.min(5, SAVE.slots || 3));
+  if (SAVE.equip.length > SAVE.slots) SAVE.equip.length = SAVE.slots;
+  $('slotTitle').textContent = `出撃武器 (${SAVE.slots} 枠)`;
   const slots = $('slots'); slots.textContent = '';
-  for (let i = 0; i < 3; i++) { const d = document.createElement('div'); const id = SAVE.equip[i]; d.className = 'slot' + (id ? ' on' : ''); d.textContent = id ? `${WEAP[id].name} Lv${SAVE.w[id]}` : '空き'; slots.appendChild(d); }
+  for (let i = 0; i < 5; i++) {
+    const id = SAVE.equip[i];
+    if (i < SAVE.slots) {
+      const d = document.createElement('div'); d.className = 'slot' + (id ? ' on' : '');
+      d.textContent = id ? `${WEAP[id].name} Lv${SAVE.w[id]}` : '空き'; slots.appendChild(d);
+      continue;
+    }
+    const n = i + 1, req = SLOT_REQ[n], ready = i === SAVE.slots && SAVE.maxCh > req.ch;
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'slot lockd' + (ready && SAVE.coins >= req.cost ? ' buy' : '');
+    b.textContent = ready ? `${n} 枠目を解放 ●${req.cost}` : `第${req.ch}章クリアで ${n} 枠目`;
+    b.disabled = !(ready && SAVE.coins >= req.cost);
+    b.onclick = () => { if (!ready || SAVE.coins < req.cost) return; SAVE.coins -= req.cost; SAVE.slots = n; store(); renderHome(); };
+    slots.appendChild(b);
+  }
   const wl = $('wlist'); wl.textContent = '';
   for (const id of WIDS) {
-    const own = !!SAVE.w[id], lv = SAVE.w[id] || 0, eq = SAVE.equip.includes(id);
+    const own = !!SAVE.w[id], eq = SAVE.equip.includes(id);
     const card = document.createElement('div'); card.className = 'wcard' + (own ? '' : ' locked');
     const cv = document.createElement('canvas'); weaponIcon(cv, id);
     const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = WEAP[id].name;
-    if (own) { const sm = document.createElement('small'); sm.textContent = `Lv ${lv} · 威力 ×${metaMul(lv).toFixed(2)}`; nm.appendChild(sm); }
+    if (own) { const sm = document.createElement('small'); sm.textContent = TREE.map(t => `${t.name}${treeLv(id, t.k)}`).join(' · '); nm.appendChild(sm); }
     const ds = document.createElement('div'); ds.className = 'ds'; ds.textContent = WEAP[id].desc;
     const acts = document.createElement('div'); acts.className = 'acts';
     if (own) {
       const b1 = document.createElement('button'); b1.type = 'button';
       b1.textContent = eq ? '装備中' : '装備'; if (eq) b1.className = 'eq';
-      b1.disabled = !eq && SAVE.equip.length >= 3 ? false : false;
-      b1.onclick = () => {
-        if (eq) { if (SAVE.equip.length > 1) SAVE.equip = SAVE.equip.filter(x => x !== id); }
-        else { if (SAVE.equip.length >= 3) SAVE.equip.shift(); SAVE.equip.push(id); }
-        store(); renderHome();
-      };
+      b1.onclick = () => { toggleEquip(id); renderHome(); };
       const b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'up';
-      const c = upCost(lv); b2.textContent = `強化 ●${c}`; b2.disabled = SAVE.coins < c;
-      b2.onclick = () => { if (SAVE.coins < c) return; SAVE.coins -= c; SAVE.w[id]++; store(); renderHome(); };
+      b2.textContent = '強化'; b2.onclick = () => openWeapon(id);
       acts.append(b1, b2);
     } else {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'up';
       b.textContent = `解放 ●${WEAP[id].cost}`; b.disabled = SAVE.coins < WEAP[id].cost;
-      b.onclick = () => { if (SAVE.coins < WEAP[id].cost) return; SAVE.coins -= WEAP[id].cost; SAVE.w[id] = 1; if (SAVE.equip.length < 3) SAVE.equip.push(id); store(); renderHome(); };
+      b.onclick = () => { if (SAVE.coins < WEAP[id].cost) return; SAVE.coins -= WEAP[id].cost; SAVE.w[id] = 1; if (SAVE.equip.length < SAVE.slots) SAVE.equip.push(id); store(); renderHome(); };
       acts.append(b);
     }
     card.append(cv, nm, acts, ds);
     wl.appendChild(card);
+  }
+}
+function toggleEquip(id) {
+  if (SAVE.equip.includes(id)) { if (SAVE.equip.length > 1) SAVE.equip = SAVE.equip.filter(x => x !== id); }
+  else { if (SAVE.equip.length >= SAVE.slots) SAVE.equip.shift(); SAVE.equip.push(id); }
+  store();
+}
+// weapon detail sheet: spend coins on the branch you want
+let wpnOpen = null;
+function openWeapon(id) { wpnOpen = id; renderWeapon(); $('wpnScr').hidden = false; }
+function renderWeapon() {
+  const id = wpnOpen; if (!id) return;
+  weaponIcon($('wpnIcon'), id);
+  $('wpnName').textContent = WEAP[id].name;
+  $('wpnDesc').textContent = WEAP[id].desc;
+  $('wpnCoins').textContent = SAVE.coins;
+  $('wpnEquip').textContent = SAVE.equip.includes(id) ? '装備を外す' : SAVE.equip.length >= SAVE.slots ? '装備する (一番古い装備と交代)' : '装備する';
+  const box = $('wpnTree'); box.textContent = '';
+  for (const t of TREE) {
+    const lv = treeLv(id, t.k), maxed = lv >= t.max, cost = t.cost(lv);
+    const row = document.createElement('div'); row.className = 'trow';
+    const b = document.createElement('b'); b.textContent = t.name;
+    const sm = document.createElement('small'); sm.textContent = t.k === 'pow' ? `Lv ${lv}` : `Lv ${lv} / ${t.max}`; b.appendChild(sm);
+    if (t.k !== 'pow') { const pips = document.createElement('span'); pips.className = 'pips'; for (let i = 0; i < t.max; i++) { const q = document.createElement('i'); if (i < lv) q.className = 'on'; pips.appendChild(q); } b.appendChild(pips); }
+    const ef = document.createElement('span'); ef.textContent = t.eff(id, lv);
+    const btn = document.createElement('button'); btn.type = 'button';
+    btn.textContent = maxed ? '最大' : `強化 ●${cost}`; btn.disabled = maxed || SAVE.coins < cost;
+    btn.onclick = () => {
+      if (maxed || SAVE.coins < cost) return;
+      SAVE.coins -= cost;
+      if (t.k === 'pow') SAVE.w[id]++; else { SAVE.wt[id] = SAVE.wt[id] || {}; SAVE.wt[id][t.k] = lv + 1; }
+      store(); renderWeapon(); renderHome();
+    };
+    row.append(b, btn, ef);
+    box.appendChild(row);
   }
 }
 
@@ -1614,6 +1703,8 @@ function pause(on) {
 
 $('startBtn').onclick = () => start();
 $('pigBtn').onclick = startPig;
+$('wpnClose').onclick = () => { $('wpnScr').hidden = true; wpnOpen = null; };
+$('wpnEquip').onclick = () => { if (wpnOpen) { toggleEquip(wpnOpen); renderWeapon(); renderHome(); } };
 $('actBtn').onclick = () => start('act');
 $('actPrev').onclick = () => { SAVE.actCh = Math.max(1, SAVE.actCh - 1); store(); renderHome(); };
 $('actNext').onclick = () => { SAVE.actCh = Math.min(SAVE.actMax || 1, SAVE.actCh + 1); store(); renderHome(); };
