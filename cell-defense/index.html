@@ -237,7 +237,7 @@ const origin = () => isAct() ? [R.px, R.py] : [R.x, cellY()];
 const WEAP = {
   scalpel: { name: '抗体',         cost: 0,    dmg: 10, cd: 0.55, col: '#e6e9ff', desc: '膜に一番近い敵へ Y 字の抗体を撃つ。万能' },
   dagger:  { name: 'アズール顆粒', cost: 0,    dmg: 19, cd: 0,    col: '#c2a8ff', desc: '殺菌顆粒が細胞のまわりを回る。膜際に張り付いた敵を削る' },
-  needle:  { name: 'パーフォリン', cost: 300,  dmg: 34, cd: 1.0,  col: '#5fe1ff', desc: '一番 HP の高い敵を追って穴をあける。ボスの核を狙う' },
+  needle:  { name: 'パーフォリン', cost: 300,  dmg: 34, cd: 1.0,  col: '#5fe1ff', desc: '大物を追って穴をあける。部位があれば部位を優先して壊す' },
   bubble:  { name: '活性酸素',     cost: 500,  dmg: 24, cd: 1.3,  col: '#9ff0ff', desc: '泡が昇って弾け、まわりをまとめて酸化させる' },
   bandage: { name: '補体',         cost: 800,  dmg: 10, cd: 2.2,  col: '#ffcf8a', desc: '敵に取り付いて穴をあけ、周囲ごとじわじわ溶かす' },
   laser:   { name: 'インターフェロン', cost: 1200, dmg: 52, cd: 3.2, col: '#ff8fb1', desc: '細胞の真上一列に警報を放ち、焼き払う' },
@@ -312,10 +312,19 @@ const ET = {
   phage: { name: 'ファージ',     hp: 24,   sp: 50, r: 11, atk: 6,  coin: 2,  col: '#ffd36b' },
   armor: { name: '装甲ウイルス', hp: 52,   sp: 30, r: 15, atk: 8,  coin: 3,  col: '#c9a0ff', armor: 0.5 },
   elite: { name: 'がん細胞',     hp: 430,  sp: 19, r: 30, atk: 14, coin: 25, col: '#ff7a45' },
+  part:  { name: '部位',         hp: 1,    sp: 0,  r: 10, atk: 0,  coin: 0,  col: '#e0457a' },
   pig:   { name: '黄金アメーバ',       hp: 1,    sp: 15, r: 44, atk: 30, coin: 0,  col: '#ffcf5c' },
   boss:  { name: '巨大ウイルス', hp: 1150, sp: 15, r: 52, atk: 26, coin: 80, col: '#e0457a' },
 };
 
+// breakable parts: share of the host's max HP each, and what breaking it takes away
+const PARTS = {
+  boss:  [{ k: 'spike', name: '棘タンパク', ox: -1.05, oy: 0.1, r: 0.36, hp: 0.16 }, { k: 'spike', name: '棘タンパク', ox: 1.05, oy: 0.1, r: 0.36, hp: 0.16 },
+          { k: 'sac', name: '複製嚢', ox: 0, oy: 0.98, r: 0.4, hp: 0.2 }, { k: 'shell', name: 'カプシド殻', ox: 0, oy: -0.98, r: 0.38, hp: 0.18 }],
+  elite: [{ k: 'lobe', name: '腫瘍塊', ox: -0.95, oy: -0.35, r: 0.48, hp: 0.3 }, { k: 'lobe', name: '腫瘍塊', ox: 0.95, oy: -0.35, r: 0.48, hp: 0.3 }],
+  pig:   [{ k: 'pod', name: '金の偽足', ox: -1.1, oy: 0.25, r: 0.34, hp: 0.12 }, { k: 'pod', name: '金の偽足', ox: 1.1, oy: 0.25, r: 0.34, hp: 0.12 },
+          { k: 'pod', name: '金の偽足', ox: 0, oy: -1.0, r: 0.34, hp: 0.12 }],
+};
 // ---------- run state ----------
 let R = null, mode = 'home', last = 0, uid = 0;
 const keys = new Set();
@@ -324,7 +333,7 @@ const drag = { on: false, id: null, sx: 0, cx: 0 };
 function newRun(kind = 'chapter') {
   const ch = kind === 'pig' ? SAVE.pigLv : kind === 'act' ? SAVE.actCh : SAVE.ch;
   R = {
-    kind, ch, pig: null, nextPick: 12, shieldFlash: 0, spitTold: false, rerolls: 2, takeAlls: 1, opts: [],
+    kind, ch, pig: null, pigBonus: 0, banners: [], flashFx: 0, hitstop: 0, slowmo: 0, wonT: 0, nextPick: 12, shieldFlash: 0, spitTold: false, rerolls: 2, takeAlls: 1, opts: [],
     xpMul: 1, coinMul: 1, bigMul: 1, explode: 0, lifesteal: 0, slowAura: 0, shieldMul: 1, execute: 0, kills: 0, coins: 0, revived: false, lv: 1, xp: 0, pending: 0, eliteDone: false, bossDone: false,
     hp: 100, maxHp: 100, x: W / 2, face: 0, hurt: 0,
     gdmg: 1, grate: 1, crit: 0.05, regen: 0, thorns: 0,
@@ -367,19 +376,63 @@ function spawn(type, x, y) {
   const mul = hpMul() * (type === 'boss' ? 1 + 0.25 * (R.ch - 1) : 1);
   const seed = []; for (let i = 0; i < 10; i++) seed.push(0.82 + Math.random() * 0.36);
   const e = {
-    vx: 0, vy: 0, kx: 0, onG: false, shootT: 1 + Math.random() * 2, hopT: 0.8 + Math.random(),
+    vx: 0, vy: 0, kx: 0, onG: false, stun: 0, spikes: 0, shootT: 1 + Math.random() * 2, hopT: 0.8 + Math.random(),
     id: ++uid, t: type, x: x ?? (30 + Math.random() * (W - 60)), y: y ?? -d.r - 10,
     hp: d.hp * mul, mhp: d.hp * mul, r: d.r, sp: d.sp * (0.88 + Math.random() * 0.24) * (1 + 0.03 * (R.ch - 1)),
     atk: d.atk * (1 + 0.12 * (R.ch - 1)), flash: 0, ph: Math.random() * TAU, seed, dot: 0, dotT: 0,
     atWall: false, hitCd: 0, kb: 0, weakA: 0, big,
   };
   R.en.push(e);
+  if (PARTS[type] && type !== 'pig') attachParts(e);
   return e;
+}
+function attachParts(h) {
+  h.parts = [];
+  for (const d of PARTS[h.t]) {
+    const p = { id: ++uid, t: 'part', pk: d.k, name: d.name, host: h, ox: d.ox, oy: d.oy, r: h.r * d.r, hp: h.mhp * d.hp, mhp: h.mhp * d.hp,
+      x: h.x + d.ox * h.r, y: h.y + d.oy * h.r, big: true, part: true, flash: 0, ph: Math.random() * TAU, seed: [1], kx: 0, kb: 0 };
+    R.en.push(p); h.parts.push(p);
+  }
+  h.partsLeft = h.parts.length;
+  h.spikes = h.parts.filter(p => p.pk === 'spike').length;
+}
+// how much of a hit on a part also lands on its owner (the amoeba is a coin farm, so less)
+const partShare = h => h.t === 'pig' ? 0.25 : 0.5;
+function syncParts() {
+  for (const e of R.en) if (e.part && !e.dead) {
+    const h = e.host;
+    if (!h || h.dead) { e.dead = true; continue; }
+    e.x = h.x + e.ox * h.r; e.y = h.y + e.oy * h.r;
+  }
+}
+const banner = (txt, sub, col = '#ffcf5c') => { R.banners.push({ txt, sub, col, t: 1.5, max: 1.5 }); if (R.banners.length > 2) R.banners.shift(); };
+function partBreak(p) {
+  const h = p.host;
+  if (!h || h.dead) return;
+  h.partsLeft--;
+  const reward = h.t === 'pig' ? Math.round(pigReward(R.ch) * 0.08) : Math.round((h.t === 'boss' ? 22 : 9) * (1 + 0.15 * (R.ch - 1)));
+  if (R.kind === 'pig') R.pigBonus += reward; else R.coins += Math.round(reward * R.coinMul);
+  if (R.kind !== 'act') { R.xp += 6 * R.xpMul; while (R.xp >= needXp(R.lv)) { R.xp -= needXp(R.lv); R.lv++; R.pending++; } }
+  if (p.pk === 'spike') h.spikes--;
+  if (p.pk === 'sac') h.noSpawn = true;
+  if (p.pk === 'lobe') h.sp *= 0.6;
+  if (p.pk === 'pod') h.sp *= 0.88;
+  // the payoff: freeze-frame, shake, flash, burst, coin fountain, banner
+  R.hitstop = Math.max(R.hitstop, 0.13); R.shake = Math.max(R.shake, 0.55); R.flashFx = 0.22;
+  for (let i = 0; i < 34; i++) { const a = Math.random() * TAU, sp = 80 + Math.random() * 260; R.parts.push({ x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: .5 + Math.random() * .4, col: i % 3 ? ET[h.t].col : '#ffffff' }); }
+  for (let i = 0; i < 16; i++) R.parts.push({ x: p.x, y: p.y, vx: (Math.random() - .5) * 220, vy: -160 - Math.random() * 220, t: .8 + Math.random() * .4, col: '#ffcf5c' });
+  R.rings.push({ x: p.x, y: p.y, r: 6, max: 70, dmg: 0, hit: new Set(), fx: true });
+  banner(`${p.name} 破壊！`, `+●${reward}`);
+  if (h.partsLeft === 0) {
+    h.exposed = true; h.stun = 3; R.hitstop = 0.26; R.flashFx = 0.35;
+    banner(h.t === 'boss' ? 'コア露出！' : h.t === 'pig' ? '全偽足 破壊！' : '全腫瘍 破壊！', h.t === 'boss' ? '弱点ダメージ ×4 · 3 秒スタン' : '動きが鈍った', '#5fe1ff');
+  }
 }
 
 // ---------- combat ----------
 function dmgOf(id) { const w = R.w[id]; return WEAP[id].dmg * metaMul(w.lv) * w.dmg * R.gdmg; }
 function cdOf(id) { const w = R.w[id]; return WEAP[id].cd / (w.rate * R.grate); }
+const weakMul = e => e.exposed ? 4 : e.partsLeft > 0 ? 1.5 : 2.5;  // shell on: 1.5, core exposed: 4
 function weakPos(e) { return { x: e.x + Math.cos(e.weakA) * e.r * 0.62, y: e.y + Math.sin(e.weakA) * e.r * 0.62 }; }
 function hit(e, d, px, py, noText) {
   if (e.dead) return;
@@ -387,19 +440,22 @@ function hit(e, d, px, py, noText) {
   if (Math.random() < R.crit) { d *= 2; col = '#ffcf5c'; }
   if (e.t === 'boss' && px !== undefined) {
     const wp = weakPos(e);
-    if ((px - wp.x) ** 2 + (py - wp.y) ** 2 < 20 * 20) { d *= 2.5; col = '#5fe1ff'; label = '弱点'; }
+    if ((px - wp.x) ** 2 + (py - wp.y) ** 2 < (e.exposed ? 26 : 20) ** 2) { d *= weakMul(e); col = '#5fe1ff'; label = e.exposed ? 'コア' : '弱点'; }
   }
   if (ET[e.t].armor && label === null) d *= ET[e.t].armor;
   if (e.big) d *= R.bigMul;
   e.hp -= d; e.flash = 0.07;
+  if (e.part && e.host && !e.host.dead) { e.host.hp -= d * partShare(e.host); e.host.flash = 0.05; if (e.host.hp <= 0) kill(e.host); }
   if (R.execute && !e.big && e.hp > 0 && e.hp < e.mhp * R.execute) e.hp = 0;
   if (e.t === 'pig' && Math.random() < 0.35) R.parts.push({ x: e.x + (Math.random() - .5) * e.r, y: e.y, vx: (Math.random() - .5) * 120, vy: -60 - Math.random() * 80, t: .5, col: '#ffcf5c' });
   if (e.t === 'pig') { e.y = Math.max(safeT + 110, e.y - d / e.mhp * 320); e.atWall = false; }
-  if (!noText && R.texts.length < 60) R.texts.push({ x: e.x + (Math.random() - .5) * 12, y: e.y - e.r, v: label ? `${label} ${Math.round(d)}` : Math.round(d), col, t: 0.6 });
+  if (!noText && R.texts.length < 60) R.texts.push({ x: e.x + (Math.random() - .5) * 12, y: e.y - e.r, v: label ? `${label} ${Math.round(d)}` : Math.round(d), col, t: 0.6, sz: e.big ? Math.min(24, 12 + Math.log10(Math.max(1, d)) * 4) + (col === '#ffcf5c' ? 3 : 0) : 11 });
   if (e.hp <= 0) kill(e);
 }
 function kill(e) {
-  e.dead = true; R.kills++;
+  e.dead = true;
+  if (e.part) return partBreak(e);
+  R.kills++;
   const c = Math.round(ET[e.t].coin * (1 + 0.15 * (R.ch - 1)));
   R.coins += Math.round(c * R.coinMul * (R.kind === 'act' ? 0.6 : 1));  // expedition fields more enemies per run
   R.xp += ET[e.t].coin * R.xpMul;
@@ -409,7 +465,11 @@ function kill(e) {
     for (const o of R.en) if (!o.dead && o !== e && (o.x - e.x) ** 2 + (o.y - e.y) ** 2 < (46 + o.r) ** 2) hit(o, R.explode, undefined, undefined, true);
   }
   if (R.kind !== 'act') while (R.xp >= needXp(R.lv)) { R.xp -= needXp(R.lv); R.lv++; R.pending++; }  // the expedition levels up per cleared area instead
-  if (e.t === 'boss' || e.t === 'pig') R.won = true;
+  if ((e.t === 'boss' || e.t === 'pig') && !R.won) {
+    R.won = true; R.wonT = 0.55; R.slowmo = 1.6; R.hitstop = 0.22; R.shake = 0.8; R.flashFx = 0.45;
+    banner(`${ET[e.t].name} 撃破！`, null, '#ffffff');
+    for (let i = 0; i < 70; i++) { const a = Math.random() * TAU, sp = 60 + Math.random() * 380; R.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: .8 + Math.random() * .6, col: i % 4 ? ET[e.t].col : '#ffcf5c' }); }
+  }
   const col = ET[e.t].col, pn = e.big ? 26 : 7;
   for (let i = 0; i < pn; i++) { const a = Math.random() * TAU, s = 40 + Math.random() * 140; R.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: .4 + Math.random() * .4, col }); }
   if (e.t === 'split') for (let k = -1; k <= 1; k += 2) { const s = spawn('virus', e.x + k * 10, e.y); s.hp = s.mhp = s.mhp * 0.55; s.r = 9; }
@@ -462,17 +522,22 @@ function weapons(dt) {
     if (id === 'scalpel') {
       const f = frontline(); if (!f.length) { w.t = 0.1; continue; }
       w.t = cdOf(id);
+      // with breakable parts on the field, one antibody per volley (or every 3rd volley) goes for a part
+      const pa = R.en.filter(e => e.part && !e.dead);
+      R.volley = ((R.volley || 0) + 1) % 3;
       for (let i = 0; i < w.n; i++) {
-        const tg = f[i % f.length], a = Math.atan2(tg.y - cy, tg.x - cx) + (i >= f.length ? (Math.random() - .5) * .3 : 0);
-        R.shots.push({ k: 'scalpel', x: cx, y: cy - 10, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, dmg: dmgOf(id), pierce: w.pierce || 1, life: 1.6, hit: new Set() });
+        const onPart = pa.length && (w.n > 1 ? i === w.n - 1 : R.volley === 0);
+        const tg = onPart ? pa[Math.floor(Math.random() * pa.length)] : f[i % f.length], a = Math.atan2(tg.y - cy, tg.x - cx) + (!onPart && i >= f.length ? (Math.random() - .5) * .3 : 0);
+        R.shots.push({ k: 'scalpel', x: cx, y: cy - 10, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, dmg: dmgOf(id), pierce: w.pierce || 1, life: 1.6, hit: new Set(), skip: onPart ? tg.host.id : 0 });
       }
     } else if (id === 'needle') {
       const alive = R.en.filter(e => !e.dead && (act || e.y > 0));
       if (!alive.length) { w.t = 0.1; continue; }
       w.t = cdOf(id);
       alive.sort((a, b) => b.hp - a.hp);
+      const pa = alive.filter(e => e.part).sort((a, b) => a.hp - b.hp);   // perforin is the part breaker
       for (let i = 0; i < w.n; i++) {
-        const tg = alive[i % alive.length];
+        const tg = pa.length ? pa[i % pa.length] : alive[i % alive.length];
         R.shots.push({ k: 'needle', tg, x: cx + (i - (w.n - 1) / 2) * 12, y: cy - 10, vx: (Math.random() - .5) * 200, vy: -380, dmg: dmgOf(id), pierce: w.pierce || 1, life: 3, hit: new Set() });
       }
     } else if (id === 'bubble') {
@@ -606,7 +671,7 @@ function updateFx(dt) {
   // shots
   for (const s of R.shots) {
     if ((s.k === 'needle' || s.k === 'bandage') && s.tg) {
-      if (s.tg.dead) s.tg = s.k === 'needle' ? R.en.filter(e => !e.dead).sort((a, b) => b.hp - a.hp)[0] : nearestTo(s.x, s.y, 300);
+      if (s.tg.dead) s.tg = s.k === 'needle' ? (R.en.filter(e => !e.dead && e.part).sort((a, b) => a.hp - b.hp)[0] || R.en.filter(e => !e.dead).sort((a, b) => b.hp - a.hp)[0]) : nearestTo(s.x, s.y, 300);
       if (s.tg) {
         let tx = s.tg.x, ty = s.tg.y;
         if (s.k === 'needle' && s.tg.t === 'boss') { const wp = weakPos(s.tg); tx = wp.x; ty = wp.y; }
@@ -620,6 +685,7 @@ function updateFx(dt) {
     if (act ? (s.x < R.camX - 80 || s.x > R.camX + W + 80 || s.y < -80 || s.y > H + 40) : (s.y < -60 || s.x < -60 || s.x > W + 60)) s.life = 0;
     for (const e of R.en) {
       if (e.dead || s.hit.has(e.id) || s.life <= 0) continue;
+      if (e.id === s.skip || (s.tg && s.tg.part && e === s.tg.host)) continue;   // shots aimed at a part pass through its owner
       if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (e.r + 5) ** 2) {
         s.hit.add(e.id);
         if (s.k === 'bandage') {
@@ -664,7 +730,7 @@ function updateFx(dt) {
     for (const e of R.en) {
       if (e.dead || r.hit.has(e.id)) continue;
       const d = Math.hypot(e.x - r.x, e.y - r.y);
-      if (d < r.r + e.r) { r.hit.add(e.id); hit(e, r.dmg, e.x, e.y); if (!e.big && e.t !== 'boss') { if (act) e.kx = Math.sign(e.x - r.x || 1) * 320; else { e.atWall = false; e.y -= 34; e.kb = 140; } } }
+      if (!r.fx && d < r.r + e.r) { r.hit.add(e.id); hit(e, r.dmg, e.x, e.y); if (!e.big && e.t !== 'boss') { if (act) e.kx = Math.sign(e.x - r.x || 1) * 320; else { e.atWall = false; e.y -= 34; e.kb = 140; } } }
     }
   }
   R.rings = R.rings.filter(r => r.r < r.max);
@@ -677,7 +743,9 @@ function updateFx(dt) {
     for (const e of R.en) if (!e.dead && (act ? Math.abs(e.y - oy) < b.width / 2 + e.r && (e.x - ox) * b.dir > -e.r && Math.abs(e.x - ox) < W : Math.abs(e.x - R.x) < b.width / 2 + e.r && e.y < my)) {
       const wp = e.t === 'boss' ? weakPos(e) : null;
       const onWeak = wp && (act ? Math.abs(wp.y - oy) : Math.abs(wp.x - R.x)) < b.width / 2 + 8;
-      e.hp -= b.dps * dt * (onWeak ? 2.5 : 1) * (1 + R.crit); e.flash = 0.05;
+      const amt = b.dps * dt * (onWeak ? weakMul(e) : 1) * (1 + R.crit) * (e.big ? R.bigMul : 1);
+      e.hp -= amt; e.flash = 0.05;
+      if (e.part && e.host && !e.host.dead) { e.host.hp -= amt * partShare(e.host); if (e.host.hp <= 0) kill(e.host); }
       if (e.hp <= 0) kill(e);
     }
   }
@@ -709,12 +777,12 @@ function update(dt) {
   // spawn
   // endless stream that thickens over time; elite at 1:15, boss at 2:30
   if (R.kind === 'pig') {
-    if (!R.pig) { R.pig = spawn('pig', W / 2, safeT + 140); R.pig.hp = R.pig.mhp = pigHp(R.ch); R.pig.atk = 30 * (1 + 0.15 * (R.ch - 1)); toast('黄金アメーバ出現。削るほどコインが出る'); }
+    if (!R.pig) { R.pig = spawn('pig', W / 2, safeT + 140); R.pig.hp = R.pig.mhp = pigHp(R.ch); attachParts(R.pig); R.pig.atk = 30 * (1 + 0.15 * (R.ch - 1)); toast('黄金アメーバ出現。削るほどコインが出る'); }
     R.spawnT -= dt;
     if (R.spawnT <= 0) { R.spawnT = 2.4; spawn('virus'); }
     if (R.t >= R.nextPick) { R.nextPick += 12; R.lv++; R.pending++; }
     const p = R.pig, frac = Math.min(1, 1 - Math.max(0, p.hp) / p.mhp);
-    R.coins = Math.floor(frac * pigReward(R.ch) * R.coinMul);
+    R.coins = Math.floor((frac * pigReward(R.ch) + R.pigBonus) * R.coinMul);
   } else {
   R.spawnT -= dt;
   if (R.spawnT <= 0) {
@@ -730,23 +798,26 @@ function update(dt) {
   weapons(dt);
 
   // enemies
+  syncParts();
   for (const e of R.en) {
     if (e.dead) continue;
     e.flash = Math.max(0, e.flash - dt);
+    if (e.part) continue;
     if (e.dot > 0 && (e.dotT -= dt) <= 0) { e.dotT = 0.4; }
-    if (e.t === 'boss') {
+    if (e.t === 'boss' && e.stun > 0) { e.stun -= dt; e.weakA += dt * 3; }
+    else if (e.t === 'boss') {
       e.weakA += dt * 1.4;
       R.bossT += dt;
-      const hold = 150 + safeT;
+      const hold = 215 + safeT;   // low enough that its parts clear the HUD
       if (e.y < hold && R.bossT < 60) e.y += 40 * dt;
       else if (R.bossT >= 60 && !e.atWall) e.y += e.sp * dt; // enraged: closes in
       e.x = W / 2 + Math.sin(R.t * 0.7) * (W / 2 - e.r - 20);
-      if (R.bossT > 1 && Math.floor(R.bossT / 4) !== Math.floor((R.bossT - dt) / 4)) {
+      if (!e.noSpawn && R.bossT > 1 && Math.floor(R.bossT / 4) !== Math.floor((R.bossT - dt) / 4)) {
         for (let k = -1; k <= 1; k++) { const s = spawn('virus', e.x + k * 30, e.y + e.r); s.y = e.y + e.r * 0.8; }
       }
       if (R.bossT > 2 && Math.floor(R.bossT / 2.5) !== Math.floor((R.bossT - dt) / 2.5)) {
         if (!R.spitTold) { R.spitTold = true; toast('赤い弾は細胞の上のシールドで受け止められる'); }
-        for (let k = 0; k < 2 + Math.min(3, Math.floor(R.ch / 3)); k++) R.ebul.push({ x: e.x + (Math.random() - .5) * e.r * 2, y: e.y + e.r, vy: 150 + Math.random() * 60, dmg: 7 * (1 + 0.15 * (R.ch - 1)) });
+        for (let k = 0; k < Math.round((2 + Math.min(3, Math.floor(R.ch / 3))) * e.spikes / 2); k++) R.ebul.push({ x: e.x + (Math.random() - .5) * e.r * 2, y: e.y + e.r, vy: 150 + Math.random() * 60, dmg: 7 * (1 + 0.15 * (R.ch - 1)) });
       }
     } else if (e.t === 'pig') {
       // oozes side to side and lunges every 6 s; damage shoves it back up (in hit())
@@ -793,14 +864,14 @@ function update(dt) {
 
   updateFx(dt);
 
-  if (R.won) return finish(true);
-  if (R.kind === 'pig' && R.t >= PIG_T) return finish(false);
-  if (R.hp <= 0) {
+  if (R.won) { R.wonT -= dt; if (R.wonT <= 0) return finish(true); }
+  if (R.kind === 'pig' && R.t >= PIG_T && !R.won) return finish(false);
+  if (R.hp <= 0 && !R.won) {
     R.hp = 0;
     if (!R.revived && R.kind !== 'pig') { mode = 'revive'; $('reviveScr').hidden = false; return; }
     return finish(false);
   }
-  if (R.pending > 0) { R.pending--; openSkills(`レベル ${R.lv}`); }
+  if (R.pending > 0 && !R.won) { R.pending--; openSkills(`レベル ${R.lv}`); }
 }
 
 
@@ -905,25 +976,28 @@ function updateAct(dt) {
   weapons(dt);
 
   // --- enemies ---
+  syncParts();
   for (const e of R.en) {
     if (e.dead) continue;
     e.flash = Math.max(0, e.flash - dt);
+    if (e.part) continue;
     const dx = R.px - e.x, dy = R.py - e.y, d = Math.hypot(dx, dy) || 1;
     const slow = ((e.slowT || 0) > R.t ? 0.5 : 1) * (R.slowAura && d < 140 ? 1 - R.slowAura : 1);
     e.kx *= Math.pow(0.02, dt);
     e.shootT -= dt;
-    if (e.t === 'boss') {
+    if (e.t === 'boss' && e.stun > 0) { e.stun -= dt; e.weakA += dt * 3; }
+    else if (e.t === 'boss') {
       const B = R.lock || A;
       e.weakA += dt * 1.4; R.bossT += dt;
       e.x = B.x + B.w * 0.62 + Math.sin(R.t * 0.55) * B.w * 0.26;
       e.y = gy - 200 + Math.sin(R.t * 1.1) * 55;
       if (e.shootT <= 0) {
         e.shootT = 2.6;
-        const n = 10 + Math.min(6, R.ch);
+        const n = Math.round((10 + Math.min(6, R.ch)) * e.spikes / 2);
         for (let i = 0; i < n; i++) { const a = i / n * TAU + R.t; R.abul.push({ x: e.x, y: e.y, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, dmg: 9 * chMul }); }
-        shootAt(e, 230, 0.18, 3, 9 * chMul);
+        if (e.spikes > 0) shootAt(e, 230, 0.18, 3, 9 * chMul);
       }
-      if (Math.floor(R.bossT / 5) !== Math.floor((R.bossT - dt) / 5)) for (let k = 0; k < 2; k++) { const v = spawn('virus', e.x, e.y + 30); v.ground = false; }
+      if (!e.noSpawn && Math.floor(R.bossT / 5) !== Math.floor((R.bossT - dt) / 5)) for (let k = 0; k < 2; k++) { const v = spawn('virus', e.x, e.y + 30); v.ground = false; }
     } else if (e.ground) {
       e.vy = Math.min(900, e.vy + 1600 * dt);
       if (e.t === 'phage') {
@@ -958,13 +1032,13 @@ function updateAct(dt) {
 
   updateFx(dt);
 
-  if (R.won) return finish(true);
-  if (R.hp <= 0) {
+  if (R.won) { R.wonT -= dt; if (R.wonT <= 0) return finish(true); }
+  if (R.hp <= 0 && !R.won) {
     R.hp = 0;
     if (!R.revived) { mode = 'revive'; $('reviveScr').hidden = false; return; }
     return finish(false);
   }
-  if (R.pending > 0) { R.pending--; openSkills(`エリア ${R.arena} 制圧`); }
+  if (R.pending > 0 && !R.won) { R.pending--; openSkills(`エリア ${R.arena} 制圧`); }
 }
 function drawErythrocyte(x, y, r, a) {
   X.save(); X.translate(x, y); X.rotate(a);
@@ -1042,6 +1116,7 @@ function drawAct(T) {
     X.globalAlpha = Math.min(1, R.hint); X.fillStyle = 'rgba(230,233,255,.6)';
     X.fillText('← 左半分をドラッグで移動 →', W * 0.27, by + 4); X.globalAlpha = 1;
   }
+  drawBanners();
   drawToasts();
 }
 
@@ -1119,6 +1194,7 @@ function draw(now) {
   X.restore();
   if (R.hurt > 0) { X.fillStyle = `rgba(255,92,138,${R.hurt * 0.8})`; X.fillRect(0, my - 6, W, H - my + 6); }
   X.fillStyle = vignette; X.fillRect(0, 0, W, H);
+  drawBanners();
   drawToasts();
 }
 // ---------- shared effect drawing (world coordinates) ----------
@@ -1193,7 +1269,7 @@ function drawProjectiles() {
   for (const q of R.parts) { X.globalAlpha = Math.min(1, q.t * 2.5); X.fillStyle = q.col; X.fillRect(q.x - 1.5, q.y - 1.5, 3, 3); }
   X.globalAlpha = 1;
   X.font = '500 11px "IBM Plex Mono", monospace'; X.textAlign = 'center';
-  for (const t of R.texts) { X.globalAlpha = Math.min(1, t.t * 2.5); X.fillStyle = t.col; X.fillText(t.v, t.x, t.y); }
+  for (const t of R.texts) { X.globalAlpha = Math.min(1, t.t * 2.5); X.font = `500 ${Math.round(t.sz || 11)}px "IBM Plex Mono", monospace`; X.fillStyle = t.col; X.fillText(t.v, t.x, t.y); }
   X.globalAlpha = 1;
 }
 function drawGrid(scroll) {
@@ -1221,6 +1297,7 @@ function drawPlayer(x, y, T) {
   X.strokeStyle = '#9b7bff'; X.lineWidth = 3; X.beginPath(); X.moveTo(x - 7, y + 3); X.lineTo(x, y - 5); X.lineTo(x + 7, y + 3); X.stroke();
 }
 function drawEnemy(e, T) {
+  if (e.t === 'part') return drawPart(e, T);
   const col = e.flash > 0 ? '#ffffff' : ET[e.t].col;
   X.save(); X.translate(e.x, e.y);
   if (e.t === 'bacil') {
@@ -1283,7 +1360,8 @@ function drawEnemy(e, T) {
     if (e.t === 'boss') {
       const wx = Math.cos(e.weakA) * e.r * .62, wy = Math.sin(e.weakA) * e.r * .62, pulse = 1 + .15 * Math.sin(T * 8);
       X.fillStyle = 'rgba(95,225,255,.3)'; X.beginPath(); X.arc(wx, wy, 18 * pulse, 0, TAU); X.fill();
-      X.fillStyle = '#5fe1ff'; X.beginPath(); X.arc(wx, wy, 9, 0, TAU); X.fill();
+      X.fillStyle = '#5fe1ff'; X.beginPath(); X.arc(wx, wy, e.exposed ? 15 : 9, 0, TAU); X.fill();
+      if (e.exposed) { X.strokeStyle = `rgba(95,225,255,${0.5 + 0.5 * Math.sin(T * 10)})`; X.lineWidth = 3; X.beginPath(); X.arc(wx, wy, 26, 0, TAU); X.stroke(); }
     } else { X.fillStyle = 'rgba(10,15,31,.55)'; X.beginPath(); X.arc(e.r * .1, -e.r * .05, e.r * .45, 0, TAU); X.fill(); }
   }
   X.restore();
@@ -1292,6 +1370,49 @@ function drawEnemy(e, T) {
     X.fillStyle = 'rgba(10,15,31,.7)'; X.fillRect(e.x - w / 2, e.y - e.r - 9, w, 3);
     X.fillStyle = '#ff5c8a'; X.fillRect(e.x - w / 2, e.y - e.r - 9, w * Math.max(0, e.hp / e.mhp), 3);
   }
+}
+function drawPart(e, T) {
+  const r = e.r, fl = e.flash > 0;
+  X.save(); X.translate(e.x, e.y);
+  if (e.pk === 'spike') {
+    X.rotate(Math.atan2(e.oy, e.ox));
+    X.fillStyle = fl ? '#ffffff' : '#b8325c';
+    for (let i = -1; i <= 1; i++) { X.beginPath(); X.moveTo(-r * 0.5, i * r * 0.5 - r * 0.24); X.lineTo(r * 1.35, i * r * 0.6); X.lineTo(-r * 0.5, i * r * 0.5 + r * 0.24); X.fill(); }
+    X.fillStyle = fl ? '#ffffff' : '#e0457a'; X.beginPath(); X.arc(-r * 0.3, 0, r * 0.62, 0, TAU); X.fill();
+  } else if (e.pk === 'sac') {
+    X.fillStyle = fl ? 'rgba(255,255,255,.85)' : 'rgba(255,143,177,.45)'; X.strokeStyle = '#ff8fb1'; X.lineWidth = 2;
+    X.beginPath(); X.ellipse(0, 0, r, r * 0.82 * (1 + 0.06 * Math.sin(T * 5)), 0, 0, TAU); X.fill(); X.stroke();
+    X.fillStyle = '#ffb547'; for (let i = 0; i < 5; i++) { const a = i * 1.3 + T; X.beginPath(); X.arc(Math.cos(a) * r * 0.45, Math.sin(a) * r * 0.35, 3, 0, TAU); X.fill(); }
+  } else if (e.pk === 'shell') {
+    X.rotate(T * 0.4);
+    X.fillStyle = fl ? '#ffffff' : '#8f6bd8'; X.strokeStyle = '#e6e9ff'; X.lineWidth = 2;
+    X.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; X.lineTo(Math.cos(a) * r, Math.sin(a) * r); } X.closePath(); X.fill(); X.stroke();
+    X.strokeStyle = 'rgba(230,233,255,.45)'; X.beginPath(); for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; X.moveTo(0, 0); X.lineTo(Math.cos(a) * r, Math.sin(a) * r); } X.stroke();
+  } else {
+    const col = e.pk === 'pod' ? '#f0b84a' : '#e0662f';
+    X.fillStyle = fl ? '#ffffff' : col; X.beginPath();
+    for (let i = 0; i <= 10; i++) { const a = i / 10 * TAU, rr = r * (1 + 0.14 * Math.sin(a * 3 + T * 3 + e.ph)); i ? X.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : X.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    X.fill();
+    X.fillStyle = e.pk === 'pod' ? '#fff3c4' : 'rgba(10,15,31,.45)'; X.beginPath(); X.arc(0, 0, r * 0.3, 0, TAU); X.fill();
+  }
+  X.restore();
+  const w = Math.max(26, r * 2.2), y = e.y - r - 12;
+  X.fillStyle = 'rgba(10,15,31,.8)'; X.fillRect(e.x - w / 2 - 1, y - 1, w + 2, 6);
+  X.fillStyle = '#ffcf5c'; X.fillRect(e.x - w / 2, y, w * Math.max(0, e.hp / e.mhp), 4);
+}
+function drawBanners() {
+  const dt = lastFrameDt || 0.016;
+  if (R.flashFx > 0) { X.fillStyle = `rgba(255,255,255,${Math.min(0.55, R.flashFx * 1.6)})`; X.fillRect(0, 0, W, H); R.flashFx -= dt; }
+  R.banners.forEach((b, i) => {
+    b.t -= dt;
+    const age = b.max - b.t, k = Math.min(1, age / 0.12), sc = 1.5 - 0.5 * k;
+    X.save(); X.translate(W / 2, H * 0.34 + i * 66); X.scale(sc, sc); X.globalAlpha = Math.max(0, Math.min(1, b.t / 0.35));
+    X.textAlign = 'center'; X.lineJoin = 'round'; X.lineWidth = 7; X.strokeStyle = 'rgba(10,15,31,.9)';
+    X.font = '400 30px "Dela Gothic One", sans-serif'; X.strokeText(b.txt, 0, 0); X.fillStyle = b.col; X.fillText(b.txt, 0, 0);
+    if (b.sub) { X.font = '500 16px "IBM Plex Mono", monospace'; X.lineWidth = 5; X.strokeText(b.sub, 0, 28); X.fillStyle = '#ffcf5c'; X.fillText(b.sub, 0, 28); }
+    X.restore();
+  });
+  R.banners = R.banners.filter(b => b.t > 0);
 }
 function roundRect(x, y, w, h, r) { X.beginPath(); X.moveTo(x + r, y); X.arcTo(x + w, y, x + w, y + h, r); X.arcTo(x + w, y + h, x, y + h, r); X.arcTo(x, y + h, x, y, r); X.arcTo(x, y, x + w, y, r); X.closePath(); }
 const idle = Array.from({ length: 24 }, (_, i) => ({ t: ['virus', 'bacil', 'tank', 'split', 'phage', 'armor'][i % 6], fx: Math.random(), fy: Math.random(), ph: Math.random() * 6, flash: 0, hp: 1, mhp: 1, seed: [1] }));
@@ -1306,7 +1427,7 @@ let toasts = [];
 function toast(msg) { toasts.push({ msg, t: 2.4 }); if (toasts.length > 2) toasts.shift(); }
 let lastFrameDt = 0;
 function drawToasts() {
-  let y = safeT + 160;
+  let y = Math.round(H * 0.58);
   X.font = '700 14px "Zen Kaku Gothic New", sans-serif'; X.textAlign = 'center';
   for (const t of toasts) {
     if (mode === 'play') t.t -= lastFrameDt;
@@ -1323,7 +1444,7 @@ let lastHud = '';
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function updateHud() {
   const boss = R.en.find(e => e.t === 'boss' || e.t === 'pig') || R.en.find(e => e.t === 'elite');
-  const key = [Math.ceil(R.hp), R.maxHp, Math.floor(R.t), R.lv, R.xp, R.coins, boss ? Math.ceil(boss.hp) : -1, R.wave, R.arena, R.lock ? 1 : 0, R.kind === 'act' ? Math.floor(R.px / 40) : 0].join();
+  const key = [Math.ceil(R.hp), R.maxHp, Math.floor(R.t), R.lv, R.xp, R.coins, boss ? Math.ceil(boss.hp) : -1, boss ? boss.partsLeft : -1, R.wave, R.arena, R.lock ? 1 : 0, R.kind === 'act' ? Math.floor(R.px / 40) : 0].join();
   if (key === lastHud) return; lastHud = key;
   $('lvTxt').textContent = R.lv;
   if (R.kind === 'act') {
@@ -1343,7 +1464,7 @@ function updateHud() {
   $('hpTxt').textContent = Math.ceil(R.hp);
   $('hpFill').style.width = (R.hp / R.maxHp * 100) + '%';
   $('bossBar').hidden = !boss;
-  if (boss) { $('bossName').textContent = ET[boss.t].name; $('bossFill').style.width = Math.max(0, boss.hp / boss.mhp * 100) + '%'; }
+  if (boss) { $('bossName').textContent = ET[boss.t].name + (boss.parts ? (boss.exposed ? ' · 全部位破壊' : ` · 部位 ${boss.parts.length - boss.partsLeft}/${boss.parts.length} 破壊`) : ''); $('bossFill').style.width = Math.max(0, boss.hp / boss.mhp * 100) + '%'; }
 }
 
 // ---------- home ----------
@@ -1465,7 +1586,7 @@ function finishAct(win) {
 function finishPig(win) {
   const p = R.pig, full = pigReward(R.ch);
   const frac = p ? Math.min(1, 1 - Math.max(0, p.hp) / p.mhp) : 0;
-  const coins = Math.floor((frac * full + (win ? full * 0.5 : 0)) * R.coinMul);
+  const coins = Math.floor((frac * full + R.pigBonus + (win ? full * 0.5 : 0)) * R.coinMul);
   const unlocked = win && R.ch >= (SAVE.pigMax || 1) && R.ch < PIG_MAX;
   if (unlocked) SAVE.pigMax = R.ch + 1;
   SAVE.coins += coins; store();
@@ -1547,7 +1668,9 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 function frame(now) {
   const dt = Math.min(1 / 30, (now - last) / 1000 || 0); last = now; lastFrameDt = dt;
-  for (let i = 0; i < (SAVE.speed || 1) && mode === 'play'; i++) update(dt);
+  if (R && R.hitstop > 0 && mode === 'play') R.hitstop -= dt;   // freeze-frame on big breaks
+  else for (let i = 0; i < (SAVE.speed || 1) && mode === 'play'; i++) update(dt * (R && R.slowmo > 0 ? 0.35 : 1));
+  if (R && R.slowmo > 0 && mode === 'play') R.slowmo -= dt;
   lastFrameDt = dt * (SAVE.speed || 1);
   draw(now);
   if (R && mode !== 'home' && mode !== 'over') updateHud();
