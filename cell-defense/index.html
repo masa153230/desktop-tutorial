@@ -63,18 +63,9 @@ p strong { color: var(--ink); }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid rgba(230,233,255,.25); font: 700 14px var(--body); padding: 11px; }
 .btn:disabled { opacity: .4; cursor: default; }
 .btn.gold { background: var(--gold); }
-.wHead { display: flex; align-items: center; gap: 12px; }
-.wHead canvas { width: 48px; height: 48px; }
-.tree { display: grid; gap: 8px; }
-.trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: rgba(10,15,31,.6); border: 1px solid rgba(230,233,255,.08); }
-.trow b { font-size: 14px; }
-.trow b small { font: 500 11px var(--mono); color: var(--atp); margin-left: 6px; }
-.trow span { grid-column: 1; font-size: 12px; color: var(--dim); line-height: 1.45; }
-.trow button { grid-row: 1 / span 2; grid-column: 2; font: 700 12px var(--body); border-radius: 7px; padding: 8px 10px; border: 1px solid rgba(255,207,92,.5); background: transparent; color: var(--gold); white-space: nowrap; }
-.trow button:disabled { opacity: .35; cursor: default; }
-.pips { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
-.pips i { width: 7px; height: 7px; border-radius: 2px; background: rgba(230,233,255,.15); }
-.pips i.on { background: var(--atp); }
+.note { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(95,225,255,.1); border: 1px solid rgba(95,225,255,.35); color: var(--ink); font-size: 13px; }
+.wcard .acts button.up.perk { background: var(--gold); color: var(--field); border-color: var(--gold); }
+.wcard .acts button.up.perk:disabled { background: transparent; color: var(--gold); }
 .slot.lockd { border-style: dashed; color: var(--dim); font: 500 11px var(--body); background: transparent; }
 .slot.buy { border-color: var(--gold); color: var(--gold); cursor: pointer; }
 .slots { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
@@ -143,6 +134,7 @@ p strong { color: var(--ink); }
         <div><b id="chName">第1章</b><small id="chSub">推奨 Lv 1</small></div>
         <button id="chNext" type="button" aria-label="次の章">▶</button>
       </div>
+      <p class="note" id="homeNote" hidden></p>
       <h3 id="slotTitle">出撃武器 (3 枠)</h3>
       <div class="slots" id="slots"></div>
       <div class="wlist" id="wlist"></div>
@@ -192,19 +184,6 @@ p strong { color: var(--ink); }
       <p id="buildTxt"></p>
       <button class="btn" id="resumeBtn" type="button">再開</button>
       <button class="btn ghost" id="quitBtn" type="button">撤退してホームへ (コインは半分)</button>
-    </div>
-  </div>
-
-  <div class="overlay" id="wpnScr" hidden>
-    <div class="panel">
-      <div class="wHead"><canvas id="wpnIcon"></canvas><div><div class="eyebrow" id="wpnKind">武器の強化</div><h2 id="wpnName">抗体</h2></div></div>
-      <p id="wpnDesc"></p>
-      <div class="tree" id="wpnTree"></div>
-      <div class="skillActs">
-        <button class="btn ghost" id="wpnEquip" type="button">装備する</button>
-        <button class="btn" id="wpnClose" type="button">閉じる</button>
-      </div>
-      <p class="kbd"><span class="coin">●</span> <b id="wpnCoins">0</b> 所持</p>
     </div>
   </div>
 
@@ -278,22 +257,34 @@ const WEAP = {
 const WIDS = Object.keys(WEAP);
 const upCost = lv => Math.round(40 * Math.pow(lv, 1.55));
 const metaMul = lv => 1 + 0.15 * (lv - 1);
-// per-weapon upgrade tree. "pow" is the original weapon level (SAVE.w[id]); the rest live in SAVE.wt[id]
+// one upgrade button per weapon: every level adds damage, and milestone levels add the rest
 const PIERCE_EXT = new Set(['scalpel', 'needle']);
-const ORBIT = new Set(['dagger', 'capsule']);
-const TREE = [
-  { k: 'pow', name: '威力', max: 30, cost: lv => upCost(lv), eff: (id, lv) => `ダメージ ×${metaMul(lv).toFixed(2)} → ×${metaMul(lv + 1).toFixed(2)}` },
-  { k: 'spd', name: '連射', max: 5, cost: lv => Math.round(90 * Math.pow(lv + 1, 1.7)), eff: id => ORBIT.has(id) ? '回転速度 +8% / Lv' : '攻撃間隔 -7% / Lv' },
-  { k: 'num', name: '数', max: 2, cost: lv => Math.round(700 * Math.pow(lv + 1, 2)), eff: id => `${COUNT_TXT[id]} +1 / Lv` },
-  { k: 'ext', name: '特性', max: 3, cost: lv => Math.round(160 * Math.pow(lv + 1, 1.7)), eff: id => PIERCE_EXT.has(id) ? '貫通する敵 +1 / Lv' : id === 'syringe' ? '当たり判定 +12% / Lv' : id === 'laser' ? '警報の太さ +12% / Lv' : id === 'electro' ? '絡めとる距離 +12% / Lv' : '効果範囲 +12% / Lv' },
-];
-const treeLv = (id, k) => k === 'pow' ? (SAVE.w[id] || 1) : ((SAVE.wt[id] || {})[k] || 0);
+const perks = lv => ({ spd: Math.min(5, Math.floor((lv - 1) / 3)), num: lv >= 10 ? 2 : lv >= 5 ? 1 : 0, ext: Math.min(3, Math.floor((lv - 1) / 4)) });
+const extTxt = id => PIERCE_EXT.has(id) ? '貫通 +1' : id === 'syringe' ? '当たり判定 +12%' : id === 'electro' ? '届く距離 +12%' : '範囲 +12%';
+function nextPerk(id, lv) {
+  const a = perks(lv);
+  for (let L = lv + 1; L <= lv + 12; L++) {
+    const b = perks(L);
+    if (b.num > a.num) return `Lv${L} で${COUNT_TXT[id]} +1`;
+    if (b.spd > a.spd) return `Lv${L} で連射アップ`;
+    if (b.ext > a.ext) return `Lv${L} で${extTxt(id)}`;
+  }
+  return '';
+}
 // extra equip slots: chapter to have cleared, and price
 const SLOT_REQ = { 4: { ch: 3, cost: 1500 }, 5: { ch: 6, cost: 5000 } };
 
 // ---------- save ----------
 const DEFAULT_SAVE = { coins: 0, maxCh: 1, ch: 1, speed: 1, slots: 3, wt: {}, actMax: 1, actCh: 1, pigMax: 1, pigLv: 1, pigLeft: 3, pigDay: '', equip: ['scalpel', 'dagger'], w: { scalpel: 1, dagger: 1 } };
 let SAVE = load();
+refundTree();
+function refundTree() {
+  const sum = (lv, f) => { let c = 0; for (let i = 0; i < (lv || 0); i++) c += f(i); return c; };
+  let back = 0;
+  for (const t of Object.values(SAVE.wt || {})) back += sum(t.spd, i => Math.round(90 * Math.pow(i + 1, 1.7))) + sum(t.num, i => Math.round(700 * Math.pow(i + 1, 2))) + sum(t.ext, i => Math.round(160 * Math.pow(i + 1, 1.7)));
+  SAVE.wt = {};
+  if (back > 0) { SAVE.coins += back; SAVE.refundNote = `強化ツリーの廃止にともない ●${back} を返金しました。`; }
+}
 function load() {
   try { const s = JSON.parse(localStorage.getItem('celldef.save') || 'null'); if (s && s.w) return Object.assign(structuredClone(DEFAULT_SAVE), s); } catch (e) {}
   return structuredClone(DEFAULT_SAVE);
@@ -333,6 +324,7 @@ async function cloudInit() {
     if (remote && remote.w && (remote.updated || 0) > (SAVE.updated || 0)) {
       if (mode === 'home') {
         SAVE = Object.assign(structuredClone(DEFAULT_SAVE), structuredClone(remote));
+        refundTree();
         try { localStorage.setItem('celldef.save', JSON.stringify(SAVE)); } catch (e) {}
         renderHome(); setSpeed(SAVE.speed || 1, false);
       }
@@ -345,16 +337,16 @@ async function cloudInit() {
 
 // ---------- enemies ----------
 const ET = {
-  virus: { name: 'ウイルス',     hp: 19,   sp: 44, r: 12, atk: 5,  coin: 1,  col: '#ffb547' },
-  bacil: { name: '桿菌',         hp: 12,   sp: 82, r: 9,  atk: 4,  coin: 1,  col: '#ff5c8a' },
-  split: { name: '分裂菌',       hp: 34,   sp: 37, r: 14, atk: 6,  coin: 2,  col: '#ff8fb1' },
-  tank:  { name: 'ブドウ球菌',   hp: 88,   sp: 25, r: 18, atk: 11, coin: 3,  col: '#ff7a9c' },
-  phage: { name: 'ファージ',     hp: 24,   sp: 50, r: 11, atk: 6,  coin: 2,  col: '#ffd36b' },
-  armor: { name: '装甲ウイルス', hp: 52,   sp: 30, r: 15, atk: 8,  coin: 3,  col: '#c9a0ff', armor: 0.5 },
-  elite: { name: 'がん細胞',     hp: 430,  sp: 19, r: 30, atk: 14, coin: 25, col: '#ff7a45' },
+  virus: { name: 'ウイルス',     hp: 19,   sp: 44, r: 16, atk: 5,  coin: 1,  col: '#ffb547' },
+  bacil: { name: '桿菌',         hp: 12,   sp: 82, r: 12,  atk: 4,  coin: 1,  col: '#ff5c8a' },
+  split: { name: '分裂菌',       hp: 34,   sp: 37, r: 19, atk: 6,  coin: 2,  col: '#ff8fb1' },
+  tank:  { name: 'ブドウ球菌',   hp: 88,   sp: 25, r: 24, atk: 11, coin: 3,  col: '#ff7a9c' },
+  phage: { name: 'ファージ',     hp: 24,   sp: 50, r: 15, atk: 6,  coin: 2,  col: '#ffd36b' },
+  armor: { name: '装甲ウイルス', hp: 52,   sp: 30, r: 20, atk: 8,  coin: 3,  col: '#c9a0ff', armor: 0.5 },
+  elite: { name: 'がん細胞',     hp: 430,  sp: 19, r: 40, atk: 14, coin: 25, col: '#ff7a45' },
   part:  { name: '部位',         hp: 1,    sp: 0,  r: 10, atk: 0,  coin: 0,  col: '#e0457a' },
-  pig:   { name: '黄金アメーバ',       hp: 1,    sp: 15, r: 44, atk: 30, coin: 0,  col: '#ffcf5c' },
-  boss:  { name: '巨大ウイルス', hp: 1150, sp: 15, r: 52, atk: 26, coin: 80, col: '#e0457a' },
+  pig:   { name: '黄金アメーバ',       hp: 1,    sp: 15, r: 59, atk: 30, coin: 0,  col: '#ffcf5c' },
+  boss:  { name: '巨大ウイルス', hp: 1150, sp: 15, r: 70, atk: 26, coin: 80, col: '#e0457a' },
 };
 
 // breakable parts: share of the host's max HP each, and what breaking it takes away
@@ -382,7 +374,7 @@ function newRun(kind = 'chapter') {
     queue: [], spawnT: 0, spawnGap: 1, daggerAng: 0, t: 0, bossT: 0, shake: 0, scroll: 0,
   };
   for (const id of R.equip) {
-    const t = SAVE.wt[id] || {}, pe = PIERCE_EXT.has(id);
+    const t = perks(SAVE.w[id] || 1), pe = PIERCE_EXT.has(id);
     R.w[id] = { lv: SAVE.w[id] || 1, dmg: 1, rate: 1 + 0.08 * (t.spd || 0), n: 1 + (t.num || 0), size: 1 + (pe ? 0 : 0.12 * (t.ext || 0)), pierce: pe ? 1 + (t.ext || 0) : undefined, t: 0.3 };
   }
   if (kind === 'act') Object.assign(R, {
@@ -401,7 +393,7 @@ function pigToday() {
   if (SAVE.pigDay !== day) { SAVE.pigDay = day; SAVE.pigLeft = PIG_TRIES; }
   return SAVE.pigLeft;
 }
-const hpMul = () => Math.pow(1.36, R.ch - 1) * (R.ch === 1 ? 0.85 : 1) * (1 + 0.9 * prog()); // ch1 is the tutorial
+const hpMul = () => Math.pow(1.36, R.ch - 1) * (R.ch === 1 ? 0.7 : 1) * (1 + 0.9 * prog()); // ch1 is the tutorial: a first-time player should win it
 const needXp = lv => 10 + lv * 8 + Math.floor(lv * lv * 1.3);
 function pickType() {
   const g = prog() + (R.ch - 1) * 0.15, pool = ['virus', 'virus'];
@@ -483,7 +475,7 @@ function hit(e, d, px, py, noText) {
   if (Math.random() < R.crit) { d *= 2; col = '#ffcf5c'; }
   if (e.t === 'boss' && px !== undefined) {
     const wp = weakPos(e);
-    if ((px - wp.x) ** 2 + (py - wp.y) ** 2 < (e.exposed ? 26 : 20) ** 2) { d *= weakMul(e); col = '#5fe1ff'; label = e.exposed ? 'コア' : '弱点'; }
+    if ((px - wp.x) ** 2 + (py - wp.y) ** 2 < (e.exposed ? 34 : 26) ** 2) { d *= weakMul(e); col = '#5fe1ff'; label = e.exposed ? 'コア' : '弱点'; }
   }
   if (ET[e.t].armor && label === null) d *= ET[e.t].armor;
   if (e.big) d *= R.bigMul;
@@ -515,7 +507,7 @@ function kill(e) {
   }
   const col = ET[e.t].col, pn = e.big ? 26 : 7;
   for (let i = 0; i < pn; i++) { const a = Math.random() * TAU, s = 40 + Math.random() * 140; R.parts.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: .4 + Math.random() * .4, col }); }
-  if (e.t === 'split') for (let k = -1; k <= 1; k += 2) { const s = spawn('virus', e.x + k * 10, e.y); s.hp = s.mhp = s.mhp * 0.55; s.r = 9; }
+  if (e.t === 'split') for (let k = -1; k <= 1; k += 2) { const s = spawn('virus', e.x + k * 10, e.y); s.hp = s.mhp = s.mhp * 0.55; s.r = 12; }
   if (e.big) R.shake = 0.35;
   // bandage spreads to a neighbour when its host dies
   for (const z of R.zones) if (z.follow === e) {
@@ -820,7 +812,7 @@ function update(dt) {
   // spawn
   // endless stream that thickens over time; elite at 1:15, boss at 2:30
   if (R.kind === 'pig') {
-    if (!R.pig) { R.pig = spawn('pig', W / 2, safeT + 140); R.pig.hp = R.pig.mhp = pigHp(R.ch); attachParts(R.pig); R.pig.atk = 30 * (1 + 0.15 * (R.ch - 1)); toast('黄金アメーバ出現。削るほどコインが出る'); }
+    if (!R.pig) { R.pig = spawn('pig', W / 2, safeT + 165); R.pig.hp = R.pig.mhp = pigHp(R.ch); attachParts(R.pig); R.pig.atk = 30 * (1 + 0.15 * (R.ch - 1)); toast('黄金アメーバ出現。削るほどコインが出る'); }
     R.spawnT -= dt;
     if (R.spawnT <= 0) { R.spawnT = 2.4; spawn('virus'); }
     if (R.t >= R.nextPick) { R.nextPick += 12; R.lv++; R.pending++; }
@@ -851,7 +843,7 @@ function update(dt) {
     else if (e.t === 'boss') {
       e.weakA += dt * 1.4;
       R.bossT += dt;
-      const hold = 215 + safeT;   // low enough that its parts clear the HUD
+      const hold = 240 + safeT;   // low enough that its parts clear the HUD
       if (e.y < hold && R.bossT < 60) e.y += 40 * dt;
       else if (R.bossT >= 60 && !e.atWall) e.y += e.sp * dt; // enraged: closes in
       e.x = W / 2 + Math.sin(R.t * 0.7) * (W / 2 - e.r - 20);
@@ -1068,7 +1060,7 @@ function updateAct(dt) {
   // --- enemy bullets ---
   for (const b of R.abul) {
     b.x += b.vx * dt; b.y += b.vy * dt;
-    if ((b.x - R.px) ** 2 + (b.y - R.py) ** 2 < (PR + 5) ** 2 && R.inv <= 0) { hurtPlayer(b.dmg, b.vx > 0 ? 1 : -1); b.dead = true; }
+    if ((b.x - R.px) ** 2 + (b.y - R.py) ** 2 < (PR + 7) ** 2 && R.inv <= 0) { hurtPlayer(b.dmg, b.vx > 0 ? 1 : -1); b.dead = true; }
     if (b.y > gy || b.y < -40 || b.x < R.camX - 60 || b.x > R.camX + W + 60) b.dead = true;
   }
   R.abul = R.abul.filter(b => !b.dead);
@@ -1140,7 +1132,7 @@ function drawAct(T) {
   }
   drawCapsule(ox, oy, true);
   drawRingsBolts();
-  for (const b of R.abul) { X.fillStyle = 'rgba(224,69,122,.3)'; X.beginPath(); X.arc(b.x, b.y, 9, 0, TAU); X.fill(); X.fillStyle = '#e0457a'; X.beginPath(); X.arc(b.x, b.y, 5, 0, TAU); X.fill(); }
+  for (const b of R.abul) { X.fillStyle = 'rgba(224,69,122,.3)'; X.beginPath(); X.arc(b.x, b.y, 13, 0, TAU); X.fill(); X.fillStyle = '#e0457a'; X.beginPath(); X.arc(b.x, b.y, 8, 0, TAU); X.fill(); X.fillStyle = 'rgba(255,255,255,.6)'; X.beginPath(); X.arc(b.x - 2.5, b.y - 2.5, 2.5, 0, TAU); X.fill(); }
   drawProjectiles();
   X.restore();
   X.restore();
@@ -1214,9 +1206,11 @@ function draw(now) {
   for (const b of R.ebul) {
     const safe = Math.abs(b.x - R.x) < shieldW();
     X.strokeStyle = safe ? 'rgba(95,225,255,.6)' : 'rgba(255,92,138,.7)'; X.lineWidth = 2;
-    X.beginPath(); X.arc(b.x, memY(), 12, 0, TAU); X.stroke();
+    X.beginPath(); X.arc(b.x, memY(), 16, 0, TAU); X.stroke();
     X.setLineDash([3, 5]); X.beginPath(); X.moveTo(b.x, b.y + 8); X.lineTo(b.x, memY() - 12); X.stroke(); X.setLineDash([]);
-    X.fillStyle = '#e0457a'; X.beginPath(); X.arc(b.x, b.y, 6, 0, TAU); X.fill();
+    X.fillStyle = 'rgba(224,69,122,.3)'; X.beginPath(); X.arc(b.x, b.y, 15, 0, TAU); X.fill();
+    X.fillStyle = '#e0457a'; X.beginPath(); X.arc(b.x, b.y, 10, 0, TAU); X.fill();
+    X.fillStyle = 'rgba(255,255,255,.6)'; X.beginPath(); X.arc(b.x - 3, b.y - 3, 3, 0, TAU); X.fill();
   }
   // the shield itself: shown whenever the boss is on the field
   if (R.en.some(e => e.t === 'boss') || R.ebul.length) {
@@ -1402,9 +1396,9 @@ function drawEnemy(e, T) {
     X.restore();
     if (e.t === 'boss') {
       const wx = Math.cos(e.weakA) * e.r * .62, wy = Math.sin(e.weakA) * e.r * .62, pulse = 1 + .15 * Math.sin(T * 8);
-      X.fillStyle = 'rgba(95,225,255,.3)'; X.beginPath(); X.arc(wx, wy, 18 * pulse, 0, TAU); X.fill();
-      X.fillStyle = '#5fe1ff'; X.beginPath(); X.arc(wx, wy, e.exposed ? 15 : 9, 0, TAU); X.fill();
-      if (e.exposed) { X.strokeStyle = `rgba(95,225,255,${0.5 + 0.5 * Math.sin(T * 10)})`; X.lineWidth = 3; X.beginPath(); X.arc(wx, wy, 26, 0, TAU); X.stroke(); }
+      X.fillStyle = 'rgba(95,225,255,.3)'; X.beginPath(); X.arc(wx, wy, 24 * pulse, 0, TAU); X.fill();
+      X.fillStyle = '#5fe1ff'; X.beginPath(); X.arc(wx, wy, e.exposed ? 19 : 12, 0, TAU); X.fill();
+      if (e.exposed) { X.strokeStyle = `rgba(95,225,255,${0.5 + 0.5 * Math.sin(T * 10)})`; X.lineWidth = 3; X.beginPath(); X.arc(wx, wy, 34, 0, TAU); X.stroke(); }
     } else { X.fillStyle = 'rgba(10,15,31,.55)'; X.beginPath(); X.arc(e.r * .1, -e.r * .05, e.r * .45, 0, TAU); X.fill(); }
   }
   X.restore();
@@ -1550,6 +1544,7 @@ function renderHome() {
   $('pigLeft').textContent = pigOpen ? `今日あと ${left} 回` : '第2章クリアで解放';
   $('pigBtn').disabled = !pigOpen || left <= 0;
   $('pigBtn').textContent = !pigOpen ? '第2章をクリアすると挑める' : left > 0 ? '黄金アメーバ採集へ' : '今日はもう挑めない (日付が変わると 3 回に戻る)';
+  if (SAVE.refundNote) { homeToast(SAVE.refundNote); delete SAVE.refundNote; store(); }
   SAVE.slots = Math.max(3, Math.min(5, SAVE.slots || 3));
   if (SAVE.equip.length > SAVE.slots) SAVE.equip.length = SAVE.slots;
   $('slotTitle').textContent = `出撃武器 (${SAVE.slots} 枠)`;
@@ -1575,7 +1570,7 @@ function renderHome() {
     const card = document.createElement('div'); card.className = 'wcard' + (own ? '' : ' locked');
     const cv = document.createElement('canvas'); weaponIcon(cv, id);
     const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = WEAP[id].name;
-    if (own) { const sm = document.createElement('small'); sm.textContent = TREE.map(t => `${t.name}${treeLv(id, t.k)}`).join(' · '); nm.appendChild(sm); }
+    if (own) { const sm = document.createElement('small'); const lv = SAVE.w[id], np = nextPerk(id, lv); sm.textContent = `Lv ${lv}` + (np ? ` · 次: ${np}` : ''); nm.appendChild(sm); }
     const ds = document.createElement('div'); ds.className = 'ds'; ds.textContent = WEAP[id].desc;
     const acts = document.createElement('div'); acts.className = 'acts';
     if (own) {
@@ -1583,7 +1578,14 @@ function renderHome() {
       b1.textContent = eq ? '装備中' : '装備'; if (eq) b1.className = 'eq';
       b1.onclick = () => { toggleEquip(id); renderHome(); };
       const b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'up';
-      b2.textContent = '強化'; b2.onclick = () => openWeapon(id);
+      const lv = SAVE.w[id], c = upCost(lv), np = nextPerk(id, lv);
+      b2.textContent = `強化 ●${c}`; b2.disabled = SAVE.coins < c;
+      if (np && np.startsWith(`Lv${lv + 1} `)) b2.classList.add('perk');   // the next press hits a milestone
+      b2.onclick = () => {
+        if (SAVE.coins < c) return;
+        SAVE.coins -= c; SAVE.w[id]++; store(); renderHome();
+        if (np && np.startsWith(`Lv${lv + 1} `)) homeToast(`${WEAP[id].name} Lv${lv + 1}：${np.replace(/^Lv\d+ で/, '')}！`);
+      };
       acts.append(b1, b2);
     } else {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'up';
@@ -1600,35 +1602,9 @@ function toggleEquip(id) {
   else { if (SAVE.equip.length >= SAVE.slots) SAVE.equip.shift(); SAVE.equip.push(id); }
   store();
 }
-// weapon detail sheet: spend coins on the branch you want
-let wpnOpen = null;
-function openWeapon(id) { wpnOpen = id; renderWeapon(); $('wpnScr').hidden = false; }
-function renderWeapon() {
-  const id = wpnOpen; if (!id) return;
-  weaponIcon($('wpnIcon'), id);
-  $('wpnName').textContent = WEAP[id].name;
-  $('wpnDesc').textContent = WEAP[id].desc;
-  $('wpnCoins').textContent = SAVE.coins;
-  $('wpnEquip').textContent = SAVE.equip.includes(id) ? '装備を外す' : SAVE.equip.length >= SAVE.slots ? '装備する (一番古い装備と交代)' : '装備する';
-  const box = $('wpnTree'); box.textContent = '';
-  for (const t of TREE) {
-    const lv = treeLv(id, t.k), maxed = lv >= t.max, cost = t.cost(lv);
-    const row = document.createElement('div'); row.className = 'trow';
-    const b = document.createElement('b'); b.textContent = t.name;
-    const sm = document.createElement('small'); sm.textContent = t.k === 'pow' ? `Lv ${lv}` : `Lv ${lv} / ${t.max}`; b.appendChild(sm);
-    if (t.k !== 'pow') { const pips = document.createElement('span'); pips.className = 'pips'; for (let i = 0; i < t.max; i++) { const q = document.createElement('i'); if (i < lv) q.className = 'on'; pips.appendChild(q); } b.appendChild(pips); }
-    const ef = document.createElement('span'); ef.textContent = t.eff(id, lv);
-    const btn = document.createElement('button'); btn.type = 'button';
-    btn.textContent = maxed ? '最大' : `強化 ●${cost}`; btn.disabled = maxed || SAVE.coins < cost;
-    btn.onclick = () => {
-      if (maxed || SAVE.coins < cost) return;
-      SAVE.coins -= cost;
-      if (t.k === 'pow') SAVE.w[id]++; else { SAVE.wt[id] = SAVE.wt[id] || {}; SAVE.wt[id][t.k] = lv + 1; }
-      store(); renderWeapon(); renderHome();
-    };
-    row.append(b, btn, ef);
-    box.appendChild(row);
-  }
+function homeToast(msg) {
+  const el = $('homeNote'); el.textContent = msg; el.hidden = false;
+  clearTimeout(homeToast.t); homeToast.t = setTimeout(() => { el.hidden = true; }, 2600);
 }
 
 // ---------- flow ----------
@@ -1703,8 +1679,7 @@ function pause(on) {
 
 $('startBtn').onclick = () => start();
 $('pigBtn').onclick = startPig;
-$('wpnClose').onclick = () => { $('wpnScr').hidden = true; wpnOpen = null; };
-$('wpnEquip').onclick = () => { if (wpnOpen) { toggleEquip(wpnOpen); renderWeapon(); renderHome(); } };
+
 $('actBtn').onclick = () => start('act');
 $('actPrev').onclick = () => { SAVE.actCh = Math.max(1, SAVE.actCh - 1); store(); renderHome(); };
 $('actNext').onclick = () => { SAVE.actCh = Math.min(SAVE.actMax || 1, SAVE.actCh + 1); store(); renderHome(); };
