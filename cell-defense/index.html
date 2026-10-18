@@ -242,7 +242,7 @@ const origin = () => isAct() ? [R.px, R.py] : [R.x, cellY()];
 
 // ---------- weapons ----------
 const WEAP = {
-  scalpel: { name: '抗体',         cost: 0,    dmg: 10, cd: 0.55, col: '#e6e9ff', desc: '膜に一番近い敵へ Y 字の抗体を撃つ。万能' },
+  scalpel: { name: '抗体',         cost: 0,    dmg: 10, cd: 0.55, col: '#e6e9ff', desc: '膜に一番近い敵へ Y 字の抗体を撃つ。敵を追いかけて曲がる。万能' },
   dagger:  { name: 'アズール顆粒', cost: 0,    dmg: 19, cd: 0,    col: '#c2a8ff', desc: '殺菌顆粒が細胞のまわりを回る。膜際に張り付いた敵を削る' },
   needle:  { name: 'パーフォリン', cost: 300,  dmg: 34, cd: 1.0,  col: '#5fe1ff', desc: '大物を追って穴をあける。部位があれば部位を優先して壊す' },
   bubble:  { name: '活性酸素',     cost: 500,  dmg: 24, cd: 1.3,  col: '#9ff0ff', desc: '泡が昇って弾け、まわりをまとめて酸化させる' },
@@ -514,6 +514,13 @@ function kill(e) {
     const nb = nearestTo(e.x, e.y, 140, e); z.follow = nb; if (!nb) z.life = Math.min(z.life, 1);
   }
 }
+// homing projectiles: cruise speed and how hard they turn (per second)
+const HOMING = { scalpel: { sp: 560, turn: 9 }, needle: { sp: 520, turn: 7 }, bandage: { sp: 380, turn: 10 } };
+function nearestFree(s, maxD) {
+  let best = null, bd = maxD * maxD;
+  for (const e of R.en) { if (e.dead || s.hit.has(e.id) || e.id === s.skip) continue; const d = (e.x - s.x) ** 2 + (e.y - s.y) ** 2; if (d < bd) { bd = d; best = e; } }
+  return best;
+}
 function nearestTo(x, y, maxD, skip) {
   let best = null, bd = maxD * maxD;
   for (const e of R.en) { if (e.dead || e === skip) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
@@ -563,7 +570,7 @@ function weapons(dt) {
       for (let i = 0; i < w.n; i++) {
         const onPart = pa.length && (w.n > 1 ? i === w.n - 1 : R.volley === 0);
         const tg = onPart ? pa[Math.floor(Math.random() * pa.length)] : f[i % f.length], a = Math.atan2(tg.y - cy, tg.x - cx) + (!onPart && i >= f.length ? (Math.random() - .5) * .3 : 0);
-        R.shots.push({ k: 'scalpel', x: cx, y: cy - 10, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, dmg: dmgOf(id), pierce: w.pierce || 1, life: 1.6, hit: new Set(), skip: onPart ? tg.host.id : 0 });
+        R.shots.push({ k: 'scalpel', tg, x: cx, y: cy - 10, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, dmg: dmgOf(id), pierce: w.pierce || 1, life: 1.6, hit: new Set(), skip: onPart ? tg.host.id : 0 });
       }
     } else if (id === 'needle') {
       const alive = R.en.filter(e => !e.dead && (act || e.y > 0));
@@ -705,13 +712,16 @@ function updateFx(dt) {
   const act = isAct(), my = act ? groundY() : memY(), [ox, oy] = origin();
   // shots
   for (const s of R.shots) {
-    if ((s.k === 'needle' || s.k === 'bandage') && s.tg) {
-      if (s.tg.dead) s.tg = s.k === 'needle' ? (R.en.filter(e => !e.dead && e.part).sort((a, b) => a.hp - b.hp)[0] || R.en.filter(e => !e.dead).sort((a, b) => b.hp - a.hp)[0]) : nearestTo(s.x, s.y, 300);
+    if (HOMING[s.k]) {
+      // homing: chase the target; once it dies or has already been pierced, switch to the nearest enemy not yet hit
+      if (!s.tg || s.tg.dead || s.hit.has(s.tg.id)) s.tg = s.k === 'needle'
+        ? (R.en.filter(e => !e.dead && e.part && !s.hit.has(e.id)).sort((a, b) => a.hp - b.hp)[0] || R.en.filter(e => !e.dead && !s.hit.has(e.id)).sort((a, b) => b.hp - a.hp)[0])
+        : nearestFree(s, s.k === 'scalpel' ? 420 : 300);
       if (s.tg) {
         let tx = s.tg.x, ty = s.tg.y;
         if (s.k === 'needle' && s.tg.t === 'boss') { const wp = weakPos(s.tg); tx = wp.x; ty = wp.y; }
-        const a = Math.atan2(ty - s.y, tx - s.x), sp = s.k === 'needle' ? 520 : 380;
-        const k = Math.min(1, dt * (s.k === 'needle' ? 7 : 10));
+        const a = Math.atan2(ty - s.y, tx - s.x), { sp, turn } = HOMING[s.k];
+        const k = Math.min(1, dt * turn);
         s.vx += (Math.cos(a) * sp - s.vx) * k; s.vy += (Math.sin(a) * sp - s.vy) * k;
       }
     }
