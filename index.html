@@ -86,6 +86,7 @@ textarea{font:inherit;font-size:16px;width:100%;min-height:64px;background:var(-
 .busy{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);color:#fff;font-size:13px;padding:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .busy button{background:rgba(255,255,255,.18);color:#fff;padding:4px 10px;font-size:12px}
 #motion{width:100%;height:60px;display:block;touch-action:none;background:var(--sunk);border-radius:6px;margin-top:10px;cursor:pointer}
+.wake{position:absolute;inset:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;border-radius:0}
 .pick{font-size:12px;padding:5px 10px;letter-spacing:0;color:var(--ink);border:1px solid var(--line);border-radius:8px;cursor:pointer}
 .tools{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
 .tools button{padding:8px 2px;font-size:13px;background:var(--sunk);color:var(--ink)}
@@ -167,7 +168,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v9</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v10</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -184,12 +185,12 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
     </div>
     <div class="slots solo" id="slots">
       <div class="slot act" id="slotA" data-slot="A">
-        <div class="stage"><video playsinline muted preload="auto"></video><canvas></canvas><label class="ph" for="fileA">タップして動画を選ぶ<br>(撮影 or ライブラリ)</label><span class="tag tagA" hidden>A</span><div class="busy" hidden><span></span><button type="button">中止</button></div></div>
+        <div class="stage"><video playsinline muted preload="auto"></video><canvas></canvas><label class="ph" for="fileA">タップして動画を選ぶ<br>(撮影 or ライブラリ)</label><span class="tag tagA" hidden>A</span><div class="busy" hidden><span></span><button type="button">中止</button></div><button class="wake" type="button" hidden>タップして動画を表示</button></div>
         <input class="vh" type="file" id="fileA" accept="video/*">
         <label class="pick" for="fileA" hidden>動画を変える</label>
       </div>
       <div class="slot" id="slotB" data-slot="B" hidden>
-        <div class="stage"><video playsinline muted preload="auto"></video><canvas></canvas><label class="ph" for="fileB">比較する動画を選ぶ</label><span class="tag tagB">B</span><div class="busy" hidden><span></span><button type="button">中止</button></div></div>
+        <div class="stage"><video playsinline muted preload="auto"></video><canvas></canvas><label class="ph" for="fileB">比較する動画を選ぶ</label><span class="tag tagB">B</span><div class="busy" hidden><span></span><button type="button">中止</button></div><button class="wake" type="button" hidden>タップして動画を表示</button></div>
         <input class="vh" type="file" id="fileB" accept="video/*">
         <label class="pick" for="fileB" hidden>動画を変える</label>
       </div>
@@ -431,7 +432,7 @@ function loadVideo(s,blob,name,restore){
   if(s.busy)s.busy.stop=true;s.busy=null;showBusy(s,'');
   s.url=URL.createObjectURL(blob);s.name=name||'';s.file=blob;s.dataTried=false;s.restore=restore||null;
   s.marks={};s.curve=null;s.auto=null;s.autoSlow=false;s.slow=1;s.diag='';s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
-  s.v.src=s.url;s.v.load();setAct(s.id);lastAdvice='';$('advOut').hidden=true;$('advImg').hidden=true;$('advShare').hidden=true;$('advText').hidden=true;$('advMsg').hidden=true;
+  s.st.querySelector('.wake').hidden=true;s.v.src=s.url;s.v.load();setAct(s.id);lastAdvice='';$('advOut').hidden=true;$('advImg').hidden=true;$('advShare').hidden=true;$('advText').hidden=true;$('advMsg').hidden=true;
   // iPhone はタップの中で一度再生しておかないと、あとから自動で再生できないことがある
   s.v.play().then(()=>{if(!s.busy)s.v.pause()},()=>{});
 }
@@ -439,10 +440,27 @@ function applyRestore(s){
   const R=s.restore;if(!R)return;s.restore=null;
   s.marks={...(R.marks||{})};s.slow=R.slow||1;s.auto=R.autoMarks?{...R.autoMarks}:null;s.autoSlow=false;s.diag='';
   s.shapes=(R.shapes||[]).map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])}));
+  if(R.curve)s.curve=R.curve.map(([t0,t1,e])=>({t0,t1,e}));
+  if(R.fps){s.frame=1/R.fps;s.seen=true}
   if(R.marks&&R.marks.top!=null)seek(s,R.marks.top);
   $('svLabel').value=R.label||'';$('svClub').value=R.club||'7I';
   draw(s);
 }
+// iPhone はタップ以外のきっかけで読み込んだ動画を真っ黒のまま描かないことがある。
+// 1.5秒たってもコマが出ない (または真っ黒) なら「タップして表示」を出し、そのタップの中で一瞬再生して描かせる
+function checkFrame(s){
+  const url=s.url,w=s.st.querySelector('.wake');w.hidden=true;
+  setTimeout(()=>{
+    if(s.url!==url)return;let dark=s.v.readyState<2;
+    if(!dark)try{const c=document.createElement('canvas');c.width=16;c.height=16;const x=c.getContext('2d',{willReadFrequently:true});
+      x.drawImage(s.v,0,0,16,16);const d=x.getImageData(0,0,16,16).data;let mx=0;for(let i=0;i<d.length;i+=4)mx=Math.max(mx,d[i],d[i+1],d[i+2]);dark=mx<10}catch(_){}
+    w.hidden=!dark;
+  },1500);
+}
+document.querySelectorAll('.wake').forEach(w=>w.addEventListener('click',e=>{
+  e.stopPropagation();const s=slots[w.closest('.slot').dataset.slot],t=s.v.currentTime;w.hidden=true;
+  s.v.muted=true;s.v.play().then(()=>{s.v.pause();seek(s,t);checkFrame(s)},()=>{w.hidden=false;toast('表示できなかった。もう一度タップしてください')});
+}));
 const cur=()=>slots[act];
 const loaded=s=>!!s.url&&s.v.videoWidth>0;
 const cmpOn=()=>$('cmp').checked;
@@ -464,7 +482,9 @@ function setAct(id){act=id;['A','B'].forEach(k=>slots[k].el.classList.toggle('ac
     s.st.querySelector('.ph').hidden=true;s.el.querySelector('.pick').hidden=false;
     try{s.v.playbackRate=+$('rate').value}catch(_){}
     layout();renderVideoUI();watchFrames(s);
-    if(Number.isFinite(s.v.duration))autoDetect(s);else{applyRestore(s);renderVideoUI()}
+    // 記録から開いた時は保存したフェーズをそのまま使い、解析し直さない
+    if(s.restore){applyRestore(s);renderVideoUI();checkFrame(s)}
+    else if(Number.isFinite(s.v.duration))autoDetect(s);else renderVideoUI();
   });
   ['timeupdate','seeked','pause','play'].forEach(ev=>s.v.addEventListener(ev,()=>{if(s.id===act)renderTime()}));
   s.v.addEventListener('ended',()=>{if(s.id===act)renderTime()});
@@ -867,7 +887,8 @@ $('saveSwing').addEventListener('click',()=>{
   const rec={id:uid(),date:new Date().toISOString(),label:$('svLabel').value.trim(),club:$('svClub').value,file:s.name,
     slow:s.slow,fps:s.seen?Math.round(1/s.frame):null,auto:!!(s.auto&&['start','top','impact'].every(k=>s.marks[k]===s.auto[k])),bs:T.bs,ds:T.ds,ratio:T.ratio,lo:T.lo,hi:T.hi,fin:T.fin,
     meas:s.shapes.map(sh=>measText(s,sh,sh.t==='line'?++li:sh.t==='ang'?++ai:0)).filter(Boolean),thumb,
-    marks:{...s.marks},autoMarks:s.auto?{...s.auto}:null,shapes:s.shapes.map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])})),video:false,advice:lastAdvice||undefined};
+    marks:{...s.marks},autoMarks:s.auto?{...s.auto}:null,shapes:s.shapes.map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])})),video:false,advice:lastAdvice||undefined,
+    curve:s.curve?s.curve.map(c=>[+c.t0.toFixed(4),+c.t1.toFixed(4),+c.e.toFixed(1)]):undefined};
   S.swings.push(rec);
   if(!save()){S.swings.pop();return}
   if(!$('svVideo').checked||!s.file){toast('保存しました (記録タブ)');return}
@@ -1140,8 +1161,11 @@ $('recs').addEventListener('click',e=>{
   const o=e.target.closest('button[data-open]');
   if(o){const rec=S.swings.find(x=>x.id===o.dataset.open),id=o.dataset.slot;if(!rec)return;
     o.textContent='読み込み中…';
+    // 保存場所から読み出す前に、このタップの中で動画の枠に再生の許可をもらっておく (iPhone 対策)
+    try{const v=slots[id].v;v.muted=true;v.load();const pr=v.play();if(pr)pr.catch(()=>{})}catch(_){}
     vdb.get(rec.id).then(blob=>{
       if(!blob){rec.video=false;save();renderLog();return toast('動画が見つからなかった (ブラウザに消されたかも)。「動画を選んで開く」で写真から選んでください')}
+      if(rec.vsize&&blob.size!==rec.vsize)toast('保存した動画の大きさが合わない。壊れているかもしれない');
       toVideoTab(id);loadVideo(slots[id],blob,rec.file,rec);
     },()=>{renderLog();toast('動画を読み出せなかった')});return}
   const pk=e.target.closest('button[data-pick]');
@@ -1157,7 +1181,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v9 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v10 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
