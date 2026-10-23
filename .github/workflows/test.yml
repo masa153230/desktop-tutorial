@@ -1,0 +1,36 @@
+name: テスト
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ubuntu-latest (26.04) は Playwright 1.56 が未対応なので固定する
+          - os: ubuntu-24.04
+            project: chromium
+          # iPhone の Safari と同じ WebKit。mp4 (H.264) を再生できる macOS で動かす
+          - os: macos-latest
+            project: webkit
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.project }}
+      - run: npx playwright test --project=${{ matrix.project }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: report-${{ matrix.project }}
+          path: tests/playwright-report
