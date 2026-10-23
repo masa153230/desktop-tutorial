@@ -147,6 +147,8 @@ details.box[open]>summary::after{content:"－"}
 .rec img,.rec .noimg{width:56px;height:72px;object-fit:cover;border-radius:6px;background:var(--sunk)}
 .rec .t{font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rec .s{font-size:12px;color:var(--muted)}
+.ropen{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.ropen button{font-size:12px;padding:5px 10px}
 .rec .x{background:transparent;color:var(--muted);font-size:20px;padding:4px 8px;font-weight:400}
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px}
 
@@ -163,7 +165,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v7</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v8</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -233,7 +235,8 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
       <label class="full">メモ (何を試したスイングか)<input id="svLabel" autocomplete="off" placeholder="例: グリップを少しストロングに"></label>
       <label>クラブ<select id="svClub"><option>ドライバー</option><option>FW</option><option>UT</option><option>5I</option><option>6I</option><option selected>7I</option><option>8I</option><option>9I</option><option>PW</option><option>AW/SW</option><option>その他</option></select></label>
       <button class="btn" id="saveSwing" type="button" style="align-self:end">計測を保存</button>
-      <p class="hint full">保存されるのは計測値と小さな静止画だけ。動画そのものは端末の写真に残しておくこと。</p>
+      <label class="sw full"><input type="checkbox" id="svVideo" checked> 動画も保存する (この端末のブラウザの中に)</label>
+      <p class="hint full">記録タブからいつでも動画を開き直して、付けたフェーズと線ごと再生できる。ホーム画面に追加して使うこと (Safari は、ホーム画面に追加していないサイトのデータを、7日使わないと消すことがある)。</p>
     </div>
   </section>
 
@@ -309,12 +312,13 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
       <div class="tbl"><table id="clubTbl"></table></div>
       <div class="card chart" id="trend"></div>
       <p class="note">テンポ比 = バックスイング時間 ÷ ダウンスイング時間。ツアー選手の平均はおよそ 3:1 (Novosel『Tour Tempo』の計測) だが、それは平均であって正解ではない。自分の比が毎回ブレないかどうか (標準偏差) の方を見ること。</p>
+      <p class="note" id="vidUsage"></p>
       <div class="recs" id="recs"></div>
     </div>
     <details class="box">
       <summary>バックアップ / 復元</summary>
       <div class="box-body">
-        <p class="note">データはこの端末のブラウザにだけ保存されている。Safari の履歴を消すと全部消えるので、たまにコピーしてメモアプリにでも貼っておく。</p>
+        <p class="note">データはこの端末のブラウザにだけ保存されている。Safari の履歴を消すと全部消えるので、たまにコピーしてメモアプリにでも貼っておく。動画はこのバックアップに含まれない (大きすぎるため)。元の動画は写真アプリに残しておくこと。</p>
         <button class="ghost" id="bkCopy" type="button">全データをコピー</button>
         <textarea id="bkText" placeholder="復元するデータを貼り付け"></textarea>
         <button class="danger" id="bkRestore" type="button">貼り付けたデータで置き換える</button>
@@ -346,6 +350,16 @@ function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTime
 const f1=x=>Number.isFinite(x)?x.toFixed(1):'—', f2=x=>Number.isFinite(x)?x.toFixed(2):'—', f3=x=>Number.isFinite(x)?x.toFixed(3):'—';
 const sgn=x=>(x>0?'+':'')+f1(x);
 const fp=p=>!Number.isFinite(p)?'—':p<0.001?'<0.001':p.toFixed(3);
+
+/* ---------- 動画の保存 (この端末の IndexedDB) ---------- */
+const vdb=(()=>{let p=null;
+  const open=()=>p||(p=new Promise((res,rej)=>{try{const r=indexedDB.open('swinglab',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('videos');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}));
+  const tx=(mode,fn)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction('videos',mode),q=fn(t.objectStore('videos'));
+    t.oncomplete=()=>res(q.result);t.onerror=t.onabort=()=>rej(t.error)}));
+  return {put:(k,b)=>tx('readwrite',st=>st.put(b,k)),get:k=>tx('readonly',st=>st.get(k)),del:k=>tx('readwrite',st=>st.delete(k))};
+})();
+const mb=n=>(n/1048576).toFixed(n<10485760?1:0)+'MB';
 
 /* ---------- 統計 ---------- */
 function mean(a){return a.reduce((s,x)=>s+x,0)/a.length}
@@ -393,6 +407,25 @@ function mkSlot(id){const el=$('slot'+id),st=el.querySelector('.stage');
   return {id,el,st,v:st.querySelector('video'),c:st.querySelector('canvas'),url:null,name:'',frame:1/30,seen:false,slow:1,marks:{},shapes:[],draft:null,curve:null,busy:null,auto:null}}
 const slots={A:mkSlot('A'),B:mkSlot('B')};
 let act='A',tool='none';
+const pickFor={A:null,B:null};
+// 動画を枠に読み込む。restore に保存した記録を渡すと、解析の後でその記録のフェーズ・線・スロー倍率に戻す
+function loadVideo(s,blob,name,restore){
+  if(s.url)URL.revokeObjectURL(s.url);
+  if(s.busy)s.busy.stop=true;s.busy=null;showBusy(s,'');
+  s.url=URL.createObjectURL(blob);s.name=name||'';s.file=blob;s.dataTried=false;s.restore=restore||null;
+  s.marks={};s.curve=null;s.auto=null;s.autoSlow=false;s.slow=1;s.diag='';s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
+  s.v.src=s.url;s.v.load();setAct(s.id);
+  // iPhone はタップの中で一度再生しておかないと、あとから自動で再生できないことがある
+  s.v.play().then(()=>{if(!s.busy)s.v.pause()},()=>{});
+}
+function applyRestore(s){
+  const R=s.restore;if(!R)return;s.restore=null;
+  s.marks={...(R.marks||{})};s.slow=R.slow||1;s.auto=R.autoMarks?{...R.autoMarks}:null;s.autoSlow=false;s.diag='';
+  s.shapes=(R.shapes||[]).map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])}));
+  if(R.marks&&R.marks.top!=null)seek(s,R.marks.top);
+  $('svLabel').value=R.label||'';$('svClub').value=R.club||'7I';
+  draw(s);
+}
 const cur=()=>slots[act];
 const loaded=s=>!!s.url&&s.v.videoWidth>0;
 const cmpOn=()=>$('cmp').checked;
@@ -405,20 +438,16 @@ function setAct(id){act=id;['A','B'].forEach(k=>slots[k].el.classList.toggle('ac
 ['A','B'].forEach(id=>{
   const s=slots[id];
   $('file'+id).addEventListener('change',e=>{
-    const f=e.target.files&&e.target.files[0];if(!f)return;
-    if(s.url)URL.revokeObjectURL(s.url);
-    if(s.busy)s.busy.stop=true;s.busy=null;showBusy(s,'');
-    s.url=URL.createObjectURL(f);s.name=f.name;s.file=f;s.dataTried=false;s.marks={};s.curve=null;s.auto=null;s.autoSlow=false;s.slow=1;s.diag='';s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
-    s.v.src=s.url;s.v.load();setAct(id);e.target.value='';
-    // iPhone はタップの中で一度再生しておかないと、あとから自動で再生できないことがある
-    s.v.play().then(()=>{if(!s.busy)s.v.pause()},()=>{});
+    const f=e.target.files&&e.target.files[0],R=pickFor[id];pickFor[id]=null;if(!f)return;
+    loadVideo(s,f,f.name,R);e.target.value='';
   });
+  $('file'+id).addEventListener('cancel',()=>{pickFor[id]=null});
   s.v.addEventListener('loadedmetadata',()=>{
     s.reloading=false;
     s.st.querySelector('.ph').hidden=true;s.el.querySelector('.pick').hidden=false;
     try{s.v.playbackRate=+$('rate').value}catch(_){}
     layout();renderVideoUI();watchFrames(s);
-    if(Number.isFinite(s.v.duration))autoDetect(s);
+    if(Number.isFinite(s.v.duration))autoDetect(s);else{applyRestore(s);renderVideoUI()}
   });
   ['timeupdate','seeked','pause','play'].forEach(ev=>s.v.addEventListener(ev,()=>{if(s.id===act)renderTime()}));
   s.v.addEventListener('ended',()=>{if(s.id===act)renderTime()});
@@ -573,8 +602,8 @@ async function autoDetect(s){
     // 始動→インパクトが普通のスイング (実時間 0.7〜1.8秒くらい) より長すぎるなら、スロー動画とみなして倍率を推定する
     const len=r.impact-r.start;
     if(s.slow===1&&(len>2.2||r.k>1)&&len>1.6){const k=[2,4,8].reduce((a,b)=>Math.abs(Math.log(len/b/1.2))<Math.abs(Math.log(len/a/1.2))?b:a);
-      s.slow=k;s.autoSlow=true;toast(`スロー動画と判断して倍率を ${k}× にした。違ったら直してください`)}
-    else toast('始動・トップ・インパクトを自動で付けた。動画で確認してください');
+      s.slow=k;s.autoSlow=true;if(!s.restore)toast(`スロー動画と判断して倍率を ${k}× にした。違ったら直してください`)}
+    else if(!s.restore)toast('始動・トップ・インパクトを自動で付けた。動画で確認してください');
     v.pause();await seekP(v,r.top);
   }catch(err){
     const info=`${err&&err.name||'Error'}: ${err&&err.message||err} / readyState=${v.readyState} ${v.videoWidth}x${v.videoHeight} rVFC=${'requestVideoFrameCallback' in v?'あり':'なし'}`;
@@ -587,7 +616,7 @@ async function autoDetect(s){
       fr.readAsDataURL(s.file);
     }else s.diag=`解析中にエラーが出て止まった。この赤字をそのまま Claude に送ってください → ${info}`;
   }finally{
-    if(s.busy===job)s.busy=null;if(!s.reloading)showBusy(s,'');
+    if(s.busy===job)s.busy=null;if(!s.reloading){showBusy(s,'');if(s.url===url)applyRestore(s)}
     try{v.playbackRate=+$('rate').value}catch(_){}
     if(s.url===url){renderVideoUI();if(s.id===act)renderTime()}
   }
@@ -820,10 +849,15 @@ $('saveSwing').addEventListener('click',()=>{
   let li=0,ai=0;
   const rec={id:uid(),date:new Date().toISOString(),label:$('svLabel').value.trim(),club:$('svClub').value,file:s.name,
     slow:s.slow,fps:s.seen?Math.round(1/s.frame):null,auto:!!(s.auto&&['start','top','impact'].every(k=>s.marks[k]===s.auto[k])),bs:T.bs,ds:T.ds,ratio:T.ratio,lo:T.lo,hi:T.hi,fin:T.fin,
-    meas:s.shapes.map(sh=>measText(s,sh,sh.t==='line'?++li:sh.t==='ang'?++ai:0)).filter(Boolean),thumb};
+    meas:s.shapes.map(sh=>measText(s,sh,sh.t==='line'?++li:sh.t==='ang'?++ai:0)).filter(Boolean),thumb,
+    marks:{...s.marks},autoMarks:s.auto?{...s.auto}:null,shapes:s.shapes.map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])})),video:false};
   S.swings.push(rec);
   if(!save()){S.swings.pop();return}
-  toast('保存しました (記録タブ)');
+  if(!$('svVideo').checked||!s.file){toast('保存しました (記録タブ)');return}
+  const size=s.file.size;toast(`動画 (${mb(size)}) を保存中…`);
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
+  vdb.put(rec.id,s.file).then(()=>{rec.video=true;rec.vsize=size;save();toast('動画ごと保存しました (記録タブ)');if(tab==='log')renderLog()},
+    err=>toast('計測は保存したが、動画は保存できなかった (容量不足?) '+(err&&err.name||'')));
 });
 
 /* ---------- 実験 ---------- */
@@ -979,11 +1013,15 @@ function renderLog(){
     const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
     return `<tr><td class="l">${esc(c)}</td><td class="num">${a.length}</td><td class="num">${f2(mean(r))}</td><td class="num">${a.length>1?f2(sd(r)):'—'}</td><td class="num">${f2(mean(a.map(s=>s.bs)))}s</td><td class="num">${f2(mean(a.map(s=>s.ds)))}s</td></tr>`}).join('');
   renderTrend(sw);
+  const nv=sw.filter(x=>x.video).length,u=$('vidUsage');u.textContent=nv?`保存した動画 ${nv}本 (${mb(sw.reduce((a,x)=>a+(x.video&&x.vsize||0),0))})`:'';
+  try{navigator.storage.estimate().then(q=>{if(nv&&q&&q.quota)u.textContent+=` ／ 保存できる上限の目安 ${mb(q.quota)}`})}catch(_){}
   $('recs').innerHTML=[...sw].reverse().map(s=>{const d=new Date(s.date);
     return `<div class="rec">${s.thumb?`<img src="${s.thumb}" alt="">`:'<div class="noimg"></div>'}
       <div style="min-width:0"><div class="t">${esc(s.label||'(メモなし)')}</div>
       <div class="s num">${d.getMonth()+1}/${d.getDate()} ${esc(s.club)} ・ テンポ ${f1(s.ratio)}:1 (${f1(s.lo)}〜${f1(s.hi)}) ・ BS ${f2(s.bs)}s / DS ${f2(s.ds)}s${s.fps?` ・ ${s.fps}fps`:''}${s.slow>1?` ×${s.slow}スロー`:''}</div>
-      ${s.meas&&s.meas.length?`<div class="s">${s.meas.map(esc).join(' / ')}</div>`:''}</div>
+      ${s.meas&&s.meas.length?`<div class="s">${s.meas.map(esc).join(' / ')}</div>`:''}
+      <div class="ropen">${s.video?`<button type="button" class="ghost" data-open="${s.id}" data-slot="A">Aで開く</button><button type="button" class="ghost" data-open="${s.id}" data-slot="B">Bで開く</button><span class="s">${s.vsize?mb(s.vsize):''}</span>`
+        :s.marks?`<button type="button" class="ghost" data-pick="${s.id}" data-slot="A">動画を選んで開く</button><span class="s">動画は未保存</span>`:'<span class="s">動画は保存していない記録</span>'}</div></div>
       <button class="x" type="button" data-del="${s.id}" aria-label="削除">×</button></div>`}).join('');
 }
 function renderTrend(sw){
@@ -998,8 +1036,22 @@ function renderTrend(sw){
   sw.forEach((s,i)=>{g+=`<circle cx="${X(i)}" cy="${Y(s.ratio)}" r="3.5" fill="var(--turf)"/>`});
   el.innerHTML=g+`</svg><p class="note" style="margin-top:4px">テンポ比の推移 (古い→新しい)。薄い縦棒 = ±1コマずれた場合の幅。この幅より小さい変化は計測誤差。</p>`;
 }
-$('recs').addEventListener('click',e=>{const b=e.target.closest('button[data-del]');if(!b)return;
-  if(b.dataset.armed){S.swings=S.swings.filter(s=>s.id!==b.dataset.del);save();renderLog();return}
+function toVideoTab(id){
+  if(id==='B'&&!cmpOn()){$('cmp').checked=true;$('cmp').dispatchEvent(new Event('change'))}
+  document.querySelector('nav.tabs [data-tab="video"]').click();
+}
+$('recs').addEventListener('click',e=>{
+  const o=e.target.closest('button[data-open]');
+  if(o){const rec=S.swings.find(x=>x.id===o.dataset.open),id=o.dataset.slot;if(!rec)return;
+    o.textContent='読み込み中…';
+    vdb.get(rec.id).then(blob=>{
+      if(!blob){rec.video=false;save();renderLog();return toast('動画が見つからなかった (ブラウザに消されたかも)。「動画を選んで開く」で写真から選んでください')}
+      toVideoTab(id);loadVideo(slots[id],blob,rec.file,rec);
+    },()=>{renderLog();toast('動画を読み出せなかった')});return}
+  const pk=e.target.closest('button[data-pick]');
+  if(pk){const rec=S.swings.find(x=>x.id===pk.dataset.pick);if(!rec)return;pickFor.A=rec;toVideoTab('A');$('fileA').click();return}
+  const b=e.target.closest('button[data-del]');if(!b)return;
+  if(b.dataset.armed){S.swings=S.swings.filter(s=>s.id!==b.dataset.del);vdb.del(b.dataset.del).catch(()=>{});save();renderLog();return}
   b.dataset.armed='1';b.textContent='消す?';b.style.fontSize='13px';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='×';b.style.fontSize=''}},3000)});
 
 /* ---------- 共有・バックアップ ---------- */
@@ -1009,7 +1061,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v7 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v8 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
