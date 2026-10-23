@@ -15,7 +15,14 @@ async function open(page) {
 async function loadVideo(page, slot, file) {
   await page.setInputFiles('#file' + slot, file);
   await page.waitForFunction((s) => window.SwingLab.slots[s].v.videoWidth > 0, slot);
-  await page.waitForFunction((s) => !window.SwingLab.slots[s].busy && window.SwingLab.slots[s].marks.impact != null, slot, { timeout: 90_000 });
+  try {
+    await page.waitForFunction((s) => !window.SwingLab.slots[s].busy && window.SwingLab.slots[s].marks.impact != null, slot, { timeout: 90_000 });
+  } catch (e) {
+    // 失敗したら、どこまで進んだかを CI のログに残す
+    const st = await page.evaluate((s) => { const x = window.SwingLab.slots[s]; return { busy: !!x.busy, marks: x.marks, diag: x.diag, curve: x.curve && x.curve.length,
+      readyState: x.v.readyState, t: x.v.currentTime, paused: x.v.paused, seen: x.seen, frame: x.frame, overlay: x.st.querySelector('.busy').textContent }; }, slot);
+    throw new Error('自動判定が終わらない: ' + JSON.stringify(st));
+  }
 }
 const marks = (page, slot = 'A') => page.evaluate((s) => ({ ...window.SwingLab.slots[s].marks, slow: window.SwingLab.slots[s].slow }), slot);
 const expectNear = (got, want, tol, label) => expect(Math.abs(got - want), `${label}: ${got} (正解 ${want})`).toBeLessThanOrEqual(tol);

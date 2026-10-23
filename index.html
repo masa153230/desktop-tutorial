@@ -168,7 +168,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v11</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v13</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -463,7 +463,7 @@ function applyRestore(s){
   s.shapes=(R.shapes||[]).map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])}));
   if(R.curve)s.curve=R.curve.map(([t0,t1,e])=>({t0,t1,e}));
   if(R.fps){s.frame=1/R.fps;s.seen=true}
-  if(R.pose&&R.pose.keys){s.pose={samples:R.pose.keys.map(k=>({t:k.t,lm:k.lm})),step:0,metrics:R.pose.metrics}}
+  if(R.pose&&R.pose.keys){s.pose={samples:R.pose.keys.map(k=>({t:k.t,lm:k.lm})),step:0,metrics:R.pose.metrics,viewAuto:R.pose.viewAuto||(R.pose.metrics&&R.pose.metrics.view)}}
   if(R.marks&&R.marks.top!=null)seek(s,R.marks.top);
   $('svLabel').value=R.label||'';$('svClub').value=R.club||'7I';
   draw(s);
@@ -595,9 +595,11 @@ async function capture(s,job,from,to,rate,onp){
 }
 const gdiff=(a,b)=>{let sum=0;for(let i=0;i<a.length;i++){const x=Math.abs(a[i]-b[i])-6;if(x>0)sum+=x}return sum/a.length};
 const smooth=a=>a.map((x,i)=>(a[Math.max(0,i-1)]+x+a[Math.min(a.length-1,i+1)])/3);
+// 再生しながら取り込むと、同じコマが2回渡されて「動き0」の点が1つだけ混ざることがある。3点の中央値で消してから平す
+const med3=a=>a.map((x,i)=>{const p=a[Math.max(0,i-1)],q=a[Math.min(a.length-1,i+1)];return Math.max(Math.min(p,x),Math.min(Math.max(p,x),q))});
 function detect(c){
   const n=c.length;if(n<8)return null;
-  const e=smooth(c.map(x=>x.e)),tm=i=>(c[i].t0+c[i].t1)/2,gmax=Math.max(...e);
+  const e=smooth(med3(c.map(x=>x.e))),tm=i=>(c[i].t0+c[i].t1)/2,gmax=Math.max(...e);
   if(!(gmax>0))return null;
   const avg=(i0,i1)=>{let s=0,k=0;for(let i=Math.max(0,i0);i<=Math.min(n-1,i1);i++){s+=e[i];k++}return k?s/k:0};
   const idxAt=(t,from,dir)=>{let i=from;while(i+dir>=0&&i+dir<n&&(dir<0?tm(i+dir)>=t:tm(i+dir)<=t))i+=dir;return i};
@@ -615,7 +617,7 @@ function detect(c){
       if(after<0.4*gmax)continue;
       const ref=Math.min(before,after);if(!(ref>0)||e[m]>0.6*ref)continue;
       const half=e[m]+0.5*(ref-e[m]);let l=m,r=m;while(l>0&&e[l-1]<half)l--;while(r<n-1&&e[r+1]<half)r++;
-      if(tm(r)-tm(l)>0.2*k)continue;
+      if(tm(r)-tm(l)>0.3*k)continue;
       // 谷の手前の動き (バックスイング) の長さ。トップの停止 (谷の底の幅) はその半分より短い
       let j=l-1,g=0;while(j>0){if(e[j-1]<half){if(++g>2)break}else g=0;j--}
       const q=e[m]+0.25*(ref-e[m]);let l2=m,r2=m;while(l2>0&&e[l2-1]<q)l2--;while(r2<n-1&&e[r2+1]<q)r2++;
@@ -640,8 +642,11 @@ function detect(c){
   if(!(tm(T)-c[S].t0>0))return null;
   // インパクト: トップから「バックスイングの長さ×0.6」以内の山。山の上側 (最大の8割以上) の重心を取る
   const bs=c[T].t1-c[S].t0,ie=idxAt(c[T].t1+0.6*bs,T,1);
+  // 動きの量は速いと頭打ちになり、ダウンスイング後半〜フォローが平らな山になることがある。
+  // 山の上 (最大の92%以上) に最初に届いたひと続きの区間の重心を取る (フォロー側へずれないように)
   let mx=0;for(let j=T+1;j<=ie;j++)mx=Math.max(mx,e[j]);
-  let sw=0,st=0;for(let j=T+1;j<=ie;j++)if(e[j]>=0.8*mx){sw+=e[j];st+=e[j]*c[j].t1}
+  let j0=T+1;while(j0<=ie&&e[j0]<0.92*mx)j0++;
+  let sw=0,st=0;for(let j=j0;j<=ie&&e[j]>=0.92*mx;j++){sw+=e[j];st+=e[j]*c[j].t1}
   if(!(sw>0))return null;
   const impact=st/sw,I=idxAt(impact,T,1);
   // フィニッシュ: インパクトの後で動きが静止レベル近くに落ち着いたところ (無ければなし)
@@ -671,11 +676,12 @@ async function autoDetect(s){
     if(s.seen&&gap>1.6*s.frame){
       const fine=async(a,b,p)=>{const c=await capture(s,job,Math.max(0,a),Math.min(D,b),0.25,p);return c.length>=3?c:null};
       const w=3*gap,c2=await fine(r.top-w,r.impact+w,pr(80,100));if(!alive())return;
-      if(c2){const e=smooth(c2.map(x=>x.e));let T=-1;
+      if(c2){const e=smooth(med3(c2.map(x=>x.e)));let T=-1;
         c2.forEach((x,i)=>{if(x.t1>=r.top-w&&x.t1<=r.top+w&&(T<0||e[i]<e[T]))T=i});
         if(T>=0)r.top=c2[T].t1;
-        let mx=0;c2.forEach((x,i)=>{if(x.t1>r.top&&Math.abs(x.t1-r.impact)<=w)mx=Math.max(mx,e[i])});
-        let sw=0,st=0;c2.forEach((x,i)=>{if(x.t1>r.top&&Math.abs(x.t1-r.impact)<=w&&e[i]>=0.8*mx){sw+=e[i];st+=e[i]*x.t1}});
+        const inW=(x,i)=>x.t1>r.top&&Math.abs(x.t1-r.impact)<=w;let mx=0;c2.forEach((x,i)=>{if(inW(x,i))mx=Math.max(mx,e[i])});
+        let i0=c2.findIndex((x,i)=>inW(x,i)&&e[i]>=0.92*mx),sw=0,st=0;
+        for(let i=i0;i>=0&&i<c2.length&&inW(c2[i],i)&&e[i]>=0.92*mx;i++){sw+=e[i];st+=e[i]*c2[i].t1}
         if(sw>0)r.impact=st/sw}
     }
     s.marks={start:r.start,top:r.top,impact:r.impact};if(r.finish!=null&&r.finish>r.impact)s.marks.finish=r.finish;
@@ -904,7 +910,8 @@ async function runPose(s){
     if(job.stop||s.url!==url)return;
     const ok=samples.filter(x=>x.lm).length;
     if(ok<samples.length*0.5){s.pose=null;s.diag=`人をうまく見つけられなかった (${ok}/${samples.length}コマ)。体全体が映っていて、他の人が重なっていない動画で試してください。`;return}
-    s.pose={samples,step:st};s.pose.metrics=poseMetrics(s);seek(s,m.top??m.start);
+    s.pose={samples,step:st};s.pose.viewAuto=poseView(s);s.pose.metrics=poseMetrics(s,s.pose.viewAuto);seek(s,m.top??m.start);
+    $('advView').value=s.pose.viewAuto==='dtl'?$('advView').options[1].value:$('advView').options[0].value;
     S.autoPose=true;save();toast('体の動きを測った');
   }catch(e){
     s.diag='骨格推定を使えなかった ('+(e&&e.message||e)+')。GitHub Pages 版で開いているか確認してください。';
@@ -916,35 +923,62 @@ function poseAt(s,t,tol){
   P.samples.forEach(x=>{if(x.lm&&(!b||Math.abs(x.t-t)<Math.abs(b.t-t)))b=x});
   return b&&Math.abs(b.t-t)<=(tol??Math.max(P.step||0,s.frame)*1.6)?b.lm:null;
 }
-// 体の動きの数字。2D の画像からなので、撮影の向きによって意味が変わる (正面: 左右の動き・傾き / 後方: 前傾)
-function poseMetrics(s){
+// 体の動きの数字。2D の画像からなので、撮影の向きで測れるものが違う。
+// 向きはアドレスの骨格から自動で決める: 肩幅が胴の長さの 45% 未満なら横から (後方) 、それ以上なら正面
+function poseView(s){
+  const A=poseAt(s,s.marks.start);if(!A)return 'front';
+  const W=s.v.videoWidth||1,H=s.v.videoHeight||1,X=p=>[p[0]*W,p[1]*H];
+  const sh=[(X(A[J.ls])[0]+X(A[J.rs])[0])/2,(X(A[J.ls])[1]+X(A[J.rs])[1])/2],hp=[(X(A[J.lh])[0]+X(A[J.rh])[0])/2,(X(A[J.lh])[1]+X(A[J.rh])[1])/2];
+  const torso=Math.hypot(sh[0]-hp[0],sh[1]-hp[1])||1;
+  return Math.abs(X(A[J.ls])[0]-X(A[J.rs])[0])/torso<0.45?'dtl':'front';
+}
+function poseMetrics(s,view){
   const W=s.v.videoWidth||1,H=s.v.videoHeight||1,px=p=>[p[0]*W,p[1]*H],mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
   const A=poseAt(s,s.marks.start),T=poseAt(s,s.marks.top),I=poseAt(s,s.marks.impact);if(!A)return null;
-  const nose=l=>px(l[J.nose]),sh=l=>mid(px(l[J.ls]),px(l[J.rs])),hp=l=>mid(px(l[J.lh]),px(l[J.rh])),an=l=>mid(px(l[J.la]),px(l[J.ra]));
+  view=view||poseView(s);
+  const nose=l=>px(l[J.nose]),sh=l=>mid(px(l[J.ls]),px(l[J.rs])),hp=l=>mid(px(l[J.lh]),px(l[J.rh])),an=l=>mid(px(l[J.la]),px(l[J.ra])),wr=l=>mid(px(l[J.lw]),px(l[J.rw]));
   const body=Math.hypot(...[0,1].map(i=>nose(A)[i]-an(A)[i]))||1;
   const pct=d=>d/body*100;
   const spine=l=>{const a=hp(l),b=sh(l);return Math.atan2(b[0]-a[0],a[1]-b[1])*180/Math.PI}; // 鉛直からの傾き (画面右へ + )
   const wid=(l,i,j)=>Math.abs(px(l[i])[0]-px(l[j])[0]);
   const turn=(l0,l1,i,j)=>{const r=wid(l1,i,j)/(wid(l0,i,j)||1);return Math.acos(Math.max(0,Math.min(1,r)))*180/Math.PI};
   let maxHead=0;s.pose.samples.forEach(x=>{if(x.lm&&x.t>=s.marks.start&&x.t<=s.marks.impact)maxHead=Math.max(maxHead,Math.hypot(nose(x.lm)[0]-nose(A)[0],nose(x.lm)[1]-nose(A)[1]))});
-  const M={headMax:pct(maxHead)};
-  if(I){M.headX=pct(nose(I)[0]-nose(A)[0]);M.headY=pct(nose(A)[1]-nose(I)[1]);M.spineA=spine(A);M.spineI=spine(I);M.spineChange=spine(I)-spine(A)}
-  if(T){M.topHeadX=pct(nose(T)[0]-nose(A)[0]);M.shTurn=turn(A,T,J.ls,J.rs);M.hipTurn=turn(A,T,J.lh,J.rh);M.sway=pct(hp(T)[0]-hp(A)[0]);M.handH=pct(sh(T)[1]-mid(px(T[J.lw]),px(T[J.rw]))[1]);M.spineT=spine(T)}
-  Object.keys(M).forEach(k=>{M[k]=+M[k].toFixed(1)});
+  const M={view,headMax:pct(maxHead)};
+  if(view==='dtl'){
+    // 横から: ボールのある側 (アドレスで手がある側) を + にする
+    const f=Math.sign(wr(A)[0]-hp(A)[0])||1,bend=l=>Math.abs(spine(l));
+    M.bendA=bend(A);
+    if(T){M.bendT=bend(T);M.handH=pct(sh(T)[1]-wr(T)[1])}
+    if(I){M.bendI=bend(I);M.bendChange=bend(I)-bend(A);M.headFwd=pct((nose(I)[0]-nose(A)[0])*f);M.headY=pct(nose(A)[1]-nose(I)[1]);M.hipFwd=pct((hp(I)[0]-hp(A)[0])*f)}
+  }else{
+    if(I){M.headX=pct(nose(I)[0]-nose(A)[0]);M.headY=pct(nose(A)[1]-nose(I)[1]);M.spineA=spine(A);M.spineI=spine(I);M.spineChange=spine(I)-spine(A)}
+    if(T){M.topHeadX=pct(nose(T)[0]-nose(A)[0]);M.shTurn=turn(A,T,J.ls,J.rs);M.hipTurn=turn(A,T,J.lh,J.rh);M.sway=pct(hp(T)[0]-hp(A)[0]);M.handH=pct(sh(T)[1]-wr(T)[1]);M.spineT=spine(T)}
+  }
+  Object.keys(M).forEach(k=>{if(typeof M[k]==='number')M[k]=+M[k].toFixed(1)});
   return M;
 }
-const POSE_LABEL={headMax:['頭の最大移動','%','始動〜インパクトで頭が一番離れた距離 (身長比)'],headX:['頭の左右 (→インパクト)','%','アドレスからインパクトまで、画面の右へ + (身長比)'],
-  headY:['頭の上下 (→インパクト)','%','上へ + (身長比)'],spineChange:['体の軸の傾きの変化','°','アドレス→インパクト。後方撮影なら前傾の変化 (+ は画面右へ倒れた)'],
-  shTurn:['肩の回転 (推定)','°','トップ。正面撮影のときだけ意味がある (肩幅の縮み方から推定)'],hipTurn:['腰の回転 (推定)','°','トップ。正面撮影のときだけ意味がある'],
-  sway:['腰の横ずれ (→トップ)','%','画面の右へ + (身長比)。正面撮影のとき'],handH:['トップの手の高さ','%','肩より上へ + (身長比)']};
+const POSE_LABEL={headMax:['頭の最大移動','%','始動〜インパクトで頭が一番離れた距離 (身長比)'],
+  headX:['頭の左右 (→インパクト)','%','アドレスからインパクトまで、画面の右へ + (身長比)'],
+  headFwd:['頭の前後 (→インパクト)','%','ボールの方へ + (身長比)'],
+  headY:['頭の上下 (→インパクト)','%','上へ + (身長比)'],
+  bendA:['前傾 (アドレス)','°','腰→肩の線と鉛直の角度'],bendI:['前傾 (インパクト)','°',''],
+  bendChange:['前傾の変化','°','インパクト − アドレス。− は起き上がり (アーリーエクステンション)'],
+  hipFwd:['腰の前方移動 (→インパクト)','%','ボールの方へ + (身長比)。+ が大きいと腰が前に出て起き上がりやすい'],
+  spineChange:['体の軸の傾きの変化','°','アドレス→インパクト (+ は画面右へ倒れた)'],
+  shTurn:['肩の回転 (推定)','°','トップ。肩幅の縮み方からの推定'],hipTurn:['腰の回転 (推定)','°','トップ。腰幅の縮み方からの推定'],
+  sway:['腰の横ずれ (→トップ)','%','画面の右へ + (身長比)'],handH:['トップの手の高さ','%','肩より上へ + (身長比)']};
+const POSE_KEYS={dtl:['headMax','headFwd','headY','bendA','bendI','bendChange','hipFwd','handH'],front:['headMax','headX','headY','spineChange','shTurn','hipTurn','sway','handH']};
 function renderPose(){
   const s=cur(),M=s.pose&&s.pose.metrics,box=$('poseBox');
   $('poseGo').disabled=!loaded(s)||!!s.busy;
   box.hidden=!M;if(!M)return;
-  const front=!/後方/.test($('advView').value);
-  box.innerHTML='<h3>体の動き (骨格推定)</h3><div class="tbl" style="border:0"><table>'+Object.keys(POSE_LABEL).filter(k=>M[k]!=null&&(front||!['shTurn','hipTurn','sway'].includes(k))).map(k=>
-    `<tr><td class="l">${POSE_LABEL[k][0]}<br><small class="hint">${POSE_LABEL[k][2]}</small></td><td class="num">${M[k]>0&&k!=='headMax'&&k!=='shTurn'&&k!=='hipTurn'?'+':''}${f1(M[k])}${POSE_LABEL[k][1]}</td></tr>`).join('')+'</table></div>'
-    +'<p class="hint" style="margin-top:6px">画像1枚ずつからの推定なので、腕が体に重なるコマや手元は数%ぶれる。同じ場所・同じ向きで撮った動画どうしで比べること。</p>';
+  const v=M.view||'front',sg=k=>M[k]>0&&!['headMax','shTurn','hipTurn','bendA','bendI'].includes(k)?'+':'';
+  box.innerHTML=`<div class="rowb" style="justify-content:space-between;margin-bottom:6px"><h3 style="margin:0;flex:0 1 auto">体の動き (骨格推定)</h3>
+    <select id="poseView" style="flex:0 0 auto;width:auto;font-size:13px;padding:4px 8px" aria-label="撮影の向き"><option value="front"${v==='front'?' selected':''}>正面から</option><option value="dtl"${v==='dtl'?' selected':''}>後方 (横) から</option></select></div>
+    <div class="tbl" style="border:0"><table>`+POSE_KEYS[v].filter(k=>M[k]!=null).map(k=>
+    `<tr><td class="l">${POSE_LABEL[k][0]}${POSE_LABEL[k][2]?`<br><small class="hint">${POSE_LABEL[k][2]}</small>`:''}</td><td class="num">${sg(k)}${f1(M[k])}${POSE_LABEL[k][1]}</td></tr>`).join('')+'</table></div>'
+    +`<p class="hint" style="margin-top:6px">撮影の向きは骨格から自動で判定 (${s.pose.viewAuto===v?'自動':'手動で変更'})。違えば右上で直す。画像1枚ずつからの推定なので数%ぶれる。同じ場所・同じ向きで撮った動画どうしで比べること。</p>`;
+  $('poseView').onchange=e=>{s.pose.metrics=poseMetrics(s,e.target.value);renderPose()};
 }
 function drawPose(s,x,W,H,dpr){
   if(!s.pose||!$('showSkel').checked)return;
@@ -1034,7 +1068,7 @@ $('saveSwing').addEventListener('click',()=>{
     slow:s.slow,fps:s.seen?Math.round(1/s.frame):null,auto:!!(s.auto&&['start','top','impact'].every(k=>s.marks[k]===s.auto[k])),bs:T.bs,ds:T.ds,ratio:T.ratio,lo:T.lo,hi:T.hi,fin:T.fin,
     meas:s.shapes.map(sh=>measText(s,sh,sh.t==='line'?++li:sh.t==='ang'?++ai:0)).filter(Boolean),thumb,
     marks:{...s.marks},autoMarks:s.auto?{...s.auto}:null,shapes:s.shapes.map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])})),video:false,advice:lastAdvice||undefined,
-    pose:s.pose&&s.pose.metrics?{metrics:s.pose.metrics,keys:['start','top','impact','finish'].filter(k=>s.marks[k]!=null&&poseAt(s,s.marks[k])).map(k=>({t:s.marks[k],lm:poseAt(s,s.marks[k])}))}:undefined,
+    pose:s.pose&&s.pose.metrics?{metrics:s.pose.metrics,viewAuto:s.pose.viewAuto,keys:['start','top','impact','finish'].filter(k=>s.marks[k]!=null&&poseAt(s,s.marks[k])).map(k=>({t:s.marks[k],lm:poseAt(s,s.marks[k])}))}:undefined,
     curve:s.curve?s.curve.map(c=>[+c.t0.toFixed(4),+c.t1.toFixed(4),+c.e.toFixed(1)]):undefined};
   CK.forEach(k=>{if(!(S.calib||[]).some(x=>x.vid===s.vid&&x.k===k))logCalib(s,k,'ok')});
   const ex=S.exps.find(x=>x.id===$('svExp').value&&isSwing(x));
@@ -1080,7 +1114,7 @@ function advPrompt(ss){
     let li=0,ai=0;const m=s.shapes.map(sh=>measText(s,sh,sh.t==='line'?++li:sh.t==='ang'?++ai:0)).filter(Boolean);if(m.length)L.push('  補助線の計測: '+m.join(', '))});
   const sw=S.swings.filter(r=>r.club===$('svClub').value);
   if(sw.length>1)L.push(`同じクラブの過去の記録 ${sw.length}本: テンポ比 平均${f2(mean(sw.map(r=>r.ratio)))} 標準偏差${f2(sd(sw.map(r=>r.ratio)))}`);
-  ss.forEach(s=>{const M=s.pose&&s.pose.metrics;if(M)L.push(`動画${ss.length>1?s.id:''}の骨格推定 (身長比%・角度°、画像からの推定で数%ぶれる): `+Object.keys(POSE_LABEL).filter(k=>M[k]!=null).map(k=>POSE_LABEL[k][0]+' '+M[k]+POSE_LABEL[k][1]).join(', '))});
+  ss.forEach(s=>{const M=s.pose&&s.pose.metrics;if(M)L.push(`動画${ss.length>1?s.id:''}の骨格推定 (身長比%・角度°、画像からの推定で数%ぶれる): `+`撮影の向き ${M.view==='dtl'?'後方':'正面'} / `+(POSE_KEYS[M.view||'front']).filter(k=>M[k]!=null).map(k=>POSE_LABEL[k][0]+' '+M[k]+POSE_LABEL[k][1]).join(', '))});
   const q=$('advQ').value.trim();L.push('本人が聞きたいこと: '+(q||'(特になし。一番効く改善点を知りたい)'));
   L.push('','次の形で、日本語で、くだけた口調で、全体で600字以内で答えて。',
     '1. 見えたこと: 画像から確実に言えることだけを2〜4個。どのコマで何が見えたかを書く。',
@@ -1133,7 +1167,8 @@ const pm=k=>r=>r.pose&&r.pose.metrics?r.pose.metrics[k]:undefined;
 const SWM={ratio:['テンポ比',':1',0.3,r=>r.ratio],bs:['バックスイング時間','秒',0.05,r=>r.bs],ds:['ダウンスイング時間','秒',0.03,r=>r.ds],
   headMax:['頭の最大移動','%',2,pm('headMax')],headX:['頭の左右 (→インパクト)','%',2,pm('headX')],headY:['頭の上下 (→インパクト)','%',2,pm('headY')],
   spineChange:['体の軸の傾きの変化','°',3,pm('spineChange')],shTurn:['肩の回転 (推定)','°',8,pm('shTurn')],hipTurn:['腰の回転 (推定)','°',8,pm('hipTurn')],
-  sway:['腰の横ずれ (→トップ)','%',2,pm('sway')],handH:['トップの手の高さ','%',3,pm('handH')]};
+  sway:['腰の横ずれ (→トップ)','%',2,pm('sway')],handH:['トップの手の高さ','%',3,pm('handH')],
+  bendChange:['前傾の変化 (後方撮影)','°',3,pm('bendChange')],headFwd:['頭の前後 (後方撮影)','%',2,pm('headFwd')],hipFwd:['腰の前方移動 (後方撮影)','%',2,pm('hipFwd')]};
 const isSwing=e=>!!e&&e.kind==='swing';
 function shotsOf(e){
   if(!isSwing(e))return e.shots;
@@ -1453,7 +1488,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v11 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v13 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
@@ -1488,7 +1523,6 @@ $('bkRestore').addEventListener('click',e=>{const b=e.currentTarget,m=$('bkMsg')
 // テスト用の入口 (tests/ から使う)
 $('poseGo').addEventListener('click',()=>runPose(cur()));
 $('showSkel').addEventListener('change',()=>{draw(slots.A);draw(slots.B)});
-$('advView').addEventListener('change',renderPose);
 nKindSync();renderSvExp();
 window.SwingLab={slots,S,shotsOf,zipBlob,unzipBlob,detect,welch,tcdf,tinv,vdb,calibStats,poseMetrics};
 renderVideoUI();layout();

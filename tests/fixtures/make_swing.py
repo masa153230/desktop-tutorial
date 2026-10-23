@@ -19,6 +19,13 @@ for i in range(n):
     t=i/fps/slow; f=bg.copy()
     f[int(H*200/640):int(H*420/640),int(W*150/360):int(W*210/360)]=[200,180,150]  # body
     th=math.radians(theta(t)); px,py=W//2,int(H*380/640)
+    # 腕: 肩から手元まで太い帯 (クラブと同じ角度で回る)。実際のスイング同様、速さに応じて動きの量が増える
+    sx,sy=W//2,int(H*250/640);hx,hy=px,py
+    ax,ay=sx+(int(H*95/640))*math.sin(th*0.9),sy+(int(H*95/640))*math.cos(th*0.9)
+    for u in [i/40 for i in range(41)]:
+        x=int(sx+(ax-sx)*u);y=int(sy+(ay-sy)*u);aw=max(3,W//18)
+        if 0<=x<W-aw and 0<=y<H-aw: f[y:y+aw,x:x+aw]=[60,60,140]
+    px,py=int(ax),int(ay)
     for r in range(0,int(H*170/640),1):
         x=int(px+r*math.sin(th)); y=int(py+r*math.cos(th))
         if 0<=x<W-4 and 0<=y<H-4: f[y:y+3,x:x+3]=[240,240,240]

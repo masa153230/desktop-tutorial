@@ -62,4 +62,4 @@ iPhone の Safari で使うゴルフスイング研究アプリ。インスト�
 cd tests && npm ci && npx playwright install chromium webkit && npx playwright test
 ```
 
-テスト用の動画 (`tests/fixtures/`) は棒が回るだけの合成スイング (`make_swing.py` で作成)。正解は 始動 0.80s / トップ 1.565s / インパクト 1.83s。
+テスト用の動画 (`tests/fixtures/`) は腕と棒が回るだけの合成スイング (`make_swing.py` で作成)。正解は 始動 0.80s / トップ 1.565s / インパクト 1.83s。
