@@ -83,6 +83,9 @@ textarea{font:inherit;font-size:16px;width:100%;min-height:64px;background:var(-
 .stage .ph{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#cfd8cc;font-weight:700;font-size:15px;padding:16px;cursor:pointer;letter-spacing:0}
 .stage .tag{position:absolute;top:6px;left:6px;font-family:var(--f-num);font-size:12px;font-weight:600;padding:1px 7px;border-radius:5px;color:#fff;pointer-events:none}
 .tagA{background:var(--ca)}.tagB{background:var(--cb)}
+.busy{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);color:#fff;font-size:13px;padding:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.busy button{background:rgba(255,255,255,.18);color:#fff;padding:4px 10px;font-size:12px}
+#motion{width:100%;height:60px;display:block;touch-action:none;background:var(--sunk);border-radius:6px;margin-top:10px;cursor:pointer}
 .pick{font-size:12px;padding:5px 10px;letter-spacing:0;color:var(--ink);border:1px solid var(--line);border-radius:8px;cursor:pointer}
 .tools{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
 .tools button{padding:8px 2px;font-size:13px;background:var(--sunk);color:var(--ink)}
@@ -160,7 +163,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v1</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v2</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -177,12 +180,12 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
     </div>
     <div class="slots solo" id="slots">
       <div class="slot act" id="slotA" data-slot="A">
-        <div class="stage"><video playsinline muted preload="auto"></video><canvas></canvas><label class="ph" for="fileA">タップして動画を選ぶ<br>(撮影 or ライブラリ)</label><span class="tag tagA" hidden>A</span></div>
+        <div class="stage"><video playsinline muted preload="auto"></video><canvas></canvas><label class="ph" for="fileA">タップして動画を選ぶ<br>(撮影 or ライブラリ)</label><span class="tag tagA" hidden>A</span><div class="busy" hidden><span></span><button type="button">中止</button></div></div>
         <input class="vh" type="file" id="fileA" accept="video/*">
         <label class="pick" for="fileA" hidden>動画を変える</label>
       </div>
       <div class="slot" id="slotB" data-slot="B" hidden>
-        <div class="stage"><video playsinline muted preload="auto"></video><canvas></canvas><label class="ph" for="fileB">比較する動画を選ぶ</label><span class="tag tagB">B</span></div>
+        <div class="stage"><video playsinline muted preload="auto"></video><canvas></canvas><label class="ph" for="fileB">比較する動画を選ぶ</label><span class="tag tagB">B</span><div class="busy" hidden><span></span><button type="button">中止</button></div></div>
         <input class="vh" type="file" id="fileB" accept="video/*">
         <label class="pick" for="fileB" hidden>動画を変える</label>
       </div>
@@ -197,6 +200,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
         <button type="button" id="undo">戻す</button>
         <button type="button" id="clearShapes">消去</button>
       </div>
+      <canvas id="motion" aria-label="動きの量のグラフ。タップでその位置へ移動"></canvas>
       <input type="range" id="scrub" min="0" max="1" step="0.001" value="0" aria-label="再生位置">
       <div class="tline"><span class="num" id="tcur">—</span><span class="hint num" id="tfps"></span></div>
       <div class="transport">
@@ -209,9 +213,9 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
     </div>
 
     <div class="card">
-      <h3>フェーズ <span id="actName"></span></h3>
+      <div class="rowb" style="justify-content:space-between;margin-bottom:8px"><h3 style="margin:0;flex:0 1 auto">フェーズ <span id="actName"></span></h3><button class="ghost" id="autoBtn" type="button" style="flex:0 0 auto;font-size:13px;padding:6px 10px">自動判定</button></div>
       <div class="marks" id="marks"></div>
-      <p class="hint" style="margin-top:8px">コマ送りで止めて、上のボタンでその瞬間を記録。下の時刻をタップするとそこへ移動。<b>始動</b> = クラブヘッドが動き出した最初のコマ、<b>トップ</b> = 切り返しでヘッドが止まるコマ。</p>
+      <p class="hint" style="margin-top:8px">動画を読み込むと自動で判定する。ずれていたら、コマ送りで正しいコマに止めて上のボタンを押すと上書きできる。下の時刻をタップするとそこへ移動。<b>始動</b> = クラブヘッドが動き出した最初のコマ、<b>トップ</b> = 切り返しでヘッドが止まるコマ。</p>
       <label style="margin-top:10px">撮影時のスロー倍率 (この動画)
         <select id="slow"><option value="1">等倍 (普通の動画)</option><option value="2">2× スロー</option><option value="4">4× スロー (120fps)</option><option value="8">8× スロー (240fps)</option></select>
       </label>
@@ -385,7 +389,7 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('clic
 /* ---------- 動画 ---------- */
 const MARKS=[['start','始動'],['top','トップ'],['impact','インパクト'],['finish','フィニッシュ']];
 function mkSlot(id){const el=$('slot'+id),st=el.querySelector('.stage');
-  return {id,el,st,v:st.querySelector('video'),c:st.querySelector('canvas'),url:null,name:'',frame:1/30,seen:false,slow:1,marks:{},shapes:[],draft:null}}
+  return {id,el,st,v:st.querySelector('video'),c:st.querySelector('canvas'),url:null,name:'',frame:1/30,seen:false,slow:1,marks:{},shapes:[],draft:null,curve:null,busy:null,auto:null}}
 const slots={A:mkSlot('A'),B:mkSlot('B')};
 let act='A',tool='none';
 const cur=()=>slots[act];
@@ -393,7 +397,7 @@ const loaded=s=>!!s.url&&s.v.videoWidth>0;
 const cmpOn=()=>$('cmp').checked;
 const linked=()=>cmpOn()&&$('link').checked;
 // 連動中は読み込み済みの両方、そうでなければ選択中の1本
-const targets=()=>linked()?[slots.A,slots.B].filter(loaded):[cur()].filter(loaded);
+const targets=()=>(linked()?[slots.A,slots.B]:[cur()]).filter(s=>loaded(s)&&!s.busy);
 
 function setAct(id){act=id;['A','B'].forEach(k=>slots[k].el.classList.toggle('act',k===id));renderVideoUI()}
 
@@ -402,15 +406,15 @@ function setAct(id){act=id;['A','B'].forEach(k=>slots[k].el.classList.toggle('ac
   $('file'+id).addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0];if(!f)return;
     if(s.url)URL.revokeObjectURL(s.url);
-    s.url=URL.createObjectURL(f);s.name=f.name;s.marks={};s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
+    if(s.busy)s.busy.stop=true;s.busy=null;showBusy(s,'');
+    s.url=URL.createObjectURL(f);s.name=f.name;s.marks={};s.curve=null;s.auto=null;s.autoSlow=false;s.slow=1;s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
     s.v.src=s.url;s.v.load();setAct(id);e.target.value='';
   });
   s.v.addEventListener('loadedmetadata',()=>{
     s.st.querySelector('.ph').hidden=true;s.el.querySelector('.pick').hidden=false;
     try{s.v.playbackRate=+$('rate').value}catch(_){}
-    // iOS は一度シークしないと最初のコマを描かないことがある
-    try{s.v.currentTime=0.001}catch(_){}
     layout();renderVideoUI();watchFrames(s);
+    if(Number.isFinite(s.v.duration))autoDetect(s);
   });
   ['timeupdate','seeked','pause','play'].forEach(ev=>s.v.addEventListener(ev,()=>{if(s.id===act)renderTime()}));
   s.v.addEventListener('ended',()=>{if(s.id===act)renderTime()});
@@ -438,10 +442,130 @@ function watchFrames(s){
   v.requestVideoFrameCallback(cb);
 }
 
+/* ---------- 自動判定 ---------- */
+// 三脚で固定した動画なら、前のコマとの差がクラブと体の動きの量になる。
+// アドレスで止まる → 始動で動き出す → トップで一瞬止まる → フィニッシュで止まる、を動きの量から探す。
+// 動きの量は速いと頭打ちになる (細いクラブは速くても変わる面積が同じ) ので、インパクトは
+// 「アドレスの画に一番近く戻ったコマ」で探す (クラブと腕がアドレスの位置に戻ってくる)。
+const seekP=(v,t)=>new Promise(r=>{let ok=false;const f=()=>{if(!ok){ok=true;r()}};v.addEventListener('seeked',f,{once:true});try{v.currentTime=t}catch(_){f()}setTimeout(f,1500)});
+async function capture(s,job,from,to,rate,onp){
+  const v=s.v,w=64,h=Math.max(8,Math.round(w*v.videoHeight/v.videoWidth));
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d',{willReadFrequently:true});
+  const out=[];let prev=null,pt=0;
+  const grab=t=>{
+    cx.drawImage(v,0,0,w,h);const d=cx.getImageData(0,0,w,h).data,g=new Uint8Array(w*h);
+    for(let i=0;i<g.length;i++)g[i]=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114;
+    if(prev&&t<=pt+1e-4)return;
+    if(prev)out.push({t0:pt,t1:t,e:gdiff(g,prev)/(t-pt),g});else out.first=g;
+    prev=g;pt=t;
+  };
+  await seekP(v,from);if(job.stop)return out;grab(v.currentTime);
+  if('requestVideoFrameCallback' in v){
+    await new Promise(res=>{let done=false;const fin=()=>{if(done)return;done=true;v.pause();res()};
+      const cb=(now,md)=>{if(done)return;if(job.stop)return fin();grab(md.mediaTime);onp&&onp((md.mediaTime-from)/(to-from));
+        if(md.mediaTime>=to||v.ended)return fin();v.requestVideoFrameCallback(cb)};
+      v.requestVideoFrameCallback(cb);v.addEventListener('ended',fin,{once:true});
+      try{v.playbackRate=rate}catch(_){}
+      v.play().catch(fin);setTimeout(fin,((to-from)/rate+4)*1000);
+    });
+  }else{
+    const st=Math.max(1/30,(to-from)/200);
+    for(let t=from+st;t<=to&&!job.stop;t+=st){await seekP(v,t);grab(t);onp&&onp((t-from)/(to-from))}
+  }
+  return out;
+}
+const gdiff=(a,b)=>{let sum=0;for(let i=0;i<a.length;i++){const x=Math.abs(a[i]-b[i])-6;if(x>0)sum+=x}return sum/a.length};
+const smooth=a=>a.map((x,i)=>(a[Math.max(0,i-1)]+x+a[Math.min(a.length-1,i+1)])/3);
+function detect(c){
+  const n=c.length;if(n<8)return null;
+  const e=smooth(c.map(x=>x.e)),srt=[...e].sort((a,b)=>a-b),noise=srt[Math.floor(n*0.2)],peak=srt[n-1];
+  if(!(peak>noise*4+1))return null;
+  const thr=noise+0.05*(peak-noise),still=i=>e[i]<thr;
+  // 動いている区間のうち一番長いもの = スイング。途中の短い停止 (トップ) はつなげる
+  const runs=[];for(let i=0;i<n;){if(still(i)){i++;continue}let j=i;while(j<n-1&&!still(j+1))j++;runs.push([i,j]);i=j+1}
+  for(let k=runs.length-1;k>0;k--){const a=runs[k-1],b=runs[k],gap=c[b[0]].t0-c[a[1]].t1;
+    if(gap<0.08*(c[b[1]].t1-c[a[0]].t0))runs.splice(k-1,2,[a[0],b[1]])}
+  const dur=r=>c[r[1]].t1-c[r[0]].t0;
+  const sw=runs.reduce((a,b)=>dur(b)>dur(a)?b:a,runs[0]);if(!sw)return null;
+  const S=sw[0],F=sw[1],tS=c[S].t0,len=dur(sw);
+  // トップ: スイング全体の 15〜75% の範囲で動きが一番小さいところ (切り返しの一瞬の停止)
+  let T=-1;for(let i=S;i<=F;i++){const t=c[i].t1;if(t<tS+0.15*len||t>tS+0.75*len)continue;if(T<0||e[i]<e[T])T=i}
+  if(T<0)return null;
+  // インパクト: トップの後、アドレスの画に一番近いコマ
+  const ref=S>0?c[S-1].g:c.first;let I=-1,best=Infinity;
+  for(let i=T+1;i<=F;i++){if(c[i].t1>c[T].t1+0.7*(c[F].t1-c[T].t1))break;const d=gdiff(c[i].g,ref);if(d<best){best=d;I=i}}
+  if(I<0)return null;
+  return {start:tS,top:c[T].t1,impact:c[I].t1,finish:F<n-1?c[F].t1:null,thr,ref};
+}
+function showBusy(s,t){const b=s.st.querySelector('.busy');b.hidden=!t;if(t)b.firstChild.textContent=t}
+[slots.A,slots.B].forEach(s=>s.st.querySelector('.busy button').addEventListener('click',e=>{e.stopPropagation();if(s.busy)s.busy.stop=true}));
+async function autoDetect(s){
+  if(s.busy||!loaded(s))return;
+  const job={stop:false},v=s.v,D=v.duration,url=s.url;s.busy=job;v.pause();
+  const alive=()=>!job.stop&&s.url===url;
+  try{
+    const pr=(a,b)=>p=>showBusy(s,`スイングを解析中… ${Math.round(a+(b-a)*Math.min(1,Math.max(0,p)))}%`);
+    pr(0,80)(0);
+    const c1=await capture(s,job,0,D,Math.min(4,Math.max(1,D/8)),pr(0,80));
+    if(!alive())return;
+    s.curve=c1.map(({t0,t1,e})=>({t0,t1,e}));
+    const r=detect(c1);
+    if(!r){toast('スイングを見つけられなかった。三脚などで固定して撮った動画か確認して、手で付けてください');return}
+    // 再生中にコマが飛んでいたら (高fps動画)、トップとインパクトの付近だけゆっくり再生して詰め直す
+    const gaps=c1.map(x=>x.t1-x.t0).sort((a,b)=>a-b),gap=gaps[gaps.length>>1];
+    if(s.seen&&gap>1.6*s.frame){
+      const fine=async(a,b,p)=>{const c=await capture(s,job,Math.max(0,a),Math.min(D,b),0.25,p);return c.length>=3?c:null};
+      const w=3*gap,c2=await fine(r.top-w,r.impact+w,pr(80,93));if(!alive())return;
+      if(c2){const e=smooth(c2.map(x=>x.e));let T=-1,I=-1,best=Infinity;
+        c2.forEach((x,i)=>{if(x.t1>=r.top-w&&x.t1<=r.top+w&&(T<0||e[i]<e[T]))T=i});
+        if(T>=0)r.top=c2[T].t1;
+        c2.forEach((x,i)=>{if(x.t1>r.top){const d=gdiff(x.g,r.ref);if(d<best){best=d;I=i}}});
+        if(I>=0)r.impact=c2[I].t1}
+      const c3=await fine(r.start-w,r.start+w,pr(93,100));if(!alive())return;
+      if(c3){const e=smooth(c3.map(x=>x.e)),k=e.findIndex((x,i)=>x>=r.thr&&e.slice(i).every(y=>y>=r.thr*0.5));if(k>=0)r.start=c3[k].t0}
+    }
+    s.marks={start:r.start,top:r.top,impact:r.impact};if(r.finish!=null&&r.finish>r.impact)s.marks.finish=r.finish;
+    s.auto={...s.marks};
+    // 始動→インパクトが普通のスイング (実時間 0.7〜1.8秒くらい) より長すぎるなら、スロー動画とみなして倍率を推定する
+    const len=r.impact-r.start;
+    if(s.slow===1&&len>2.2){const k=[2,4,8].reduce((a,b)=>Math.abs(Math.log(len/b/1.2))<Math.abs(Math.log(len/a/1.2))?b:a);
+      s.slow=k;s.autoSlow=true;toast(`スロー動画と判断して倍率を ${k}× にした。違ったら直してください`)}
+    else toast('始動・トップ・インパクトを自動で付けた。動画で確認してください');
+    v.pause();await seekP(v,r.top);
+  }finally{
+    if(s.busy===job)s.busy=null;showBusy(s,'');
+    try{v.playbackRate=+$('rate').value}catch(_){}
+    if(s.url===url){renderVideoUI();if(s.id===act)renderTime()}
+  }
+}
+function drawMotion(){
+  const cv=$('motion'),s=cur(),dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;if(!W)return;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+  const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);
+  const cs=getComputedStyle(document.documentElement),col=k=>cs.getPropertyValue(k).trim(),D=s.v.duration;
+  x.font='11px "Zen Kaku Gothic New",system-ui,sans-serif';
+  if(!loaded(s)||!Number.isFinite(D)){x.fillStyle=col('--muted');x.fillText('動画を読み込むと、ここに動きの量のグラフが出る',8,H/2+4);return}
+  if(s.curve&&s.curve.length){const e=smooth(s.curve.map(c=>c.e)),mx=Math.max(...e)||1;
+    x.beginPath();x.moveTo(0,H);s.curve.forEach((c,i)=>x.lineTo((c.t0+c.t1)/2/D*W,H-2-(e[i]/mx)*(H-16)));x.lineTo(W,H);x.closePath();
+    x.globalAlpha=.25;x.fillStyle=col('--turf');x.fill();x.globalAlpha=1;x.strokeStyle=col('--turf');x.lineWidth=1.5;x.stroke()}
+  else if(!s.busy){x.fillStyle=col('--muted');x.fillText('「自動判定」でグラフを作る',8,H/2+4)}
+  const mc={start:'--ca',top:'--warn',impact:'--bad',finish:'--muted'},ml={start:'始',top:'ト',impact:'イ',finish:'フ'};
+  Object.keys(mc).forEach(k=>{const t=s.marks[k];if(t==null)return;const X=t/D*W;x.strokeStyle=x.fillStyle=col(mc[k]);x.lineWidth=1.5;
+    x.beginPath();x.moveTo(X,12);x.lineTo(X,H);x.stroke();x.fillText(ml[k],Math.min(W-12,Math.max(0,X-5)),10)});
+  const X=s.v.currentTime/D*W;x.strokeStyle=col('--ink');x.lineWidth=2;x.beginPath();x.moveTo(X,0);x.lineTo(X,H);x.stroke();
+}
+(()=>{const cv=$('motion');let down=false;
+  const go=e=>{const s=cur();if(!loaded(s)||s.busy)return;const r=cv.getBoundingClientRect();s.v.pause();seek(s,(e.clientX-r.left)/r.width*s.v.duration)};
+  cv.addEventListener('pointerdown',e=>{down=true;try{cv.setPointerCapture(e.pointerId)}catch(_){}go(e)});
+  cv.addEventListener('pointermove',e=>{if(down)go(e)});
+  ['pointerup','pointercancel'].forEach(k=>cv.addEventListener(k,()=>{down=false}));
+})();
+$('autoBtn').addEventListener('click',()=>{const s=cur();if(!loaded(s))return toast('先に動画を選んでください');autoDetect(s)});
+
 function layout(){
   if(tab!=='video')return;
   const cmp=cmpOn(),W=$('slots').clientWidth;if(!W)return;
-  const each=cmp?(W-8)/2:W,maxH=Math.max(260,window.innerHeight*(cmp?0.5:0.58));
+  const each=cmp?(W-8)/2:W,maxH=Math.max(240,window.innerHeight*(cmp?0.45:0.5));
   [slots.A,slots.B].forEach(s=>{
     if(s.el.hidden)return;
     const ar=s.v.videoWidth&&s.v.videoHeight?s.v.videoWidth/s.v.videoHeight:9/16;
@@ -450,7 +574,7 @@ function layout(){
     s.c.width=Math.round(w*dpr);s.c.height=Math.round(h*dpr);draw(s);
   });
 }
-window.addEventListener('resize',layout);
+window.addEventListener('resize',()=>{layout();drawMotion()});
 
 $('cmp').addEventListener('change',()=>{
   const on=cmpOn();slots.B.el.hidden=!on;$('linkWrap').hidden=!on;$('cmpBtns').hidden=!on;
@@ -472,8 +596,8 @@ function step(dir){targets().forEach(s=>{s.v.pause();seek(s,s.v.currentTime+dir*
 function applyRate(s,base){const r=base??+$('rate').value;const ss=linked()?[slots.A,slots.B].filter(loaded):[s];
   const mx=Math.max(...ss.map(x=>x.slow));try{s.v.playbackRate=Math.max(0.0625,r*s.slow/mx)}catch(_){try{s.v.playbackRate=r}catch(__){}}}
 $('rate').addEventListener('change',()=>{[slots.A,slots.B].filter(loaded).forEach(s=>applyRate(s))});
-$('scrub').addEventListener('input',e=>{const s=cur();if(!loaded(s))return;s.v.pause();seek(s,+e.target.value)});
-$('slow').addEventListener('change',e=>{cur().slow=+e.target.value;renderTempo()});
+$('scrub').addEventListener('input',e=>{const s=cur();if(!loaded(s)||s.busy)return;s.v.pause();seek(s,+e.target.value)});
+$('slow').addEventListener('change',e=>{cur().slow=+e.target.value;cur().autoSlow=false;renderTempo()});
 
 $('alignImp').addEventListener('click',()=>{
   const ss=[slots.A,slots.B];if(!ss.every(loaded))return toast('A と B 両方に動画を入れてください');
@@ -491,12 +615,13 @@ $('playSync').addEventListener('click',()=>{
 
 function renderTime(){
   const s=cur(),sc=$('scrub');
-  if(!loaded(s)){$('tcur').textContent='—';$('tfps').textContent='';$('play').textContent='再生';return}
+  if(!loaded(s)){$('tcur').textContent='—';$('tfps').textContent='';$('play').textContent='再生';drawMotion();return}
   sc.max=String(s.v.duration||1);sc.value=String(s.v.currentTime);
   const fr=Math.round(s.v.currentTime/s.frame);
   $('tcur').textContent=`${s.v.currentTime.toFixed(3)}s / ${fr}コマ目`;
   $('tfps').textContent=s.seen?`${Math.round(1/s.frame)}fps (実測)`:'requestVideoFrameCallback' in HTMLVideoElement.prototype?'fps未確定: 等倍で一度再生すると測る':'fps不明 (30fps扱い)';
   $('play').textContent=s.v.paused?'再生':'停止';
+  drawMotion();
 }
 
 function renderVideoUI(){
@@ -509,7 +634,7 @@ function renderVideoUI(){
 }
 $('marks').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;const s=cur();if(!loaded(s))return toast('先に動画を選んでください');
-  if(b.dataset.set){s.marks[b.dataset.set]=s.v.currentTime;renderVideoUI()}
+  if(b.dataset.set){if(s.busy)return;s.marks[b.dataset.set]=s.v.currentTime;renderVideoUI()}
   else if(b.dataset.go){const t=s.marks[b.dataset.go];if(t!=null){s.v.pause();seek(s,t)}}
 });
 
@@ -532,6 +657,9 @@ function renderTempo(){
   if(T.ds/T.f<10)msgs.push(`ダウンスイングが ${Math.round(T.ds/T.f)} コマしかないので、1コマのずれでテンポ比が大きく動く。テンポを比べたいならスロー撮影 (120fps 以上) を使うこと。`);
   if(T.total>2||T.total<0.5)msgs.push(`始動からインパクトまで ${f2(T.total)} 秒は普通のスイングとしては${T.total>2?'長すぎる':'短すぎる'}。スロー倍率の設定が動画と合っていないかもしれない (iPhoneのスロー動画は、スロー再生の状態で渡されることが多い)。`);
   if(!s.seen)msgs.push('1コマの長さがまだ実測されていない (仮に30fps扱い)。一度再生すると正確になる。');
+  const au=s.auto&&['start','top','impact'].every(k=>s.marks[k]===s.auto[k]);
+  if(au)msgs.push('自動判定の値。インパクトは「アドレスの画に一番近く戻ったコマ」で探しているので、1〜2コマずれることがある。インパクトの時刻をタップして、ボールに当たる瞬間と違えば直すこと。');
+  if(s.autoSlow)msgs.push(`スロー倍率は ${s.slow}× と推定した (始動→インパクトの長さから)。撮影時の設定と違えば直すこと。`);
   note.className='note'+(msgs.length?' warn':'');
   if(T.fin!=null)msgs.push(`インパクト→フィニッシュ ${f2(T.fin)}s。`);
   note.innerHTML=msgs.map(esc).join('<br>');
@@ -607,7 +735,7 @@ $('saveSwing').addEventListener('click',()=>{
     c.getContext('2d').drawImage(s.v,0,0,w,h);thumb=c.toDataURL('image/jpeg',0.6)}catch(_){}
   let li=0,ai=0;
   const rec={id:uid(),date:new Date().toISOString(),label:$('svLabel').value.trim(),club:$('svClub').value,file:s.name,
-    slow:s.slow,fps:s.seen?Math.round(1/s.frame):null,bs:T.bs,ds:T.ds,ratio:T.ratio,lo:T.lo,hi:T.hi,fin:T.fin,
+    slow:s.slow,fps:s.seen?Math.round(1/s.frame):null,auto:!!(s.auto&&['start','top','impact'].every(k=>s.marks[k]===s.auto[k])),bs:T.bs,ds:T.ds,ratio:T.ratio,lo:T.lo,hi:T.hi,fin:T.fin,
     meas:s.shapes.map(sh=>measText(s,sh,sh.t==='line'?++li:sh.t==='ang'?++ai:0)).filter(Boolean),thumb};
   S.swings.push(rec);
   if(!save()){S.swings.pop();return}
@@ -797,7 +925,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v1 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v2 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
