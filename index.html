@@ -105,6 +105,8 @@ input[type=range]{padding:0;border:0;background:transparent;accent-color:var(--t
 .stat span{display:block;font-size:11px;color:var(--muted);letter-spacing:.06em}
 .stat b{font-family:var(--f-num);font-size:20px;font-weight:600}
 .stat small{display:block;font-size:11px;color:var(--muted);font-family:var(--f-num)}
+.adv{font-size:14px;line-height:1.75;white-space:pre-wrap;background:var(--sunk);border-radius:8px;padding:10px 12px}
+.adv b{color:var(--turf)}
 .meas{margin:0;padding-left:1.2em;font-size:14px}
 .warn{color:var(--warn)}
 
@@ -165,7 +167,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v8</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v9</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -229,6 +231,21 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
     <div class="card" id="measCard" hidden>
       <h3>描いた線の計測値</h3>
       <ol class="meas" id="measList"></ol>
+    </div>
+
+    <div class="card" id="advCard" style="display:flex;flex-direction:column;gap:10px">
+      <h3 style="margin:0">Claude のアドバイス</h3>
+      <div class="grid2">
+        <label class="full">聞きたいこと (任意)<input id="advQ" autocomplete="off" placeholder="例: スライスが止まらない / 飛距離を伸ばしたい"></label>
+        <label class="full">撮影の向き<select id="advView"><option value="正面 (飛球線と直角、体の正面から)">正面 (体の正面から)</option><option value="後方 (飛球線の延長上、背中側から)">後方 (飛球線の後ろから)</option><option value="不明">わからない</option></select></label>
+      </div>
+      <div class="rowb"><button class="btn" id="advGo" type="button">アドバイスをもらう</button><button class="ghost" id="advStop" type="button" hidden style="flex:0 0 auto">止める</button></div>
+      <p class="hint" id="advHint">始動・トップ・インパクトの静止画とテンポの数字を Claude に見せる。比較モードで B にも動画があれば、2本の違いも見てもらえる。</p>
+      <div class="adv" id="advOut" hidden></div>
+      <img id="advImg" alt="Claude に見せる静止画" hidden style="width:100%;border-radius:8px;border:1px solid var(--line)">
+      <button class="ghost" id="advShare" type="button" hidden>画像と質問を Claude アプリに送る</button>
+      <textarea id="advText" readonly hidden style="min-height:90px;font-size:12px"></textarea>
+      <p class="msg" id="advMsg" hidden></p>
     </div>
 
     <div class="card grid2">
@@ -414,7 +431,7 @@ function loadVideo(s,blob,name,restore){
   if(s.busy)s.busy.stop=true;s.busy=null;showBusy(s,'');
   s.url=URL.createObjectURL(blob);s.name=name||'';s.file=blob;s.dataTried=false;s.restore=restore||null;
   s.marks={};s.curve=null;s.auto=null;s.autoSlow=false;s.slow=1;s.diag='';s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
-  s.v.src=s.url;s.v.load();setAct(s.id);
+  s.v.src=s.url;s.v.load();setAct(s.id);lastAdvice='';$('advOut').hidden=true;$('advImg').hidden=true;$('advShare').hidden=true;$('advText').hidden=true;$('advMsg').hidden=true;
   // iPhone はタップの中で一度再生しておかないと、あとから自動で再生できないことがある
   s.v.play().then(()=>{if(!s.busy)s.v.pause()},()=>{});
 }
@@ -850,7 +867,7 @@ $('saveSwing').addEventListener('click',()=>{
   const rec={id:uid(),date:new Date().toISOString(),label:$('svLabel').value.trim(),club:$('svClub').value,file:s.name,
     slow:s.slow,fps:s.seen?Math.round(1/s.frame):null,auto:!!(s.auto&&['start','top','impact'].every(k=>s.marks[k]===s.auto[k])),bs:T.bs,ds:T.ds,ratio:T.ratio,lo:T.lo,hi:T.hi,fin:T.fin,
     meas:s.shapes.map(sh=>measText(s,sh,sh.t==='line'?++li:sh.t==='ang'?++ai:0)).filter(Boolean),thumb,
-    marks:{...s.marks},autoMarks:s.auto?{...s.auto}:null,shapes:s.shapes.map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])})),video:false};
+    marks:{...s.marks},autoMarks:s.auto?{...s.auto}:null,shapes:s.shapes.map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])})),video:false,advice:lastAdvice||undefined};
   S.swings.push(rec);
   if(!save()){S.swings.pop();return}
   if(!$('svVideo').checked||!s.file){toast('保存しました (記録タブ)');return}
@@ -858,6 +875,84 @@ $('saveSwing').addEventListener('click',()=>{
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
   vdb.put(rec.id,s.file).then(()=>{rec.video=true;rec.vsize=size;save();toast('動画ごと保存しました (記録タブ)');if(tab==='log')renderLog()},
     err=>toast('計測は保存したが、動画は保存できなかった (容量不足?) '+(err&&err.name||'')));
+});
+
+/* ---------- Claude のアドバイス ---------- */
+// claude.ai の中で開いた時は、その場で Claude に静止画と数字を見せる。それ以外 (GitHub Pages など) は
+// 同じ画像と質問文を作って、共有シートから Claude アプリに渡す
+const samplerP=(window.claude&&window.claude.use)?window.claude.use('sample').then(async f=>{if(!f)return null;
+  const L=await f.limits().catch(()=>null);return L&&L.images?f:null}).catch(()=>null):Promise.resolve(null);
+samplerP.then(f=>{if(!f)$('advGo').textContent='画像と質問を作る (Claude アプリで聞く)'});
+let advCtl=null,lastAdvice='';
+const PH={start:'始動',top:'トップ',impact:'インパクト',finish:'フィニッシュ'};
+async function phaseSheet(ss){
+  // 1行に1本、各フェーズの静止画を並べる (描いた線も重ねる)
+  const H=420,rows=ss.map(s=>({s,ks:['start','top','impact','finish'].filter(k=>s.marks[k]!=null)}));
+  const W=Math.max(...rows.map(r=>r.ks.length*Math.round(H*s_ar(r.s))));
+  const c=document.createElement('canvas');c.width=W;c.height=H*rows.length;const x=c.getContext('2d');
+  x.fillStyle='#000';x.fillRect(0,0,c.width,c.height);
+  for(let ri=0;ri<rows.length;ri++){const {s,ks}=rows[ri],w=Math.round(H*s_ar(s)),keep=s.v.currentTime;
+    for(let i=0;i<ks.length;i++){await seekP(s.v,s.marks[ks[i]]);await new Promise(r=>setTimeout(r,60));
+      x.drawImage(s.v,i*w,ri*H,w,H);try{x.drawImage(s.c,i*w,ri*H,w,H)}catch(_){}
+      x.font='600 18px system-ui,sans-serif';const t=(ss.length>1?s.id+' ':'')+PH[ks[i]]+' '+s.marks[ks[i]].toFixed(2)+'s',tw=x.measureText(t).width;
+      x.fillStyle='rgba(0,0,0,.7)';x.fillRect(i*w+4,ri*H+4,tw+12,26);x.fillStyle='#fff';x.fillText(t,i*w+10,ri*H+23)}
+    seek(s,keep)}
+  return new Promise(r=>c.toBlob(b=>r(b),'image/jpeg',0.85));
+}
+const s_ar=s=>s.v.videoWidth/s.v.videoHeight||9/16;
+function advPrompt(ss){
+  const L=['あなたはゴルフスイングを見る、率直で現実的なコーチ。添付画像は同じスイングを撮影した動画から抜き出した静止画で、'
+    +(ss.length>1?'1行目が動画A、2行目が動画B。':'')+'左から始動(テイクバック開始)・トップ・インパクト・フィニッシュの順(付いているものだけ)。黄色や水色の線は本人が引いた補助線。',
+    '撮影の向き: '+$('advView').value,'クラブ: '+$('svClub').value+(($('svLabel').value||'').trim()?' / メモ: '+$('svLabel').value.trim():'')];
+  ss.forEach(s=>{const T=tempo(s);if(!T||T.bad)return;
+    L.push(`動画${ss.length>1?s.id:''}: テンポ比 ${f2(T.ratio)}:1 (各フェーズが±1コマずれると ${f1(T.lo)}〜${f1(T.hi)}) / バックスイング ${f2(T.bs)}秒 / ダウンスイング ${f2(T.ds)}秒 / ${s.seen?Math.round(1/s.frame)+'fps':'fps不明'}${s.slow>1?' ×'+s.slow+'スロー':''}`);
+    let li=0,ai=0;const m=s.shapes.map(sh=>measText(s,sh,sh.t==='line'?++li:sh.t==='ang'?++ai:0)).filter(Boolean);if(m.length)L.push('  補助線の計測: '+m.join(', '))});
+  const sw=S.swings.filter(r=>r.club===$('svClub').value);
+  if(sw.length>1)L.push(`同じクラブの過去の記録 ${sw.length}本: テンポ比 平均${f2(mean(sw.map(r=>r.ratio)))} 標準偏差${f2(sd(sw.map(r=>r.ratio)))}`);
+  const q=$('advQ').value.trim();L.push('本人が聞きたいこと: '+(q||'(特になし。一番効く改善点を知りたい)'));
+  L.push('','次の形で、日本語で、くだけた口調で、全体で600字以内で答えて。',
+    '1. 見えたこと: 画像から確実に言えることだけを2〜4個。どのコマで何が見えたかを書く。',
+    '2. 一番の優先課題: 1つだけ。なぜそれが一番か。'+(ss.length>1?' AとBの違いが一番大きい点にも触れる。':''),
+    '3. ドリル: 練習場ですぐできるものを1つ。',
+    '4. 確かめ方: このアプリの実験タブで試せるA/B比較の案を1つ (条件A・条件B・見る指標・各何球)。',
+    '注意: 低解像度の静止画なので、グリップの細部・フェースの向き・球筋は基本的に判断できない。見えないことは見えないと書き、推測で断定しない。撮影の向きが分からない・画角が斜めなら、その限界も書く。テンポ比は誤差の幅を踏まえて扱い、3:1を正解として押し付けない。');
+  return L.join('\n');
+}
+const advFmt=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^#+\s*/gm,'');
+$('advStop').addEventListener('click',()=>{if(advCtl)advCtl.abort()});
+$('advGo').addEventListener('click',async()=>{
+  const ss=[cur(),...(cmpOn()?[cur()===slots.A?slots.B:slots.A]:[])].filter(s=>loaded(s)&&!s.busy&&s.marks.start!=null&&s.marks.top!=null&&s.marks.impact!=null);
+  if(!ss.length||ss[0]!==cur())return toast('始動・トップ・インパクトが付いた動画を選んでください');
+  ss.sort((a,b)=>a.id<b.id?-1:1);
+  stopSync();ss.forEach(s=>s.v.pause());
+  const go=$('advGo'),out=$('advOut'),msg=$('advMsg');go.disabled=true;msg.hidden=true;
+  out.hidden=false;out.textContent='静止画を作っています…';
+  let blob;try{blob=await phaseSheet(ss)}catch(e){out.textContent='静止画を作れなかった: '+(e&&e.message||e);go.disabled=false;return}
+  const prompt=advPrompt(ss),sample=await samplerP;
+  const img=$('advImg');if(img.src)URL.revokeObjectURL(img.src);img.src=URL.createObjectURL(blob);
+  if(!sample){
+    out.hidden=true;img.hidden=false;go.disabled=false;
+    const ta=$('advText');ta.value=prompt;ta.hidden=false;
+    const file=new File([blob],'swing.jpg',{type:'image/jpeg'}),sh=$('advShare');
+    sh.hidden=!(navigator.canShare&&navigator.canShare({files:[file]}));
+    sh.onclick=()=>{navigator.share({files:[file],text:prompt}).catch(()=>{})};
+    msg.hidden=false;msg.className='msg';
+    msg.textContent=sh.hidden?'このページからは直接 Claude に聞けない。画像を長押しで保存し、下の文章をコピーして、Claude アプリに両方を貼ってください。':'このページからは直接 Claude に聞けない。上のボタンで画像と質問を Claude アプリに送ってください (うまく文章が入らなければ、下の欄をコピーして貼る)。';
+    return;
+  }
+  img.hidden=false;$('advShare').hidden=true;$('advText').hidden=true;
+  advCtl=new AbortController();$('advStop').hidden=false;out.textContent='Claude が見ています… (30秒〜1分ほど)';
+  try{
+    const r=await sample(prompt,{images:[blob],modelTier:'complex',signal:advCtl.signal,onText:({text})=>{out.innerHTML=advFmt(text)}});
+    lastAdvice=r.text;out.innerHTML=advFmt(r.text);
+    if(r.truncated){msg.hidden=false;msg.className='msg';msg.textContent='答えが途中で切れた。もう一度押すか、聞きたいことを絞ってください。'}
+  }catch(e){
+    if(e&&e.text)out.innerHTML=advFmt(e.text);else if(!e||e.code!=='cancelled')out.textContent='';
+    const m={not_granted:'Claude の利用が許可されなかった。',sampling_disabled:'このアカウントでは使えない。',rate_limited:'使いすぎ。少し時間をおいてから押してください。',
+      image_rejected:'画像を受け付けてもらえなかった。',refused:'この内容には答えてもらえなかった。',session_expired:'claude.ai にログインし直してください。'}[e&&e.code];
+    if(!e||e.code!=='cancelled'){msg.hidden=false;msg.className='msg err';msg.textContent=m||'うまく聞けなかった ('+(e&&e.code||'error')+')。もう一度押してください。'}
+    if(e&&!e.text&&e.code==='cancelled')out.hidden=true;
+  }finally{advCtl=null;$('advStop').hidden=true;go.disabled=false}
 });
 
 /* ---------- 実験 ---------- */
@@ -1020,6 +1115,7 @@ function renderLog(){
       <div style="min-width:0"><div class="t">${esc(s.label||'(メモなし)')}</div>
       <div class="s num">${d.getMonth()+1}/${d.getDate()} ${esc(s.club)} ・ テンポ ${f1(s.ratio)}:1 (${f1(s.lo)}〜${f1(s.hi)}) ・ BS ${f2(s.bs)}s / DS ${f2(s.ds)}s${s.fps?` ・ ${s.fps}fps`:''}${s.slow>1?` ×${s.slow}スロー`:''}</div>
       ${s.meas&&s.meas.length?`<div class="s">${s.meas.map(esc).join(' / ')}</div>`:''}
+      ${s.advice?`<details class="s" style="margin-top:4px"><summary>Claude のアドバイス</summary><div class="adv" style="margin-top:6px">${advFmt(s.advice)}</div></details>`:''}
       <div class="ropen">${s.video?`<button type="button" class="ghost" data-open="${s.id}" data-slot="A">Aで開く</button><button type="button" class="ghost" data-open="${s.id}" data-slot="B">Bで開く</button><span class="s">${s.vsize?mb(s.vsize):''}</span>`
         :s.marks?`<button type="button" class="ghost" data-pick="${s.id}" data-slot="A">動画を選んで開く</button><span class="s">動画は未保存</span>`:'<span class="s">動画は保存していない記録</span>'}</div></div>
       <button class="x" type="button" data-del="${s.id}" aria-label="削除">×</button></div>`}).join('');
@@ -1061,7 +1157,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v8 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v9 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
