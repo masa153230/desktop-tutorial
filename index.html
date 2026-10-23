@@ -163,7 +163,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v4</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v5</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -446,10 +446,9 @@ function watchFrames(s){
 }
 
 /* ---------- 自動判定 ---------- */
-// 三脚で固定した動画なら、前のコマとの差がクラブと体の動きの量になる。
-// アドレスで止まる → 始動で動き出す → トップで一瞬止まる → フィニッシュで止まる、を動きの量から探す。
-// 動きの量は速いと頭打ちになる (細いクラブは速くても変わる面積が同じ) ので、インパクトは
-// 「アドレスの画に一番近く戻ったコマ」で探す (クラブと腕がアドレスの位置に戻ってくる)。
+// 前のコマとの差 = 動きの量。スイングは「動く (バックスイング) → 一瞬ほぼ止まる (トップ) → 一番激しく動く (ダウンスイング)」
+// という形なので、まずこの谷 (トップ) を探し、そこから遡って始動、直後の山からインパクトを決める。
+// 撮影者の手ブレやズーム、背景の人の動きは全体の底上げになるので、絶対値ではなく前後との比で谷を判定する。
 const seekP=(v,t)=>new Promise(r=>{let ok=false;const f=()=>{if(!ok){ok=true;r()}};v.addEventListener('seeked',f,{once:true});try{v.currentTime=t}catch(_){f()}setTimeout(f,1500)});
 async function capture(s,job,from,to,rate,onp){
   const v=s.v,w=64,h=Math.max(8,Math.round(w*v.videoHeight/v.videoWidth));
@@ -459,7 +458,7 @@ async function capture(s,job,from,to,rate,onp){
     cx.drawImage(v,0,0,w,h);const d=cx.getImageData(0,0,w,h).data,g=new Uint8Array(w*h);
     for(let i=0;i<g.length;i++)g[i]=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114;
     if(prev&&t<=pt+1e-4)return;
-    if(prev)out.push({t0:pt,t1:t,e:gdiff(g,prev)/(t-pt),g});else out.first=g;
+    if(prev)out.push({t0:pt,t1:t,e:gdiff(g,prev)/(t-pt)});
     prev=g;pt=t;
   };
   await seekP(v,from);if(job.stop)return out;grab(v.currentTime);
@@ -486,24 +485,57 @@ const gdiff=(a,b)=>{let sum=0;for(let i=0;i<a.length;i++){const x=Math.abs(a[i]-
 const smooth=a=>a.map((x,i)=>(a[Math.max(0,i-1)]+x+a[Math.min(a.length-1,i+1)])/3);
 function detect(c){
   const n=c.length;if(n<8)return null;
-  const e=smooth(c.map(x=>x.e)),srt=[...e].sort((a,b)=>a-b),noise=srt[Math.floor(n*0.2)],peak=srt[n-1];
-  if(!(peak>noise*4+1))return null;
-  const thr=noise+0.05*(peak-noise),still=i=>e[i]<thr;
-  // 動いている区間のうち一番長いもの = スイング。途中の短い停止 (トップ) はつなげる
-  const runs=[];for(let i=0;i<n;){if(still(i)){i++;continue}let j=i;while(j<n-1&&!still(j+1))j++;runs.push([i,j]);i=j+1}
-  for(let k=runs.length-1;k>0;k--){const a=runs[k-1],b=runs[k],gap=c[b[0]].t0-c[a[1]].t1;
-    if(gap<0.08*(c[b[1]].t1-c[a[0]].t0))runs.splice(k-1,2,[a[0],b[1]])}
-  const dur=r=>c[r[1]].t1-c[r[0]].t0;
-  const P=e.indexOf(peak),sw=runs.find(r=>r[0]<=P&&P<=r[1])||runs.reduce((a,b)=>dur(b)>dur(a)?b:a,runs[0]);if(!sw)return null;
-  const S=sw[0],F=sw[1],tS=c[S].t0,len=dur(sw);
-  // トップ: スイング全体の 15〜75% の範囲で動きが一番小さいところ (切り返しの一瞬の停止)
-  let T=-1;for(let i=S;i<=F;i++){const t=c[i].t1;if(t<tS+0.15*len||t>tS+0.75*len)continue;if(T<0||e[i]<e[T])T=i}
-  if(T<0)return null;
-  // インパクト: トップの後、アドレスの画に一番近いコマ
-  const ref=S>0?c[S-1].g:c.first;let I=-1,best=Infinity;
-  for(let i=T+1;i<=F;i++){if(c[i].t1>c[T].t1+0.7*(c[F].t1-c[T].t1))break;const d=gdiff(c[i].g,ref);if(d<best){best=d;I=i}}
-  if(I<0)return null;
-  return {start:tS,top:c[T].t1,impact:c[I].t1,finish:F<n-1?c[F].t1:null,thr,ref};
+  const e=smooth(c.map(x=>x.e)),tm=i=>(c[i].t0+c[i].t1)/2,gmax=Math.max(...e);
+  if(!(gmax>0))return null;
+  const avg=(i0,i1)=>{let s=0,k=0;for(let i=Math.max(0,i0);i<=Math.min(n-1,i1);i++){s+=e[i];k++}return k?s/k:0};
+  const idxAt=(t,from,dir)=>{let i=from;while(i+dir>=0&&i+dir<n&&(dir<0?tm(i+dir)>=t:tm(i+dir)<=t))i+=dir;return i};
+  // トップ候補: 前 (バックスイング) の平均と後 (ダウンスイング) の最大の小さい方に比べて、どれだけ深い谷か。
+  // スロー動画かどうかはまだ分からないので、窓の長さ 0.4秒×1/2/4/8 を全部試して一番はっきりした谷を取る
+  // 条件: 谷が短い (トップの停止は一瞬。アドレスやワッグル後の静止は長い)、前後の動きが十分大きい。
+  // 点数 = 谷の深さ × 直後の動きの大きさ × (直後が直前よりどれだけ速いか)。切り返しの後はスイングで一番速い
+  // ダウンスイングが来るので、ワッグルの折り返し・バックスイング途中・インパクト後の谷より高くなる
+  const cands=[];
+  [1,2,4,8].forEach(k=>{const w=0.4*k;
+    for(let m=1;m<n-1;m++){
+      if(!(e[m]<=e[m-1]&&e[m]<=e[m+1]))continue;
+      const bi=idxAt(tm(m)-w,m,-1),ai=idxAt(tm(m)+w,m,1);if(bi>=m-2||ai<=m+1)continue;
+      const before=avg(bi,m-2);let after=0;for(let i=m+1;i<=ai;i++)after=Math.max(after,e[i]);
+      if(after<0.4*gmax)continue;
+      const ref=Math.min(before,after);if(!(ref>0)||e[m]>0.6*ref)continue;
+      const half=e[m]+0.5*(ref-e[m]);let l=m,r=m;while(l>0&&e[l-1]<half)l--;while(r<n-1&&e[r+1]<half)r++;
+      if(tm(r)-tm(l)>0.2*k)continue;
+      // 谷の手前の動き (バックスイング) の長さ。トップの停止 (谷の底の幅) はその半分より短い
+      let j=l-1,g=0;while(j>0){if(e[j-1]<half){if(++g>2)break}else g=0;j--}
+      const q=e[m]+0.25*(ref-e[m]);let l2=m,r2=m;while(l2>0&&e[l2-1]<q)l2--;while(r2<n-1&&e[r2+1]<q)r2++;
+      if(tm(r2)-tm(l2)>0.5*(tm(l)-tm(Math.min(l,j+g))))continue;
+      cands.push({m,k,ref,before,sc:(ref-e[m])/ref*after*Math.sqrt(Math.min(3,after/Math.max(before,1e-9)))});
+    }});
+  if(!cands.length)return null;
+  const topRef=Math.max(...cands.map(x=>x.ref));
+  const ok=cands.filter(x=>x.ref>=0.25*topRef),hi=Math.max(...ok.map(x=>x.sc));
+  const best=ok.filter(x=>x.sc>=0.85*hi).sort((a,b)=>a.m-b.m||b.sc-a.sc)[0];
+  const T=best.m;
+  // 静止のレベル: トップより前で一番静かな 0.15秒×k の区間
+  const qw=0.15*best.k;let still=Infinity;
+  for(let i=0;i<T;i++){const j=idxAt(tm(i)+qw,i,1);if(j>=T)break;still=Math.min(still,avg(i,j))}
+  if(!Number.isFinite(still))still=0;
+  const thr=still+0.3*(best.before-still);
+  // 始動: トップの谷を抜けてから、動きが静止レベル近くまで落ちるところまで遡る
+  let i=T-1;while(i>0&&e[i]<thr)i--;
+  let gapN=0;
+  for(;i>0;i--){if(e[i-1]<thr){gapN++;if(gapN>2)break}else gapN=0}
+  const S=Math.min(T-1,i+gapN);
+  if(!(tm(T)-c[S].t0>0))return null;
+  // インパクト: トップから「バックスイングの長さ×0.6」以内の山。山の上側 (最大の8割以上) の重心を取る
+  const bs=c[T].t1-c[S].t0,ie=idxAt(c[T].t1+0.6*bs,T,1);
+  let mx=0;for(let j=T+1;j<=ie;j++)mx=Math.max(mx,e[j]);
+  let sw=0,st=0;for(let j=T+1;j<=ie;j++)if(e[j]>=0.8*mx){sw+=e[j];st+=e[j]*c[j].t1}
+  if(!(sw>0))return null;
+  const impact=st/sw,I=idxAt(impact,T,1);
+  // フィニッシュ: インパクトの後で動きが静止レベル近くに落ち着いたところ (無ければなし)
+  let F=null;const fthr=still+0.15*(mx-still);
+  for(let j=I+1;j<n;j++){if(e[j]>=fthr)continue;let q=j;while(q<n-1&&e[q+1]<fthr)q++;if(q===n-1||c[q].t1-c[j].t0>=0.1*best.k){F=j;break}j=q}
+  return {start:c[S].t0,top:c[T].t1,impact,finish:F!=null?c[F].t0:null,k:best.k};
 }
 function showBusy(s,t){const b=s.st.querySelector('.busy');b.hidden=!t;if(t)b.firstChild.textContent=t}
 [slots.A,slots.B].forEach(s=>s.st.querySelector('.busy button').addEventListener('click',e=>{e.stopPropagation();if(s.busy)s.busy.stop=true}));
@@ -526,20 +558,19 @@ async function autoDetect(s){
     const gaps=c1.map(x=>x.t1-x.t0).sort((a,b)=>a-b),gap=gaps[gaps.length>>1];
     if(s.seen&&gap>1.6*s.frame){
       const fine=async(a,b,p)=>{const c=await capture(s,job,Math.max(0,a),Math.min(D,b),0.25,p);return c.length>=3?c:null};
-      const w=3*gap,c2=await fine(r.top-w,r.impact+w,pr(80,93));if(!alive())return;
-      if(c2){const e=smooth(c2.map(x=>x.e));let T=-1,I=-1,best=Infinity;
+      const w=3*gap,c2=await fine(r.top-w,r.impact+w,pr(80,100));if(!alive())return;
+      if(c2){const e=smooth(c2.map(x=>x.e));let T=-1;
         c2.forEach((x,i)=>{if(x.t1>=r.top-w&&x.t1<=r.top+w&&(T<0||e[i]<e[T]))T=i});
         if(T>=0)r.top=c2[T].t1;
-        c2.forEach((x,i)=>{if(x.t1>r.top){const d=gdiff(x.g,r.ref);if(d<best){best=d;I=i}}});
-        if(I>=0)r.impact=c2[I].t1}
-      const c3=await fine(r.start-w,r.start+w,pr(93,100));if(!alive())return;
-      if(c3){const e=smooth(c3.map(x=>x.e)),k=e.findIndex((x,i)=>x>=r.thr&&e.slice(i).every(y=>y>=r.thr*0.5));if(k>=0)r.start=c3[k].t0}
+        let mx=0;c2.forEach((x,i)=>{if(x.t1>r.top&&Math.abs(x.t1-r.impact)<=w)mx=Math.max(mx,e[i])});
+        let sw=0,st=0;c2.forEach((x,i)=>{if(x.t1>r.top&&Math.abs(x.t1-r.impact)<=w&&e[i]>=0.8*mx){sw+=e[i];st+=e[i]*x.t1}});
+        if(sw>0)r.impact=st/sw}
     }
     s.marks={start:r.start,top:r.top,impact:r.impact};if(r.finish!=null&&r.finish>r.impact)s.marks.finish=r.finish;
     s.auto={...s.marks};s.diag='';
     // 始動→インパクトが普通のスイング (実時間 0.7〜1.8秒くらい) より長すぎるなら、スロー動画とみなして倍率を推定する
     const len=r.impact-r.start;
-    if(s.slow===1&&len>2.2){const k=[2,4,8].reduce((a,b)=>Math.abs(Math.log(len/b/1.2))<Math.abs(Math.log(len/a/1.2))?b:a);
+    if(s.slow===1&&(len>2.2||r.k>1)&&len>1.6){const k=[2,4,8].reduce((a,b)=>Math.abs(Math.log(len/b/1.2))<Math.abs(Math.log(len/a/1.2))?b:a);
       s.slow=k;s.autoSlow=true;toast(`スロー動画と判断して倍率を ${k}× にした。違ったら直してください`)}
     else toast('始動・トップ・インパクトを自動で付けた。動画で確認してください');
     v.pause();await seekP(v,r.top);
@@ -691,7 +722,7 @@ function renderTempo(){
   if(T.total>2||T.total<0.5)msgs.push(`始動からインパクトまで ${f2(T.total)} 秒は普通のスイングとしては${T.total>2?'長すぎる':'短すぎる'}。スロー倍率の設定が動画と合っていないかもしれない (iPhoneのスロー動画は、スロー再生の状態で渡されることが多い)。`);
   if(!s.seen)msgs.push('1コマの長さがまだ実測されていない (仮に30fps扱い)。一度再生すると正確になる。');
   const au=s.auto&&['start','top','impact'].every(k=>s.marks[k]===s.auto[k]);
-  if(au)msgs.push('自動判定の値。インパクトは「アドレスの画に一番近く戻ったコマ」で探しているので、1〜2コマずれることがある。インパクトの時刻をタップして、ボールに当たる瞬間と違えば直すこと。');
+  if(au)msgs.push('自動判定の値。各フェーズ1〜2コマずれることがある。時刻をタップしてそのコマを見て、違えば直すこと。');
   if(s.autoSlow)msgs.push(`スロー倍率は ${s.slow}× と推定した (始動→インパクトの長さから)。撮影時の設定と違えば直すこと。`);
   note.className='note'+(msgs.length?' warn':'');
   if(T.fin!=null)msgs.push(`インパクト→フィニッシュ ${f2(T.fin)}s。`);
@@ -958,7 +989,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v4 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v5 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
