@@ -56,7 +56,7 @@ iPhone の Safari で使うゴルフスイング研究アプリ。インスト�
   (iPhone のスロー動画はスロー再生の状態で渡されることが多い。始動→インパクトが 2 秒を超えたら倍率が合っていない可能性が高い)
 
 ## テスト
-`tests/` に Playwright のテストがある。push のたびに GitHub Actions で Chromium (Linux) と WebKit (macOS、iPhone の Safari と同じエンジン) の両方で動く。
+`tests/` に Playwright のテストがある。main への push と PR のたびに GitHub Actions で Chromium (Linux) と WebKit (macOS、iPhone の Safari と同じエンジン) の両方で動く。
 
 ```
 cd tests && npm ci && npx playwright install chromium webkit && npx playwright test
