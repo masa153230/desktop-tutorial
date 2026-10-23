@@ -24,6 +24,11 @@ async function loadVideo(page, slot, file) {
     throw new Error('自動判定が終わらない: ' + JSON.stringify(st));
   }
 }
+// 動画ごとの保存が終わるのを待つ。失敗したらトーストの文面をログに残す
+async function waitSaved(page) {
+  try { await page.waitForFunction(() => window.SwingLab.S.swings.at(-1)?.video === true, null, { timeout: 30_000 }); }
+  catch (e) { throw new Error('動画の保存が終わらない: ' + (await page.textContent('#toast'))); }
+}
 const marks = (page, slot = 'A') => page.evaluate((s) => ({ ...window.SwingLab.slots[s].marks, slow: window.SwingLab.slots[s].slow }), slot);
 const expectNear = (got, want, tol, label) => expect(Math.abs(got - want), `${label}: ${got} (正解 ${want})`).toBeLessThanOrEqual(tol);
 
@@ -94,7 +99,7 @@ test('動画ごと保存して、開き直すとフェーズが戻る', async ({
   const saved = await marks(page);
   await page.fill('#svLabel', 'テスト');
   await page.click('#saveSwing');
-  await page.waitForFunction(() => window.SwingLab.S.swings.at(-1)?.video === true);
+  await waitSaved(page);
   expect(await page.evaluate(() => window.SwingLab.calibStats('top').fixed)).toBe(1);
   await page.reload();
   await page.waitForFunction(() => window.SwingLab);
@@ -110,7 +115,7 @@ test('動画ごと ZIP に書き出して、別の端末 (新しいプロファ�
   await open(page);
   await loadVideo(page, 'A', fx('swing60', browserName));
   await page.click('#saveSwing');
-  await page.waitForFunction(() => window.SwingLab.S.swings.at(-1)?.video === true);
+  await waitSaved(page);
   await page.click('[data-tab=log]');
   await page.click('summary:has-text("バックアップ")');
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#zipOut')]);
@@ -161,6 +166,7 @@ test('骨格推定: 同梱の MediaPipe が読み込めて、人がいない動�
   await open(page);
   await loadVideo(page, 'A', fx('swing60', browserName));
   await page.click('#poseGo');
-  await page.waitForFunction(() => !window.SwingLab.slots.A.busy && document.getElementById('diag').textContent, null, { timeout: 90_000 });
+  try { await page.waitForFunction(() => !window.SwingLab.slots.A.busy && document.getElementById('diag').textContent, null, { timeout: 90_000 }); }
+  catch (e) { throw new Error('骨格推定が終わらない: ' + JSON.stringify(await page.evaluate(() => ({ busy: !!window.SwingLab.slots.A.busy, overlay: document.querySelector('#slotA .busy').textContent, diag: document.getElementById('diag').textContent })))); }
   await expect(page.locator('#diag')).toContainText('人をうまく見つけられなかった');
 });
