@@ -11,7 +11,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # ubuntu-latest (26.04) は Playwright 1.56 が未対応なので固定する
+          - os: ubuntu-24.04
             project: chromium
           # iPhone の Safari と同じ WebKit。mp4 (H.264) を再生できる macOS で動かす
           - os: macos-latest
