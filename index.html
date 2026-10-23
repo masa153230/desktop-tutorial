@@ -168,7 +168,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v13</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v14</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -561,7 +561,23 @@ function calibOffsets(){const o={any:false};if(!S.useCalib)return o;
 // という形なので、まずこの谷 (トップ) を探し、そこから遡って始動、直後の山からインパクトを決める。
 // 撮影者の手ブレやズーム、背景の人の動きは全体の底上げになるので、絶対値ではなく前後との比で谷を判定する。
 const seekP=(v,t)=>new Promise(r=>{let ok=false;const f=()=>{if(!ok){ok=true;r()}};v.addEventListener('seeked',f,{once:true});try{v.currentTime=t}catch(_){f()}setTimeout(f,1500)});
-async function capture(s,job,from,to,rate,onp){
+// シークして、そのコマが実際に描かれるまで待つ。描かれたコマの時刻 (mediaTime) を返す (分からなければ null)
+const seekFrame=(v,t)=>new Promise(r=>{let ok=false;const f=mt=>{if(!ok){ok=true;r(mt)}};
+  const rv='requestVideoFrameCallback' in v;if(rv)v.requestVideoFrameCallback((n,md)=>f(md.mediaTime));
+  v.addEventListener('seeked',()=>{if(!rv)f(null);else setTimeout(()=>f(null),250)},{once:true});
+  try{v.currentTime=t}catch(_){f(null)}setTimeout(()=>f(null),1500)});
+// iPhone の Safari (と iPhone 版 Chrome) の WebKit は、再生しながら取り込むとコマと時刻がずれ、取れるコマも少ない。
+// CI の WebKit で「再生しながら」は全滅、「1コマずつシーク」は正しく判定できたので、WebKit では最初からシークで読む
+const WEBKIT=!!window.__forceSeekCapture||/AppleWebKit/.test(navigator.userAgent)&&!/(Chrome|Chromium|Edg)\//.test(navigator.userAgent);
+// 再生せずに fps を測る: 4ms ずつシークして、描かれたコマの時刻の最小の差を1コマとする
+async function probeFps(s){
+  const v=s.v,D=v.duration,t0=Math.max(0,Math.min(D*0.5,D-0.2)),ts=[];
+  for(let k=0;k<12;k++){const mt=await seekFrame(v,t0+k*0.004);if(mt!=null)ts.push(mt)}
+  const u=[...new Set(ts.map(x=>+x.toFixed(5)))].sort((a,b)=>a-b),d=u.slice(1).map((x,i)=>x-u[i]).filter(x=>x>0.002);
+  // 時刻がミリ秒に丸められていることがあるので、最小値付近の差を平均する
+  if(d.length){const mn=Math.min(...d),near=d.filter(x=>x<=mn*1.5);s.frame=near.reduce((a,b)=>a+b,0)/near.length;s.seen=true}
+}
+async function capture(s,job,from,to,rate,onp,mode){
   const v=s.v,w=64,h=Math.max(8,Math.round(w*v.videoHeight/v.videoWidth));
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d',{willReadFrequently:true});
   const out=[];let prev=null,pt=0;
@@ -573,8 +589,8 @@ async function capture(s,job,from,to,rate,onp){
     prev=g;pt=t;
   };
   await seekP(v,from);if(job.stop)return out;grab(v.currentTime);
-  // 速いのは再生しながら取り込む方法。iPhone の低電力モードなどで再生できない時は、1コマずつシークして取り込む
-  if('requestVideoFrameCallback' in v){
+  // 速いのは再生しながら取り込む方法。WebKit や、iPhone の低電力モードなどで再生できない時は、1コマずつシークして取り込む
+  if('requestVideoFrameCallback' in v&&mode!=='seek'&&!WEBKIT){
     await new Promise(res=>{let done=false,tick=Date.now();const fin=()=>{if(done)return;done=true;clearInterval(iv);v.pause();res()};
       const cb=(now,md)=>{if(done)return;tick=Date.now();if(job.stop)return fin();try{grab(md.mediaTime)}catch(err){job.err=err;return fin()}onp&&onp((md.mediaTime-from)/(to-from));
         if(md.mediaTime>=to||v.ended)return fin();v.requestVideoFrameCallback(cb)};
@@ -588,8 +604,8 @@ async function capture(s,job,from,to,rate,onp){
   }
   const last=out.length?out[out.length-1].t1:from;
   if(!job.stop&&last<to-Math.max(0.3,(to-from)*0.1)){
-    const st=Math.max(1/60,(to-from)/240);out.method=out.length?'再生+シーク':'シーク';
-    for(let t=last+st;t<=to&&!job.stop;t+=st){await seekP(v,t);grab(v.currentTime||t);onp&&onp((t-from)/(to-from))}
+    const st=Math.max(s.seen?s.frame:1/60,Math.min((to-from)/300,0.05));out.method=out.length?'再生+シーク':'シーク';
+    for(let t=last+st;t<=to+1e-6&&!job.stop;t+=st){const mt=await seekFrame(v,t);grab(mt!=null?mt:(v.currentTime||t));onp&&onp((t-from)/(to-from))}
   }
   return out;
 }
@@ -663,8 +679,11 @@ async function autoDetect(s){
   try{
     const pr=(a,b)=>p=>showBusy(s,`スイングを解析中… ${Math.round(a+(b-a)*Math.min(1,Math.max(0,p)))}%`);
     pr(0,80)(0);
-    const c1=await capture(s,job,0,D,Math.min(4,Math.max(1,D/8)),pr(0,80));
+    if(WEBKIT&&!s.seen){await probeFps(s);if(!alive())return}
+    let c1=await capture(s,job,0,D,Math.min(4,Math.max(1,D/8)),pr(0,80));
     if(!alive())return;
+    // 再生しながら取り込んだ分で判定できなければ、1コマずつシークして取り込み直す
+    if(c1.method==='再生'&&!detect(c1)){showBusy(s,'もう一度、1コマずつ読み直しています…');c1=await capture(s,job,0,D,1,pr(0,80),'seek');if(!alive())return}
     s.curve=c1.map(({t0,t1,e})=>({t0,t1,e}));
     const mx=Math.max(0,...c1.map(x=>x.e));
     if(c1.length<8){s.diag=`動画のコマを${c1.length}枚しか読み取れなかった (${c1.method||'-'})。もう一度「自動判定」を押してみて。だめなら手で付けてください。`;return}
@@ -674,7 +693,7 @@ async function autoDetect(s){
     // 再生中にコマが飛んでいたら (高fps動画)、トップとインパクトの付近だけゆっくり再生して詰め直す
     const gaps=c1.map(x=>x.t1-x.t0).sort((a,b)=>a-b),gap=gaps[gaps.length>>1];
     if(s.seen&&gap>1.6*s.frame){
-      const fine=async(a,b,p)=>{const c=await capture(s,job,Math.max(0,a),Math.min(D,b),0.25,p);return c.length>=3?c:null};
+      const fine=async(a,b,p)=>{const c=await capture(s,job,Math.max(0,a),Math.min(D,b),0.25,p,c1.method==='再生'?undefined:'seek');return c.length>=3?c:null};
       const w=3*gap,c2=await fine(r.top-w,r.impact+w,pr(80,100));if(!alive())return;
       if(c2){const e=smooth(med3(c2.map(x=>x.e)));let T=-1;
         c2.forEach((x,i)=>{if(x.t1>=r.top-w&&x.t1<=r.top+w&&(T<0||e[i]<e[T]))T=i});
@@ -1488,7 +1507,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v13 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v14 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
@@ -1524,7 +1543,7 @@ $('bkRestore').addEventListener('click',e=>{const b=e.currentTarget,m=$('bkMsg')
 $('poseGo').addEventListener('click',()=>runPose(cur()));
 $('showSkel').addEventListener('change',()=>{draw(slots.A);draw(slots.B)});
 nKindSync();renderSvExp();
-window.SwingLab={slots,S,shotsOf,zipBlob,unzipBlob,detect,welch,tcdf,tinv,vdb,calibStats,poseMetrics};
+window.SwingLab={WEBKIT,slots,S,shotsOf,zipBlob,unzipBlob,detect,welch,tcdf,tinv,vdb,calibStats,poseMetrics};
 renderVideoUI();layout();
 })();
 </script>

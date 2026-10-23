@@ -38,6 +38,17 @@ test('60fps の動画で始動・トップ・インパクトを自動判定す�
   await expect(page.locator('#tempoNote')).toContainText('実質 60fps');
 });
 
+test('1コマずつシークして読む方式 (iPhone の WebKit で使う) でも判定できる', async ({ page, browserName }) => {
+  await page.addInitScript(() => { window.__forceSeekCapture = 1; });
+  await open(page);
+  await loadVideo(page, 'A', fx('swing60', browserName));
+  const m = await marks(page);
+  expectNear(m.start, TRUTH.start, 0.07, '始動');
+  expectNear(m.top, TRUTH.top, 0.05, 'トップ');
+  expectNear(m.impact, TRUTH.impact, 0.06, 'インパクト');
+  expectNear(await page.evaluate(() => 1 / window.SwingLab.slots.A.frame), 60, 1.5, 'fps');
+});
+
 test('8倍スロー動画はスロー倍率を推定して実時間に直す', async ({ page, browserName }) => {
   await open(page);
   await loadVideo(page, 'A', fx('slow8', browserName));
