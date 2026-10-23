@@ -163,7 +163,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v2</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v3</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -221,6 +221,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
       </label>
     </div>
     <div class="stats" id="tempoStats"></div>
+    <p class="msg err" id="diag" hidden></p>
     <p class="note" id="tempoNote"></p>
 
     <div class="card" id="measCard" hidden>
@@ -407,8 +408,10 @@ function setAct(id){act=id;['A','B'].forEach(k=>slots[k].el.classList.toggle('ac
     const f=e.target.files&&e.target.files[0];if(!f)return;
     if(s.url)URL.revokeObjectURL(s.url);
     if(s.busy)s.busy.stop=true;s.busy=null;showBusy(s,'');
-    s.url=URL.createObjectURL(f);s.name=f.name;s.marks={};s.curve=null;s.auto=null;s.autoSlow=false;s.slow=1;s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
+    s.url=URL.createObjectURL(f);s.name=f.name;s.marks={};s.curve=null;s.auto=null;s.autoSlow=false;s.slow=1;s.diag='';s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
     s.v.src=s.url;s.v.load();setAct(id);e.target.value='';
+    // iPhone はタップの中で一度再生しておかないと、あとから自動で再生できないことがある
+    s.v.play().then(()=>{if(!s.busy)s.v.pause()},()=>{});
   });
   s.v.addEventListener('loadedmetadata',()=>{
     s.st.querySelector('.ph').hidden=true;s.el.querySelector('.pick').hidden=false;
@@ -460,17 +463,22 @@ async function capture(s,job,from,to,rate,onp){
     prev=g;pt=t;
   };
   await seekP(v,from);if(job.stop)return out;grab(v.currentTime);
+  // 速いのは再生しながら取り込む方法。iPhone の低電力モードなどで再生できない時は、1コマずつシークして取り込む
   if('requestVideoFrameCallback' in v){
-    await new Promise(res=>{let done=false;const fin=()=>{if(done)return;done=true;v.pause();res()};
-      const cb=(now,md)=>{if(done)return;if(job.stop)return fin();grab(md.mediaTime);onp&&onp((md.mediaTime-from)/(to-from));
+    await new Promise(res=>{let done=false,tick=Date.now();const fin=()=>{if(done)return;done=true;clearInterval(iv);v.pause();res()};
+      const cb=(now,md)=>{if(done)return;tick=Date.now();if(job.stop)return fin();grab(md.mediaTime);onp&&onp((md.mediaTime-from)/(to-from));
         if(md.mediaTime>=to||v.ended)return fin();v.requestVideoFrameCallback(cb)};
+      const iv=setInterval(()=>{if(Date.now()-tick>2000)fin()},300);
       v.requestVideoFrameCallback(cb);v.addEventListener('ended',fin,{once:true});
       try{v.playbackRate=rate}catch(_){}
-      v.play().catch(fin);setTimeout(fin,((to-from)/rate+4)*1000);
+      v.play().catch(fin);
     });
-  }else{
-    const st=Math.max(1/30,(to-from)/200);
-    for(let t=from+st;t<=to&&!job.stop;t+=st){await seekP(v,t);grab(t);onp&&onp((t-from)/(to-from))}
+    out.method='再生';
+  }
+  const last=out.length?out[out.length-1].t1:from;
+  if(!job.stop&&last<to-Math.max(0.3,(to-from)*0.1)){
+    const st=Math.max(1/60,(to-from)/240);out.method=out.length?'再生+シーク':'シーク';
+    for(let t=last+st;t<=to&&!job.stop;t+=st){await seekP(v,t);grab(v.currentTime||t);onp&&onp((t-from)/(to-from))}
   }
   return out;
 }
@@ -486,7 +494,7 @@ function detect(c){
   for(let k=runs.length-1;k>0;k--){const a=runs[k-1],b=runs[k],gap=c[b[0]].t0-c[a[1]].t1;
     if(gap<0.08*(c[b[1]].t1-c[a[0]].t0))runs.splice(k-1,2,[a[0],b[1]])}
   const dur=r=>c[r[1]].t1-c[r[0]].t0;
-  const sw=runs.reduce((a,b)=>dur(b)>dur(a)?b:a,runs[0]);if(!sw)return null;
+  const P=e.indexOf(peak),sw=runs.find(r=>r[0]<=P&&P<=r[1])||runs.reduce((a,b)=>dur(b)>dur(a)?b:a,runs[0]);if(!sw)return null;
   const S=sw[0],F=sw[1],tS=c[S].t0,len=dur(sw);
   // トップ: スイング全体の 15〜75% の範囲で動きが一番小さいところ (切り返しの一瞬の停止)
   let T=-1;for(let i=S;i<=F;i++){const t=c[i].t1;if(t<tS+0.15*len||t>tS+0.75*len)continue;if(T<0||e[i]<e[T])T=i}
@@ -501,7 +509,7 @@ function showBusy(s,t){const b=s.st.querySelector('.busy');b.hidden=!t;if(t)b.fi
 [slots.A,slots.B].forEach(s=>s.st.querySelector('.busy button').addEventListener('click',e=>{e.stopPropagation();if(s.busy)s.busy.stop=true}));
 async function autoDetect(s){
   if(s.busy||!loaded(s))return;
-  const job={stop:false},v=s.v,D=v.duration,url=s.url;s.busy=job;v.pause();
+  const job={stop:false},v=s.v,D=v.duration,url=s.url;s.busy=job;s.diag='';v.pause();
   const alive=()=>!job.stop&&s.url===url;
   try{
     const pr=(a,b)=>p=>showBusy(s,`スイングを解析中… ${Math.round(a+(b-a)*Math.min(1,Math.max(0,p)))}%`);
@@ -509,8 +517,11 @@ async function autoDetect(s){
     const c1=await capture(s,job,0,D,Math.min(4,Math.max(1,D/8)),pr(0,80));
     if(!alive())return;
     s.curve=c1.map(({t0,t1,e})=>({t0,t1,e}));
+    const mx=Math.max(0,...c1.map(x=>x.e));
+    if(c1.length<8){s.diag=`動画のコマを${c1.length}枚しか読み取れなかった (${c1.method||'-'})。もう一度「自動判定」を押してみて。だめなら手で付けてください。`;return}
+    if(!(mx>0)){s.diag=`動画のコマが真っ黒か同じ画にしか見えなかった (${c1.length}枚)。一度「再生」してから「自動判定」を押してみて。`;return}
     const r=detect(c1);
-    if(!r){toast('スイングを見つけられなかった。三脚などで固定して撮った動画か確認して、手で付けてください');return}
+    if(!r){s.diag=`スイングを見つけられなかった (${c1.length}コマ解析)。手持ちで画面全体が揺れている、または動きが小さすぎる。三脚などで固定して撮った動画で試すか、手で付けてください。`;return}
     // 再生中にコマが飛んでいたら (高fps動画)、トップとインパクトの付近だけゆっくり再生して詰め直す
     const gaps=c1.map(x=>x.t1-x.t0).sort((a,b)=>a-b),gap=gaps[gaps.length>>1];
     if(s.seen&&gap>1.6*s.frame){
@@ -525,7 +536,7 @@ async function autoDetect(s){
       if(c3){const e=smooth(c3.map(x=>x.e)),k=e.findIndex((x,i)=>x>=r.thr&&e.slice(i).every(y=>y>=r.thr*0.5));if(k>=0)r.start=c3[k].t0}
     }
     s.marks={start:r.start,top:r.top,impact:r.impact};if(r.finish!=null&&r.finish>r.impact)s.marks.finish=r.finish;
-    s.auto={...s.marks};
+    s.auto={...s.marks};s.diag='';
     // 始動→インパクトが普通のスイング (実時間 0.7〜1.8秒くらい) より長すぎるなら、スロー動画とみなして倍率を推定する
     const len=r.impact-r.start;
     if(s.slow===1&&len>2.2){const k=[2,4,8].reduce((a,b)=>Math.abs(Math.log(len/b/1.2))<Math.abs(Math.log(len/a/1.2))?b:a);
@@ -560,7 +571,7 @@ function drawMotion(){
   cv.addEventListener('pointermove',e=>{if(down)go(e)});
   ['pointerup','pointercancel'].forEach(k=>cv.addEventListener(k,()=>{down=false}));
 })();
-$('autoBtn').addEventListener('click',()=>{const s=cur();if(!loaded(s))return toast('先に動画を選んでください');autoDetect(s)});
+$('autoBtn').addEventListener('click',()=>{const s=cur();if(!loaded(s))return toast('先に動画を選んでください');s.v.play().then(()=>{if(!s.busy)s.v.pause()},()=>{});s.v.pause();autoDetect(s)});
 
 function layout(){
   if(tab!=='video')return;
@@ -648,6 +659,7 @@ function tempo(s){
 }
 function renderTempo(){
   const s=cur(),T=tempo(s),box=$('tempoStats'),note=$('tempoNote');
+  $('diag').hidden=!s.diag;$('diag').textContent=s.diag||'';
   if(!T||T.bad){box.innerHTML=['テンポ比','バックスイング','ダウンスイング'].map(n=>`<div class="stat"><span>${n}</span><b>—</b></div>`).join('');
     note.textContent=T&&T.bad?'順番がおかしい: 始動 < トップ < インパクト になるように付け直してください。':'始動・トップ・インパクトの3つを付けるとテンポを計算する。';return}
   box.innerHTML=`<div class="stat"><span>テンポ比</span><b>${f1(T.ratio)}:1</b><small>±1コマで ${f1(T.lo)}〜${f1(T.hi)}</small></div>
@@ -925,7 +937,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v2 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v3 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
