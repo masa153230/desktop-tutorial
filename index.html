@@ -163,7 +163,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v5</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v6</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -408,12 +408,13 @@ function setAct(id){act=id;['A','B'].forEach(k=>slots[k].el.classList.toggle('ac
     const f=e.target.files&&e.target.files[0];if(!f)return;
     if(s.url)URL.revokeObjectURL(s.url);
     if(s.busy)s.busy.stop=true;s.busy=null;showBusy(s,'');
-    s.url=URL.createObjectURL(f);s.name=f.name;s.marks={};s.curve=null;s.auto=null;s.autoSlow=false;s.slow=1;s.diag='';s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
+    s.url=URL.createObjectURL(f);s.name=f.name;s.file=f;s.dataTried=false;s.marks={};s.curve=null;s.auto=null;s.autoSlow=false;s.slow=1;s.diag='';s.shapes=[];s.draft=null;s.frame=1/30;s.seen=false;
     s.v.src=s.url;s.v.load();setAct(id);e.target.value='';
     // iPhone はタップの中で一度再生しておかないと、あとから自動で再生できないことがある
     s.v.play().then(()=>{if(!s.busy)s.v.pause()},()=>{});
   });
   s.v.addEventListener('loadedmetadata',()=>{
+    s.reloading=false;
     s.st.querySelector('.ph').hidden=true;s.el.querySelector('.pick').hidden=false;
     try{s.v.playbackRate=+$('rate').value}catch(_){}
     layout();renderVideoUI();watchFrames(s);
@@ -465,7 +466,7 @@ async function capture(s,job,from,to,rate,onp){
   // 速いのは再生しながら取り込む方法。iPhone の低電力モードなどで再生できない時は、1コマずつシークして取り込む
   if('requestVideoFrameCallback' in v){
     await new Promise(res=>{let done=false,tick=Date.now();const fin=()=>{if(done)return;done=true;clearInterval(iv);v.pause();res()};
-      const cb=(now,md)=>{if(done)return;tick=Date.now();if(job.stop)return fin();grab(md.mediaTime);onp&&onp((md.mediaTime-from)/(to-from));
+      const cb=(now,md)=>{if(done)return;tick=Date.now();if(job.stop)return fin();try{grab(md.mediaTime)}catch(err){job.err=err;return fin()}onp&&onp((md.mediaTime-from)/(to-from));
         if(md.mediaTime>=to||v.ended)return fin();v.requestVideoFrameCallback(cb)};
       const iv=setInterval(()=>{if(Date.now()-tick>2000)fin()},300);
       v.requestVideoFrameCallback(cb);v.addEventListener('ended',fin,{once:true});
@@ -473,6 +474,7 @@ async function capture(s,job,from,to,rate,onp){
       v.play().catch(fin);
     });
     out.method='再生';
+    if(job.err)throw job.err;
   }
   const last=out.length?out[out.length-1].t1:from;
   if(!job.stop&&last<to-Math.max(0.3,(to-from)*0.1)){
@@ -574,8 +576,18 @@ async function autoDetect(s){
       s.slow=k;s.autoSlow=true;toast(`スロー動画と判断して倍率を ${k}× にした。違ったら直してください`)}
     else toast('始動・トップ・インパクトを自動で付けた。動画で確認してください');
     v.pause();await seekP(v,r.top);
+  }catch(err){
+    const info=`${err&&err.name||'Error'}: ${err&&err.message||err} / readyState=${v.readyState} ${v.videoWidth}x${v.videoHeight} rVFC=${'requestVideoFrameCallback' in v?'あり':'なし'}`;
+    // Safari は blob: の動画をキャンバスで読むのを拒むことがある。data: URL で読み直して1回だけ再挑戦する
+    if(err&&err.name==='SecurityError'&&s.file&&!s.dataTried&&s.file.size<150e6&&s.url===url){
+      s.dataTried=true;s.reloading=true;s.diag='';showBusy(s,'動画を読み直しています…');
+      const fr=new FileReader();
+      fr.onload=()=>{if(s.url!==url)return;s.v.src=fr.result;s.v.load()};
+      fr.onerror=()=>{s.reloading=false;showBusy(s,'');s.diag='動画を読み直せなかった ('+info+')';renderVideoUI()};
+      fr.readAsDataURL(s.file);
+    }else s.diag=`解析中にエラーが出て止まった。この赤字をそのまま Claude に送ってください → ${info}`;
   }finally{
-    if(s.busy===job)s.busy=null;showBusy(s,'');
+    if(s.busy===job)s.busy=null;if(!s.reloading)showBusy(s,'');
     try{v.playbackRate=+$('rate').value}catch(_){}
     if(s.url===url){renderVideoUI();if(s.id===act)renderTime()}
   }
@@ -989,7 +1001,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v5 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v6 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
