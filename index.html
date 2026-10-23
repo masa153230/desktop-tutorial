@@ -163,7 +163,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v6</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v7</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -609,7 +609,7 @@ function drawMotion(){
   const X=s.v.currentTime/D*W;x.strokeStyle=col('--ink');x.lineWidth=2;x.beginPath();x.moveTo(X,0);x.lineTo(X,H);x.stroke();
 }
 (()=>{const cv=$('motion');let down=false;
-  const go=e=>{const s=cur();if(!loaded(s)||s.busy)return;const r=cv.getBoundingClientRect();s.v.pause();seek(s,(e.clientX-r.left)/r.width*s.v.duration)};
+  const go=e=>{const s=cur();if(!loaded(s)||s.busy)return;const r=cv.getBoundingClientRect();seekManual(s,(e.clientX-r.left)/r.width*s.v.duration)};
   cv.addEventListener('pointerdown',e=>{down=true;try{cv.setPointerCapture(e.pointerId)}catch(_){}go(e)});
   cv.addEventListener('pointermove',e=>{if(down)go(e)});
   ['pointerup','pointercancel'].forEach(k=>cv.addEventListener(k,()=>{down=false}));
@@ -637,6 +637,14 @@ $('cmp').addEventListener('change',()=>{
 });
 
 function seek(s,t){t=Math.max(0,Math.min(s.v.duration||0,t));try{s.v.currentTime=t}catch(_){}}
+// 手で位置を動かす時。連動中はもう1本も同じ実時間だけ動かす (スロー倍率の違いも換算)。
+// フェーズへのジャンプは、もう1本にも同じフェーズがあればそこへ揃える
+function seekManual(s,t,mark){
+  stopSync();const old=s.v.currentTime;s.v.pause();seek(s,t);const d=s.v.currentTime-old;
+  if(!linked())return;
+  const o=s===slots.A?slots.B:slots.A;if(!loaded(o)||o.busy)return;
+  o.v.pause();seek(o,mark&&o.marks[mark]!=null?o.marks[mark]:o.v.currentTime+d*o.slow/s.slow);
+}
 $('play').addEventListener('click',()=>{
   const ts=targets();if(!ts.length)return toast('先に動画を選んでください');
   const playing=ts.some(s=>!s.v.paused);
@@ -652,7 +660,7 @@ function step(dir){stopSync();targets().forEach(s=>{s.v.pause();seek(s,s.v.curre
 function applyRate(s,base){const r=base??+$('rate').value;const ss=linked()?[slots.A,slots.B].filter(loaded):[s];
   const mx=Math.max(...ss.map(x=>x.slow));try{s.v.playbackRate=Math.max(0.0625,r*s.slow/mx)}catch(_){try{s.v.playbackRate=r}catch(__){}}}
 $('rate').addEventListener('change',()=>{[slots.A,slots.B].filter(loaded).forEach(s=>applyRate(s))});
-$('scrub').addEventListener('input',e=>{const s=cur();if(!loaded(s)||s.busy)return;s.v.pause();seek(s,+e.target.value)});
+$('scrub').addEventListener('input',e=>{const s=cur();if(!loaded(s)||s.busy)return;seekManual(s,+e.target.value)});
 $('slow').addEventListener('change',e=>{cur().slow=+e.target.value;cur().autoSlow=false;renderTempo()});
 
 $('alignImp').addEventListener('click',()=>{
@@ -710,7 +718,7 @@ function renderVideoUI(){
 $('marks').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;const s=cur();if(!loaded(s))return toast('先に動画を選んでください');
   if(b.dataset.set){if(s.busy)return;s.marks[b.dataset.set]=s.v.currentTime;renderVideoUI()}
-  else if(b.dataset.go){const t=s.marks[b.dataset.go];if(t!=null){s.v.pause();seek(s,t)}}
+  else if(b.dataset.go){const t=s.marks[b.dataset.go];if(t!=null)seekManual(s,t,b.dataset.go)}
 });
 
 function tempo(s){
@@ -1001,7 +1009,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v6 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v7 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
