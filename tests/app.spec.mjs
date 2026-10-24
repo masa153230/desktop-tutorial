@@ -186,3 +186,17 @@ test('骨格推定: .task を配れない所 (claude.ai のアーティファク
   await expect(page.locator('#diag')).not.toContainText('骨格推定を使えなかった');
   expect(usedJs).toBe(true);
 });
+
+test('動画を左右になぞるとコマ送りになる', async ({ page, browserName }) => {
+  await open(page);
+  await loadVideo(page, 'A', fx('swing60', browserName));
+  const box = await page.locator('#slotA .stage').boundingBox();
+  const t0 = await page.evaluate(() => window.SwingLab.slots.A.v.currentTime);
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  await page.mouse.move(x, y); await page.mouse.down();
+  for (let i = 1; i <= 5; i++) await page.mouse.move(x + i * 8, y);
+  await page.mouse.up();
+  await page.waitForFunction((t) => Math.abs(window.SwingLab.slots.A.v.currentTime - t) > 0.01, t0);
+  const r = await page.evaluate(() => ({ t: window.SwingLab.slots.A.v.currentTime, f: window.SwingLab.slots.A.frame }));
+  expect(Math.round((r.t - t0) / r.f)).toBe(5);
+});
