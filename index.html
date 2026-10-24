@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="スイング研究室">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>スイング研究室</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Mono:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
@@ -36,7 +37,8 @@
 html,body{background:var(--bg);color:var(--ink)}
 body{font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
 *{box-sizing:border-box}
-.wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:0 96px}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 button,input,select{font:inherit;color:inherit}
 input,select{font-size:16px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
@@ -74,7 +76,7 @@ textarea{font:inherit;font-size:16px;width:100%;min-height:64px;background:var(-
 /* video */
 .slots{display:flex;gap:8px;justify-content:center;align-items:flex-start}
 .slot{display:flex;flex-direction:column;gap:6px;align-items:center;min-width:0}
-.stage{position:relative;background:#000;border-radius:var(--r);overflow:hidden;border:2px solid transparent;width:100%;height:46vh}
+.stage{position:relative;background:#000;border-radius:var(--r);overflow:hidden;border:2px solid transparent;width:100%;height:40vh;touch-action:pan-y}
 .slot.act .stage{border-color:var(--turf)}
 .slots.solo .slot.act .stage{border-color:transparent}
 .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
@@ -85,9 +87,14 @@ textarea{font:inherit;font-size:16px;width:100%;min-height:64px;background:var(-
 .tagA{background:var(--ca)}.tagB{background:var(--cb)}
 .busy{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);color:#fff;font-size:13px;padding:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .busy button{background:rgba(255,255,255,.18);color:#fff;padding:4px 10px;font-size:12px}
-#motion{width:100%;height:60px;display:block;touch-action:none;background:var(--sunk);border-radius:6px;margin-top:10px;cursor:pointer}
+#motion{width:100%;height:60px;display:block;touch-action:none;background:var(--sunk);border-radius:6px;margin:10px 0;cursor:pointer}
+.phead{display:flex;align-items:center;gap:8px;margin:12px 0 6px}.phead h3{margin:0;flex:0 0 auto}.phead .hint{flex:1 1 auto;min-width:0}
+.phead button{flex:0 0 auto;font-size:13px;padding:6px 10px}
+details.help{margin-top:10px}details.help summary{font-size:13px;color:var(--muted);cursor:pointer}details.help p{margin-top:6px}
 .wake{position:absolute;inset:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;border-radius:0}
 .pick{font-size:12px;padding:5px 10px;letter-spacing:0;color:var(--ink);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+/* 「動画を変える」は動画の右上に重ねて、縦の場所を取らない */
+.slot{position:relative}.slot>.pick{position:absolute;top:6px;right:6px;z-index:2;background:rgba(0,0,0,.55);color:#fff;border-color:transparent}
 .tools{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
 .tools button{padding:8px 2px;font-size:13px;background:var(--sunk);color:var(--ink)}
 .tools button[aria-pressed="true"]{background:var(--turf);color:var(--turf-ink)}
@@ -97,7 +104,7 @@ input[type=range]{padding:0;border:0;background:transparent;accent-color:var(--t
 .transport button{padding:10px 4px;font-size:14px}
 .marks{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .mk{display:flex;flex-direction:column;gap:4px}
-.mk .set{padding:9px 2px;font-size:13px;background:var(--sunk);color:var(--ink)}
+.mk .set{padding:11px 2px;font-size:12px;letter-spacing:0;white-space:nowrap;background:var(--sunk);color:var(--ink)}
 .mk .set.on{background:var(--chip);color:var(--turf);outline:1px solid var(--turf)}
 .mk .go{padding:3px 2px;font-size:12px;background:transparent;color:var(--muted);font-weight:500}
 .mk .go:disabled{opacity:.4;cursor:default}
@@ -156,11 +163,11 @@ details.box[open]>summary::after{content:"－"}
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px}
 
 /* tab bar */
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
 nav.tabs button{background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:1px}
 nav.tabs button .k{font-family:var(--f-display);font-weight:400;font-size:18px;line-height:1}
 nav.tabs button[aria-selected="true"]{color:var(--turf)}
-.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;z-index:20;max-width:90vw}
+.toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;z-index:20;max-width:90vw}
 @media (min-width:560px){.stats{gap:12px}.stat b{font-size:24px}}
 </style>
 </head>
@@ -168,7 +175,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v15</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v17</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -196,16 +203,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
       </div>
     </div>
 
-    <div class="card">
-      <div class="tools" role="toolbar" aria-label="描画ツール">
-        <button type="button" data-tool="none" aria-pressed="true">操作</button>
-        <button type="button" data-tool="line" aria-pressed="false">線</button>
-        <button type="button" data-tool="ang" aria-pressed="false">角度</button>
-        <button type="button" data-tool="circ" aria-pressed="false">円</button>
-        <button type="button" id="undo">戻す</button>
-        <button type="button" id="clearShapes">消去</button>
-      </div>
-      <canvas id="motion" aria-label="動きの量のグラフ。タップでその位置へ移動"></canvas>
+    <div class="card player">
       <input type="range" id="scrub" min="0" max="1" step="0.001" value="0" aria-label="再生位置">
       <div class="tline"><span class="num" id="tcur">—</span><span class="hint num" id="tfps"></span></div>
       <div class="transport">
@@ -214,21 +212,30 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
         <button class="ghost" id="fwd" type="button">1コマ ▶</button>
         <select id="rate" aria-label="再生速度"><option value="1">1×</option><option value="0.5">0.5×</option><option value="0.25" selected>0.25×</option><option value="0.1">0.1×</option></select>
       </div>
-      <p class="hint" id="toolHint" style="margin-top:8px">線: ドラッグで引く (地面との角度を表示)。角度: 3点をタップ (2点目が頂点)。円: 中心からドラッグ (頭の位置の基準に)。</p>
-    </div>
-
-    <div class="card">
-      <div class="rowb" style="justify-content:space-between;margin-bottom:8px"><h3 style="margin:0;flex:0 1 auto">フェーズ <span id="actName"></span></h3><button class="ghost" id="autoBtn" type="button" style="flex:0 0 auto;font-size:13px;padding:6px 10px">自動判定</button></div>
+      <div class="phead"><h3>フェーズ <span id="actName"></span></h3><span class="hint">動画を左右になぞるとコマ送り</span><button class="ghost" id="autoBtn" type="button">自動判定</button></div>
       <div class="marks" id="marks"></div>
-      <p class="hint" style="margin-top:8px">動画を読み込むと自動で判定する。ずれていたら、コマ送りで正しいコマに止めて上のボタンを押すと上書きできる。下の時刻をタップするとそこへ移動。<b>始動</b> = クラブヘッドが動き出した最初のコマ、<b>トップ</b> = 切り返しでヘッドが止まるコマ。</p>
-      <div class="rowb" style="margin-top:10px"><button class="ghost" id="poseGo" type="button">体の動きを測る (骨格推定)</button><label class="sw" style="flex:0 0 auto"><input type="checkbox" id="showSkel" checked> 骨格を表示</label></div>
-      <label style="margin-top:10px">撮影時のスロー倍率 (この動画)
-        <select id="slow"><option value="1">等倍 (普通の動画)</option><option value="2">2× スロー</option><option value="4">4× スロー (120fps)</option><option value="8">8× スロー (240fps)</option></select>
-      </label>
+      <canvas id="motion" aria-label="動きの量のグラフ。タップでその位置へ移動"></canvas>
+      <div class="tools" role="toolbar" aria-label="描画ツール">
+        <button type="button" data-tool="none" aria-pressed="true">操作</button>
+        <button type="button" data-tool="line" aria-pressed="false">線</button>
+        <button type="button" data-tool="ang" aria-pressed="false">角度</button>
+        <button type="button" data-tool="circ" aria-pressed="false">円</button>
+        <button type="button" id="undo">戻す</button>
+        <button type="button" id="clearShapes">消去</button>
+      </div>
+      <p class="hint" id="toolHint" hidden style="margin-top:8px">線: ドラッグで引く (地面との角度を表示)。角度: 3点をタップ (2点目が頂点)。円: 中心からドラッグ (頭の位置の基準に)。</p>
     </div>
     <div class="stats" id="tempoStats"></div>
     <p class="msg err" id="diag" hidden></p>
     <p class="note" id="tempoNote"></p>
+
+    <div class="card">
+      <div class="rowb"><button class="ghost" id="poseGo" type="button">体の動きを測る (骨格推定)</button><label class="sw" style="flex:0 0 auto"><input type="checkbox" id="showSkel" checked> 骨格を表示</label></div>
+      <label style="margin-top:10px">撮影時のスロー倍率 (この動画)
+        <select id="slow"><option value="1">等倍 (普通の動画)</option><option value="2">2× スロー</option><option value="4">4× スロー (120fps)</option><option value="8">8× スロー (240fps)</option></select>
+      </label>
+      <details class="help"><summary>フェーズの決め方</summary><p class="hint">動画を読み込むと自動で判定する。ずれていたら、コマ送りで正しいコマに止めてフェーズのボタンを押すと上書きできる。ボタンの下の時刻をタップするとそこへ移動。<b>始動</b> = クラブヘッドが動き出した最初のコマ、<b>トップ</b> = 切り返しでヘッドが止まるコマ。</p></details>
+    </div>
     <div class="card" id="poseBox" hidden></div>
 
     <div class="card" id="measCard" hidden>
@@ -514,7 +521,7 @@ function setAct(id){act=id;['A','B'].forEach(k=>slots[k].el.classList.toggle('ac
   ['timeupdate','seeked','pause','play'].forEach(ev=>s.v.addEventListener(ev,()=>{if(s.id===act)renderTime();if(s.pose)draw(s)}));
   s.v.addEventListener('ended',()=>{if(s.id===act)renderTime()});
   s.st.addEventListener('click',()=>{if(tool==='none'&&cmpOn()&&act!==id)setAct(id)});
-  bindDraw(s);
+  bindDraw(s);bindSwipe(s);
 });
 
 // 実際に表示されたコマの時刻差の最小値 = 1コマの長さ。再生するほど正確になる
@@ -762,7 +769,7 @@ $('autoBtn').addEventListener('click',()=>{const s=cur();if(!loaded(s))return to
 function layout(){
   if(tab!=='video')return;
   const cmp=cmpOn(),W=$('slots').clientWidth;if(!W)return;
-  const each=cmp?(W-8)/2:W,maxH=Math.max(240,window.innerHeight*(cmp?0.45:0.5));
+  const each=cmp?(W-8)/2:W,maxH=Math.max(220,window.innerHeight*(cmp?0.36:0.4));
   [slots.A,slots.B].forEach(s=>{
     if(s.el.hidden)return;
     const ar=s.v.videoWidth&&s.v.videoHeight?s.v.videoWidth/s.v.videoHeight:9/16;
@@ -902,12 +909,21 @@ const LMI=[0,11,12,13,14,15,16,23,24,25,26,27,28];
 const J={nose:0,ls:1,rs:2,le:3,re:4,lw:5,rw:6,lh:7,rh:8,lk:9,rk:10,la:11,ra:12};
 const BONES=[[J.ls,J.rs],[J.ls,J.le],[J.le,J.lw],[J.rs,J.re],[J.re,J.rw],[J.ls,J.lh],[J.rs,J.rh],[J.lh,J.rh],[J.lh,J.lk],[J.lk,J.la],[J.rh,J.rk],[J.rk,J.ra]];
 let poseP=null,poseTs=0;
+// モデルは .task をそのまま読む。claude.ai のアーティファクトは .task を配れない (415) ので、
+// 公開時に base64 にして JS に入れたもの (pose_landmarker_lite.task.js) から読む
+async function poseModel(base){
+  const r=await fetch(base+'pose_landmarker_lite.task').catch(()=>null);
+  if(r&&r.ok)return new Uint8Array(await r.arrayBuffer());
+  const b=atob((await import(base+'pose_landmarker_lite.task.js')).default),u=new Uint8Array(b.length);
+  for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+  return u;
+}
 function loadPose(){
   return poseP||(poseP=(async()=>{
     const base=new URL('vendor/mediapipe/',location.href).href;
     const m=await import(base+'vision_bundle.mjs');
-    const fs=await m.FilesetResolver.forVisionTasks(base+'wasm');
-    return m.PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:base+'pose_landmarker_lite.task',delegate:'CPU'},
+    const [fs,model]=await Promise.all([m.FilesetResolver.forVisionTasks(base+'wasm'),poseModel(base)]);
+    return m.PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetBuffer:model,delegate:'CPU'},
       runningMode:'VIDEO',numPoses:1,minPoseDetectionConfidence:0.4,minPosePresenceConfidence:0.4,minTrackingConfidence:0.4});
   })().catch(e=>{poseP=null;throw e}));
 }
@@ -937,7 +953,7 @@ async function runPose(s){
     $('advView').value=s.pose.viewAuto==='dtl'?$('advView').options[1].value:$('advView').options[0].value;
     S.autoPose=true;save();toast('体の動きを測った');
   }catch(e){
-    s.diag='骨格推定を使えなかった ('+(e&&e.message||e)+')。GitHub Pages 版で開いているか確認してください。';
+    s.diag='骨格推定を使えなかった ('+(e&&e.message||e)+')。電波の良い所で開き直すか、GitHub Pages 版で試してください。';
   }finally{if(s.busy===job)s.busy=null;showBusy(s,'');if(s.url===url){renderVideoUI();draw(s)}}
 }
 // あるフェーズの時刻に一番近いコマの関節 (無ければ null)
@@ -1018,6 +1034,18 @@ function drawPose(s,x,W,H,dpr){
 }
 
 /* ---------- 描画 ---------- */
+// 動画を左右になぞるとコマ送り (8px で 1コマ)。線などのツールを選んでいる時は描く方を優先する
+function bindSwipe(s){
+  let x0=null,t0=0,n0=0,moved=false;
+  s.st.addEventListener('pointerdown',e=>{if(tool!=='none'||!loaded(s)||s.busy||e.target.closest('button,label'))return;x0=e.clientX;t0=s.v.currentTime;n0=0;moved=false});
+  s.st.addEventListener('pointermove',e=>{
+    if(x0==null)return;const dx=e.clientX-x0;if(!moved&&Math.abs(dx)<8)return;
+    if(!moved){moved=true;try{s.st.setPointerCapture(e.pointerId)}catch(_){}if(act!==s.id)setAct(s.id)}
+    const n=Math.round(dx/8);if(n!==n0){n0=n;seekManual(s,t0+n*s.frame)}});
+  const end=()=>{x0=null};s.st.addEventListener('pointerup',end);s.st.addEventListener('pointercancel',end);
+  // なぞった後のタップ扱い (比較中の枠の切り替え) を止める
+  s.st.addEventListener('click',e=>{if(moved){e.stopPropagation();moved=false}},true);
+}
 function bindDraw(s){
   const pt=e=>{const r=s.c.getBoundingClientRect();return [Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))]};
   let down=false;
@@ -1073,7 +1101,7 @@ function renderMeas(){
   $('measCard').hidden=!items.length;$('measList').innerHTML=items.map(t=>`<li class="num">${esc(t)}</li>`).join('');
 }
 document.querySelectorAll('.tools [data-tool]').forEach(b=>b.addEventListener('click',()=>{
-  tool=b.dataset.tool;
+  tool=b.dataset.tool;$('toolHint').hidden=tool==='none';
   document.querySelectorAll('.tools [data-tool]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   [slots.A,slots.B].forEach(s=>{s.st.classList.toggle('draw',tool!=='none');if(s.draft&&s.draft.t!==tool){s.draft=null;draw(s)}});
 }));
@@ -1511,7 +1539,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v15 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v17 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);

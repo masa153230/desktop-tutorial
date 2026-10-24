@@ -7,3 +7,8 @@
   (https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task, Apache License 2.0)
 
 ライセンス: https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE
+
+## アーティファクト版
+claude.ai のアーティファクトは `.task` を配れない (415) ので、`python3 tools/make_artifact_model.py` で
+base64 にした `pose_landmarker_lite.task.js` を作り、`index.html`・`vision_bundle.mjs`・`wasm/` と一緒に付属ファイルとして公開する。
+`.task.js` はリポジトリに入れない。
