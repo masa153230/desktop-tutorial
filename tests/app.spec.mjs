@@ -171,3 +171,18 @@ test('骨格推定: 同梱の MediaPipe が読み込めて最後まで走る', a
   catch (e) { throw new Error('骨格推定が終わらない: ' + JSON.stringify(await page.evaluate(() => ({ busy: !!window.SwingLab.slots.A.busy, overlay: document.querySelector('#slotA .busy').textContent, diag: document.getElementById('diag').textContent })))); }
   await expect(page.locator('#diag')).not.toContainText('骨格推定を使えなかった');
 });
+
+test('骨格推定: .task を配れない所 (claude.ai のアーティファクト) では base64 の JS からモデルを読む', async ({ page, browserName }) => {
+  const fs = await import('fs');
+  const task = path.join(here, '..', 'vendor', 'mediapipe', 'pose_landmarker_lite.task');
+  let usedJs = false;
+  await page.route('**/pose_landmarker_lite.task', (r) => r.fulfill({ status: 415, body: '' }));
+  await page.route('**/pose_landmarker_lite.task.js', (r) => { usedJs = true;
+    r.fulfill({ contentType: 'text/javascript', body: 'export default "' + fs.readFileSync(task).toString('base64') + '";' }); });
+  await open(page);
+  await loadVideo(page, 'A', fx('swing60', browserName));
+  await page.click('#poseGo');
+  await page.waitForFunction(() => !window.SwingLab.slots.A.busy && (window.SwingLab.slots.A.pose || document.getElementById('diag').textContent), null, { timeout: 90_000 });
+  await expect(page.locator('#diag')).not.toContainText('骨格推定を使えなかった');
+  expect(usedJs).toBe(true);
+});
