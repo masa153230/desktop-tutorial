@@ -300,6 +300,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
       <div class="card" id="expHead"></div>
       <div class="card" style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
         <div class="next"><div><span class="hint">次に打つのは</span><div class="big" id="nextBig"></div></div><div class="num hint" id="progress"></div></div>
+        <p class="note num" id="upNext"></p>
         <div class="seg"><button type="button" class="A" id="cA"></button><button type="button" class="B" id="cB"></button></div>
         <p class="note" id="swingHint" hidden>動画タブで1スイングずつ撮って「計測を保存」するときに、この実験と条件を選ぶ。保存したスイングがここに入る。</p>
         <div class="grid2" id="ballIn">
@@ -318,7 +319,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
       <details class="box" id="bulkBox" style="margin-top:10px">
         <summary>まとめて貼り付け (弾道測定器のメモなど)</summary>
         <div class="box-body">
-          <p class="note">1行1球。<span class="num">A 152 L3</span> / <span class="num">B,148,-5</span> / <span class="num">B 150 右2</span> のように「条件 指標1 指標2」。</p>
+          <p class="note">1行1球。<span class="num">A 152 L3</span> / <span class="num">B,148,-5</span> / <span class="num">B 150 右2</span> のように「条件 指標1 指標2」。条件を省いて <span class="num">152 L3</span> だけ書くと、上の「この先の打順」どおりに A/B を割り当てる (Apple Watch のショートカットで数字だけ記録した時用。打順どおりに打っていることが前提)。</p>
           <textarea id="bulk"></textarea>
           <button class="btn" id="bulkGo" type="button">追加する</button>
           <p class="msg" id="bulkMsg"></p>
@@ -1267,6 +1268,7 @@ $('bulkGo').addEventListener('click',()=>{
     const tk=line.trim().split(/[\s,、\t]+/).filter(Boolean);if(!tk.length)return;
     let c=null;const t0=tk[0];
     if(/^a$/i.test(t0)||t0===e.a)c='A';else if(/^b$/i.test(t0)||t0===e.b)c='B';
+    else if(/^[+-]?\d+(?:\.\d+)?$/.test(t0)){c=planned(e);tk.unshift(c)}
     const v1=parseFloat(tk[1]);if(!c||!Number.isFinite(v1)){bad++;return}
     let v2=null;const t2=tk[2];
     if(t2!=null){const mm=t2.match(/^(l|左|r|右)?\s*([+-]?\d+(?:\.\d+)?)$/i);
@@ -1295,6 +1297,8 @@ function renderEntry(){
   $('nextBig').className='big '+p;$('nextBig').textContent=`${p} ${condName(e,p)}`;
   const sh=shotsOf(e),nA=sh.filter(s=>s.c==='A').length,nB=sh.length-nA;
   $('progress').textContent=`A ${nA}/${e.target}  B ${nB}/${e.target}`;
+  const n=sh.length;if(e.plan.length<n+12){while(e.plan.length<n+12)e.plan.push(...mkPlan(1));save()}
+  $('upNext').hidden=isSwing(e);$('upNext').textContent='この先の打順: '+e.plan.slice(n,n+12).join(' ');
   $('cA').textContent='A '+e.a;$('cB').textContent='B '+e.b;
   $('cA').setAttribute('aria-pressed',String(c==='A'));$('cB').setAttribute('aria-pressed',String(c==='B'));
 }

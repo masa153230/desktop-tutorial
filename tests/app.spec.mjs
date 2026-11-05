@@ -171,3 +171,18 @@ test('骨格推定: 同梱の MediaPipe が読み込めて最後まで走る', a
   catch (e) { throw new Error('骨格推定が終わらない: ' + JSON.stringify(await page.evaluate(() => ({ busy: !!window.SwingLab.slots.A.busy, overlay: document.querySelector('#slotA .busy').textContent, diag: document.getElementById('diag').textContent })))); }
   await expect(page.locator('#diag')).not.toContainText('骨格推定を使えなかった');
 });
+
+test('まとめて貼り付け: 条件を省いた行は打順どおりに A/B を割り当てる', async ({ page }) => {
+  await open(page);
+  await page.click('[data-tab=exp]');
+  await page.click('#expNewBtn');
+  await page.fill('#nName', 'グリップ');
+  await page.click('#expCreate');
+  const plan = await page.evaluate(() => window.SwingLab.S.exps[0].plan.slice(0, 4));
+  await expect(page.locator('#upNext')).toContainText(plan.join(' '));
+  await page.click('#bulkBox summary');
+  await page.fill('#bulk', '152 L3\n148 -5\nB 150 右2\n151');
+  await page.click('#bulkGo');
+  const sh = await page.evaluate(() => window.SwingLab.S.exps[0].shots.map((s) => [s.c, s.v1, s.v2]));
+  expect(sh).toEqual([[plan[0], 152, -3], [plan[1], 148, -5], ['B', 150, 2], [plan[3], 151, null]]);
+});
