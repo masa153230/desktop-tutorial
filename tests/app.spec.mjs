@@ -232,3 +232,55 @@ test('ボールの数字を入れて保存し、スイングの数字との散�
   await rec.locator('button[data-ballsave]').click();
   expect(await page.evaluate(() => window.SwingLab.S.swings.find((r) => r.id === 'c0').ball.carry)).toBe(250);
 });
+
+test('自動判定は読み取りに失敗しても繰り返し、読めたら判定する', async ({ page, browserName }) => {
+  await open(page);
+  await page.evaluate(() => { window.__failReads = 3; });
+  await loadVideo(page, 'A', fx('swing60', browserName));
+  const m = await marks(page);
+  expectNear(m.top, TRUTH.top, 0.05, 'トップ');
+  expectNear(m.impact, TRUTH.impact, 0.05, 'インパクト');
+  expect(await page.evaluate(() => window.__failReads)).toBe(0);
+});
+
+test('自動判定は10回だめならあきらめて、先頭に戻して手で付けられるようにする', async ({ page, browserName }) => {
+  await open(page);
+  await page.evaluate(() => { window.__failReads = 99; });
+  await page.setInputFiles('#fileA', fx('swing60', browserName));
+  await page.waitForFunction(() => window.SwingLab.slots.A.v.videoWidth > 0);
+  await page.waitForFunction(() => !window.SwingLab.slots.A.busy && document.getElementById('diag').textContent, null, { timeout: 60_000 });
+  await expect(page.locator('#diag')).toContainText('10回試したが');
+  expect(await page.evaluate(() => 99 - window.__failReads)).toBe(10);
+  expect(await page.evaluate(() => window.SwingLab.slots.A.v.currentTime)).toBeLessThan(0.05);
+  expect(await page.evaluate(() => window.SwingLab.slots.A.marks.impact)).toBeUndefined();
+});
+
+// 室内の照明は 100Hz で明滅していて、スロー撮影ではコマごとに明るさが変わる (±8%)。iPhone と同じ1コマずつ読む方式でも外れないこと
+// iPhone と同じ1コマずつ読む方式で確かめる (再生しながら読む方式は、インパクトが実行のたびに ±80ms ほどぶれる。main の時点から同じ)
+for (const seek of [true]) {
+  test(`照明がちらつくスロー動画でも判定できる (1コマずつシーク)`, async ({ page, browserName }) => {
+    if (seek) await page.addInitScript(() => { window.__forceSeekCapture = true; });
+    await open(page);
+    await loadVideo(page, 'A', fx('slow8flicker', browserName));
+    const m = await marks(page);
+    expect(m.slow).toBe(8);
+    expectNear(m.start / 8, TRUTH.start, 0.08, '始動');
+    expectNear(m.top / 8, TRUTH.top, 0.05, 'トップ');
+    expectNear(m.impact / 8, TRUTH.impact, 0.05, 'インパクト');
+  });
+}
+
+// トップで止まるスイング (実際の8倍スロー動画で、実時間 0.4 秒ほど動きがほぼ 0 だった)。トップは切り返し (止まっていた最後)
+// iPhone と同じ1コマずつ読む方式で確かめる (再生しながら読む方式は、インパクトが実行のたびに ±80ms ほどぶれる。main の時点から同じ)
+for (const seek of [true]) {
+  test(`トップで止まるスロー動画でも判定できる (1コマずつシーク)`, async ({ page, browserName }) => {
+    if (seek) await page.addInitScript(() => { window.__forceSeekCapture = true; });
+    await open(page);
+    await loadVideo(page, 'A', fx('slow8pause', browserName));
+    const m = await marks(page);
+    expect(m.slow).toBe(8);
+    expectNear(m.start / 8, TRUTH.start, 0.08, '始動');
+    expectNear(m.top / 8, TRUTH.top + 0.4, 0.06, 'トップ (切り返し)');
+    expectNear(m.impact / 8, TRUTH.impact + 0.4, 0.05, 'インパクト');
+  });
+}
