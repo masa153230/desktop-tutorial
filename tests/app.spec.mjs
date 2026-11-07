@@ -171,3 +171,64 @@ test('骨格推定: 同梱の MediaPipe が読み込めて最後まで走る', a
   catch (e) { throw new Error('骨格推定が終わらない: ' + JSON.stringify(await page.evaluate(() => ({ busy: !!window.SwingLab.slots.A.busy, overlay: document.querySelector('#slotA .busy').textContent, diag: document.getElementById('diag').textContent })))); }
   await expect(page.locator('#diag')).not.toContainText('骨格推定を使えなかった');
 });
+
+test('骨格推定: .task を配れない所 (claude.ai のアーティファクト) では base64 の JS からモデルを読む', async ({ page, browserName }) => {
+  const fs = await import('fs');
+  const task = path.join(here, '..', 'vendor', 'mediapipe', 'pose_landmarker_lite.task');
+  let usedJs = false;
+  await page.route('**/pose_landmarker_lite.task', (r) => r.fulfill({ status: 415, body: '' }));
+  await page.route('**/pose_landmarker_lite.task.js', (r) => { usedJs = true;
+    r.fulfill({ contentType: 'text/javascript', body: 'export default "' + fs.readFileSync(task).toString('base64') + '";' }); });
+  await open(page);
+  await loadVideo(page, 'A', fx('swing60', browserName));
+  await page.click('#poseGo');
+  await page.waitForFunction(() => !window.SwingLab.slots.A.busy && (window.SwingLab.slots.A.pose || document.getElementById('diag').textContent), null, { timeout: 90_000 });
+  await expect(page.locator('#diag')).not.toContainText('骨格推定を使えなかった');
+  expect(usedJs).toBe(true);
+});
+
+test('動画を左右になぞるとコマ送りになる', async ({ page, browserName }) => {
+  await open(page);
+  await loadVideo(page, 'A', fx('swing60', browserName));
+  const box = await page.locator('#slotA .stage').boundingBox();
+  const t0 = await page.evaluate(() => window.SwingLab.slots.A.v.currentTime);
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  await page.mouse.move(x, y); await page.mouse.down();
+  for (let i = 1; i <= 5; i++) await page.mouse.move(x + i * 8, y);
+  await page.mouse.up();
+  await page.waitForFunction((t) => Math.abs(window.SwingLab.slots.A.v.currentTime - t) > 0.01, t0);
+  const r = await page.evaluate(() => ({ t: window.SwingLab.slots.A.v.currentTime, f: window.SwingLab.slots.A.frame }));
+  expect(Math.round((r.t - t0) / r.f)).toBe(5);
+});
+
+test('ボールの数字を入れて保存し、スイングの数字との散布図と相関を出す', async ({ page, browserName }) => {
+  await open(page);
+  await loadVideo(page, 'A', fx('swing60', browserName));
+  await page.fill('#svBall [data-ball="carry"]', '231.5');
+  await page.fill('#svBall [data-ball="spin"]', '1309');
+  await page.click('#saveSwing');
+  await page.waitForFunction(() => window.SwingLab.S.swings.length === 1);
+  expect(await page.evaluate(() => window.SwingLab.S.swings[0].ball)).toEqual({ carry: 231.5, spin: 1309 });
+  expect(await page.inputValue('#svBall [data-ball="carry"]')).toBe('');
+  // 前傾の変化とキャリーに負の関係がある 10 本 (r と傾きは Python で計算した値)
+  await page.evaluate(() => {
+    const x = [-2, -5, -1, -8, -3, -6, 0, -4, -7, -2.5], y = [240, 228, 244, 215, 236, 226, 247, 230, 220, 239];
+    const { S } = window.SwingLab;
+    x.forEach((v, i) => S.swings.push({ id: 'c' + i, date: new Date().toISOString(), club: 'ドライバー', ratio: 3, bs: 0.8, ds: 0.27, lo: 2.5, hi: 3.5,
+      pose: { metrics: { view: 'dtl', bendChange: v } }, ball: { carry: y[i] } }));
+    S.corr = { club: 'ドライバー', x: 'bendChange', y: 'carry' };
+  });
+  await page.click('nav.tabs [data-tab="log"]');
+  const st = await page.evaluate(() => { const { pts } = window.SwingLab.corrPairs(); return window.SwingLab.corrStats(pts); });
+  expect(st.n).toBe(10);
+  expect(st.r).toBeCloseTo(0.9945, 3);
+  expect(st.b).toBeCloseTo(3.9621, 3);
+  await expect(page.locator('#corrChart circle')).toHaveCount(10);
+  await expect(page.locator('#corrNote')).toContainText('関係あり');
+  // 記録からあとでボールの数字を直す
+  const rec = page.locator('details.ballEd[data-rid="c0"]');
+  await rec.locator('summary').click();
+  await rec.locator('[data-ball="carry"]').fill('250');
+  await rec.locator('button[data-ballsave]').click();
+  expect(await page.evaluate(() => window.SwingLab.S.swings.find((r) => r.id === 'c0').ball.carry)).toBe(250);
+});

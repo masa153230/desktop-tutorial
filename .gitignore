@@ -1,3 +1,4 @@
 tests/node_modules/
 tests/test-results/
 tests/playwright-report/
+vendor/mediapipe/pose_landmarker_lite.task.js

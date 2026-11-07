@@ -1,9 +1,16 @@
 name: テスト
 
 on:
+  # 作業ブランチは PR で走らせる。push にも入れると同じコミットで二重に走る
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+# 同じ PR に続けて push したら古い方を止める
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:

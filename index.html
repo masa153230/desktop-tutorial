@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="スイング研究室">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>スイング研究室</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Mono:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
@@ -36,7 +37,8 @@
 html,body{background:var(--bg);color:var(--ink)}
 body{font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
 *{box-sizing:border-box}
-.wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:0 96px}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 button,input,select{font:inherit;color:inherit}
 input,select{font-size:16px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
@@ -64,6 +66,8 @@ h3{font-size:13px;margin:0 0 8px;color:var(--muted);font-weight:700;letter-spaci
 .hint,.note{font-size:12px;color:var(--muted);margin:0;line-height:1.6}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .grid2 .full{grid-column:1/-1}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ballEd .grid3{margin-top:6px}.ballEd button{margin-top:6px;font-size:12px;padding:5px 10px}
 .rowb{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .rowb>*{flex:1 1 auto}
 .sw{flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--ink);letter-spacing:0}
@@ -74,7 +78,7 @@ textarea{font:inherit;font-size:16px;width:100%;min-height:64px;background:var(-
 /* video */
 .slots{display:flex;gap:8px;justify-content:center;align-items:flex-start}
 .slot{display:flex;flex-direction:column;gap:6px;align-items:center;min-width:0}
-.stage{position:relative;background:#000;border-radius:var(--r);overflow:hidden;border:2px solid transparent;width:100%;height:46vh}
+.stage{position:relative;background:#000;border-radius:var(--r);overflow:hidden;border:2px solid transparent;width:100%;height:40vh;touch-action:pan-y}
 .slot.act .stage{border-color:var(--turf)}
 .slots.solo .slot.act .stage{border-color:transparent}
 .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block}
@@ -85,9 +89,14 @@ textarea{font:inherit;font-size:16px;width:100%;min-height:64px;background:var(-
 .tagA{background:var(--ca)}.tagB{background:var(--cb)}
 .busy{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);color:#fff;font-size:13px;padding:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .busy button{background:rgba(255,255,255,.18);color:#fff;padding:4px 10px;font-size:12px}
-#motion{width:100%;height:60px;display:block;touch-action:none;background:var(--sunk);border-radius:6px;margin-top:10px;cursor:pointer}
+#motion{width:100%;height:60px;display:block;touch-action:none;background:var(--sunk);border-radius:6px;margin:10px 0;cursor:pointer}
+.phead{display:flex;align-items:center;gap:8px;margin:12px 0 6px}.phead h3{margin:0;flex:0 0 auto}.phead .hint{flex:1 1 auto;min-width:0}
+.phead button{flex:0 0 auto;font-size:13px;padding:6px 10px}
+details.help{margin-top:10px}details.help summary{font-size:13px;color:var(--muted);cursor:pointer}details.help p{margin-top:6px}
 .wake{position:absolute;inset:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;border-radius:0}
 .pick{font-size:12px;padding:5px 10px;letter-spacing:0;color:var(--ink);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+/* 「動画を変える」は動画の右上に重ねて、縦の場所を取らない */
+.slot{position:relative}.slot>.pick{position:absolute;top:6px;right:6px;z-index:2;background:rgba(0,0,0,.55);color:#fff;border-color:transparent}
 .tools{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
 .tools button{padding:8px 2px;font-size:13px;background:var(--sunk);color:var(--ink)}
 .tools button[aria-pressed="true"]{background:var(--turf);color:var(--turf-ink)}
@@ -97,7 +106,7 @@ input[type=range]{padding:0;border:0;background:transparent;accent-color:var(--t
 .transport button{padding:10px 4px;font-size:14px}
 .marks{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .mk{display:flex;flex-direction:column;gap:4px}
-.mk .set{padding:9px 2px;font-size:13px;background:var(--sunk);color:var(--ink)}
+.mk .set{padding:11px 2px;font-size:12px;letter-spacing:0;white-space:nowrap;background:var(--sunk);color:var(--ink)}
 .mk .set.on{background:var(--chip);color:var(--turf);outline:1px solid var(--turf)}
 .mk .go{padding:3px 2px;font-size:12px;background:transparent;color:var(--muted);font-weight:500}
 .mk .go:disabled{opacity:.4;cursor:default}
@@ -156,11 +165,11 @@ details.box[open]>summary::after{content:"－"}
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px}
 
 /* tab bar */
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
 nav.tabs button{background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:1px}
 nav.tabs button .k{font-family:var(--f-display);font-weight:400;font-size:18px;line-height:1}
 nav.tabs button[aria-selected="true"]{color:var(--turf)}
-.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;z-index:20;max-width:90vw}
+.toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;z-index:20;max-width:90vw}
 @media (min-width:560px){.stats{gap:12px}.stat b{font-size:24px}}
 </style>
 </head>
@@ -168,7 +177,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v15</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v18</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -196,16 +205,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
       </div>
     </div>
 
-    <div class="card">
-      <div class="tools" role="toolbar" aria-label="描画ツール">
-        <button type="button" data-tool="none" aria-pressed="true">操作</button>
-        <button type="button" data-tool="line" aria-pressed="false">線</button>
-        <button type="button" data-tool="ang" aria-pressed="false">角度</button>
-        <button type="button" data-tool="circ" aria-pressed="false">円</button>
-        <button type="button" id="undo">戻す</button>
-        <button type="button" id="clearShapes">消去</button>
-      </div>
-      <canvas id="motion" aria-label="動きの量のグラフ。タップでその位置へ移動"></canvas>
+    <div class="card player">
       <input type="range" id="scrub" min="0" max="1" step="0.001" value="0" aria-label="再生位置">
       <div class="tline"><span class="num" id="tcur">—</span><span class="hint num" id="tfps"></span></div>
       <div class="transport">
@@ -214,21 +214,30 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
         <button class="ghost" id="fwd" type="button">1コマ ▶</button>
         <select id="rate" aria-label="再生速度"><option value="1">1×</option><option value="0.5">0.5×</option><option value="0.25" selected>0.25×</option><option value="0.1">0.1×</option></select>
       </div>
-      <p class="hint" id="toolHint" style="margin-top:8px">線: ドラッグで引く (地面との角度を表示)。角度: 3点をタップ (2点目が頂点)。円: 中心からドラッグ (頭の位置の基準に)。</p>
-    </div>
-
-    <div class="card">
-      <div class="rowb" style="justify-content:space-between;margin-bottom:8px"><h3 style="margin:0;flex:0 1 auto">フェーズ <span id="actName"></span></h3><button class="ghost" id="autoBtn" type="button" style="flex:0 0 auto;font-size:13px;padding:6px 10px">自動判定</button></div>
+      <div class="phead"><h3>フェーズ <span id="actName"></span></h3><span class="hint">動画を左右になぞるとコマ送り</span><button class="ghost" id="autoBtn" type="button">自動判定</button></div>
       <div class="marks" id="marks"></div>
-      <p class="hint" style="margin-top:8px">動画を読み込むと自動で判定する。ずれていたら、コマ送りで正しいコマに止めて上のボタンを押すと上書きできる。下の時刻をタップするとそこへ移動。<b>始動</b> = クラブヘッドが動き出した最初のコマ、<b>トップ</b> = 切り返しでヘッドが止まるコマ。</p>
-      <div class="rowb" style="margin-top:10px"><button class="ghost" id="poseGo" type="button">体の動きを測る (骨格推定)</button><label class="sw" style="flex:0 0 auto"><input type="checkbox" id="showSkel" checked> 骨格を表示</label></div>
-      <label style="margin-top:10px">撮影時のスロー倍率 (この動画)
-        <select id="slow"><option value="1">等倍 (普通の動画)</option><option value="2">2× スロー</option><option value="4">4× スロー (120fps)</option><option value="8">8× スロー (240fps)</option></select>
-      </label>
+      <canvas id="motion" aria-label="動きの量のグラフ。タップでその位置へ移動"></canvas>
+      <div class="tools" role="toolbar" aria-label="描画ツール">
+        <button type="button" data-tool="none" aria-pressed="true">操作</button>
+        <button type="button" data-tool="line" aria-pressed="false">線</button>
+        <button type="button" data-tool="ang" aria-pressed="false">角度</button>
+        <button type="button" data-tool="circ" aria-pressed="false">円</button>
+        <button type="button" id="undo">戻す</button>
+        <button type="button" id="clearShapes">消去</button>
+      </div>
+      <p class="hint" id="toolHint" hidden style="margin-top:8px">線: ドラッグで引く (地面との角度を表示)。角度: 3点をタップ (2点目が頂点)。円: 中心からドラッグ (頭の位置の基準に)。</p>
     </div>
     <div class="stats" id="tempoStats"></div>
     <p class="msg err" id="diag" hidden></p>
     <p class="note" id="tempoNote"></p>
+
+    <div class="card">
+      <div class="rowb"><button class="ghost" id="poseGo" type="button">体の動きを測る (骨格推定)</button><label class="sw" style="flex:0 0 auto"><input type="checkbox" id="showSkel" checked> 骨格を表示</label></div>
+      <label style="margin-top:10px">撮影時のスロー倍率 (この動画)
+        <select id="slow"><option value="1">等倍 (普通の動画)</option><option value="2">2× スロー</option><option value="4">4× スロー (120fps)</option><option value="8">8× スロー (240fps)</option></select>
+      </label>
+      <details class="help"><summary>フェーズの決め方</summary><p class="hint">動画を読み込むと自動で判定する。ずれていたら、コマ送りで正しいコマに止めてフェーズのボタンを押すと上書きできる。ボタンの下の時刻をタップするとそこへ移動。<b>始動</b> = クラブヘッドが動き出した最初のコマ、<b>トップ</b> = 切り返しでヘッドが止まるコマ。</p></details>
+    </div>
     <div class="card" id="poseBox" hidden></div>
 
     <div class="card" id="measCard" hidden>
@@ -253,6 +262,8 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
     <div class="card grid2">
       <label class="full">メモ (何を試したスイングか)<input id="svLabel" autocomplete="off" placeholder="例: グリップを少しストロングに"></label>
+      <div class="full"><span class="hint">ボールの結果 (任意。弾道測定器やシミュレーターの数字。記録タブでスイングとの関係を見る)</span>
+        <div class="grid3" id="svBall" style="margin-top:4px"></div></div>
       <label>クラブ<select id="svClub"><option>ドライバー</option><option>FW</option><option>UT</option><option>5I</option><option>6I</option><option selected>7I</option><option>8I</option><option>9I</option><option>PW</option><option>AW/SW</option><option>その他</option></select></label>
       <button class="btn" id="saveSwing" type="button" style="align-self:end">計測を保存</button>
       <label class="full" id="svExpW" hidden>実験に入れる<select id="svExp"></select></label>
@@ -337,6 +348,12 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
     <div id="logBody" hidden>
       <div class="tbl"><table id="clubTbl"></table></div>
       <div class="card chart" id="trend"></div>
+      <div class="card" id="corrCard">
+        <h3>スイングとボールの関係</h3>
+        <div class="grid2"><label class="full">横 (スイング)<select id="corrX"></select></label><label>縦 (ボール)<select id="corrY"></select></label><label>クラブ<select id="corrClub"></select></label></div>
+        <div class="chart" id="corrChart" style="margin-top:8px"></div>
+        <div class="verdict" id="corrNote" style="margin-top:8px"></div>
+      </div>
       <p class="note">テンポ比 = バックスイング時間 ÷ ダウンスイング時間。ツアー選手の平均はおよそ 3:1 (Novosel『Tour Tempo』の計測) だが、それは平均であって正解ではない。自分の比が毎回ブレないかどうか (標準偏差) の方を見ること。</p>
       <p class="note" id="vidUsage"></p>
       <div class="recs" id="recs"></div>
@@ -387,6 +404,7 @@ let toastT=null;
 function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{el.hidden=true},2200)}
 const f1=x=>Number.isFinite(x)?x.toFixed(1):'—', f2=x=>Number.isFinite(x)?x.toFixed(2):'—', f3=x=>Number.isFinite(x)?x.toFixed(3):'—';
 const sgn=x=>(x>0?'+':'')+f1(x);
+const pTxt=p=>{const t=fp(p);return 'p'+(t[0]==='<'?'':'=')+t};
 const fp=p=>!Number.isFinite(p)?'—':p<0.001?'<0.001':p.toFixed(3);
 
 /* ---------- 動画の保存 (この端末の IndexedDB) ---------- */
@@ -468,7 +486,7 @@ function applyRestore(s){
   if(R.fps){s.frame=1/R.fps;s.seen=true}
   if(R.pose&&R.pose.keys){s.pose={samples:R.pose.keys.map(k=>({t:k.t,lm:k.lm})),step:0,metrics:R.pose.metrics,viewAuto:R.pose.viewAuto||(R.pose.metrics&&R.pose.metrics.view)}}
   if(R.marks&&R.marks.top!=null)seek(s,R.marks.top);
-  $('svLabel').value=R.label||'';$('svClub').value=R.club||'7I';
+  $('svLabel').value=R.label||'';$('svClub').value=R.club||'7I';fillBall($('svBall'),R.ball);
   draw(s);
 }
 // iPhone はタップ以外のきっかけで読み込んだ動画を真っ黒のまま描かないことがある。
@@ -514,7 +532,7 @@ function setAct(id){act=id;['A','B'].forEach(k=>slots[k].el.classList.toggle('ac
   ['timeupdate','seeked','pause','play'].forEach(ev=>s.v.addEventListener(ev,()=>{if(s.id===act)renderTime();if(s.pose)draw(s)}));
   s.v.addEventListener('ended',()=>{if(s.id===act)renderTime()});
   s.st.addEventListener('click',()=>{if(tool==='none'&&cmpOn()&&act!==id)setAct(id)});
-  bindDraw(s);
+  bindDraw(s);bindSwipe(s);
 });
 
 // 実際に表示されたコマの時刻差の最小値 = 1コマの長さ。再生するほど正確になる
@@ -762,7 +780,7 @@ $('autoBtn').addEventListener('click',()=>{const s=cur();if(!loaded(s))return to
 function layout(){
   if(tab!=='video')return;
   const cmp=cmpOn(),W=$('slots').clientWidth;if(!W)return;
-  const each=cmp?(W-8)/2:W,maxH=Math.max(240,window.innerHeight*(cmp?0.45:0.5));
+  const each=cmp?(W-8)/2:W,maxH=Math.max(220,window.innerHeight*(cmp?0.36:0.4));
   [slots.A,slots.B].forEach(s=>{
     if(s.el.hidden)return;
     const ar=s.v.videoWidth&&s.v.videoHeight?s.v.videoWidth/s.v.videoHeight:9/16;
@@ -902,12 +920,21 @@ const LMI=[0,11,12,13,14,15,16,23,24,25,26,27,28];
 const J={nose:0,ls:1,rs:2,le:3,re:4,lw:5,rw:6,lh:7,rh:8,lk:9,rk:10,la:11,ra:12};
 const BONES=[[J.ls,J.rs],[J.ls,J.le],[J.le,J.lw],[J.rs,J.re],[J.re,J.rw],[J.ls,J.lh],[J.rs,J.rh],[J.lh,J.rh],[J.lh,J.lk],[J.lk,J.la],[J.rh,J.rk],[J.rk,J.ra]];
 let poseP=null,poseTs=0;
+// モデルは .task をそのまま読む。claude.ai のアーティファクトは .task を配れない (415) ので、
+// 公開時に base64 にして JS に入れたもの (pose_landmarker_lite.task.js) から読む
+async function poseModel(base){
+  const r=await fetch(base+'pose_landmarker_lite.task').catch(()=>null);
+  if(r&&r.ok)return new Uint8Array(await r.arrayBuffer());
+  const b=atob((await import(base+'pose_landmarker_lite.task.js')).default),u=new Uint8Array(b.length);
+  for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+  return u;
+}
 function loadPose(){
   return poseP||(poseP=(async()=>{
     const base=new URL('vendor/mediapipe/',location.href).href;
     const m=await import(base+'vision_bundle.mjs');
-    const fs=await m.FilesetResolver.forVisionTasks(base+'wasm');
-    return m.PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:base+'pose_landmarker_lite.task',delegate:'CPU'},
+    const [fs,model]=await Promise.all([m.FilesetResolver.forVisionTasks(base+'wasm'),poseModel(base)]);
+    return m.PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetBuffer:model,delegate:'CPU'},
       runningMode:'VIDEO',numPoses:1,minPoseDetectionConfidence:0.4,minPosePresenceConfidence:0.4,minTrackingConfidence:0.4});
   })().catch(e=>{poseP=null;throw e}));
 }
@@ -937,7 +964,7 @@ async function runPose(s){
     $('advView').value=s.pose.viewAuto==='dtl'?$('advView').options[1].value:$('advView').options[0].value;
     S.autoPose=true;save();toast('体の動きを測った');
   }catch(e){
-    s.diag='骨格推定を使えなかった ('+(e&&e.message||e)+')。GitHub Pages 版で開いているか確認してください。';
+    s.diag='骨格推定を使えなかった ('+(e&&e.message||e)+')。電波の良い所で開き直すか、GitHub Pages 版で試してください。';
   }finally{if(s.busy===job)s.busy=null;showBusy(s,'');if(s.url===url){renderVideoUI();draw(s)}}
 }
 // あるフェーズの時刻に一番近いコマの関節 (無ければ null)
@@ -1018,6 +1045,18 @@ function drawPose(s,x,W,H,dpr){
 }
 
 /* ---------- 描画 ---------- */
+// 動画を左右になぞるとコマ送り (8px で 1コマ)。線などのツールを選んでいる時は描く方を優先する
+function bindSwipe(s){
+  let x0=null,t0=0,n0=0,moved=false;
+  s.st.addEventListener('pointerdown',e=>{if(tool!=='none'||!loaded(s)||s.busy||e.target.closest('button,label'))return;x0=e.clientX;t0=s.v.currentTime;n0=0;moved=false});
+  s.st.addEventListener('pointermove',e=>{
+    if(x0==null)return;const dx=e.clientX-x0;if(!moved&&Math.abs(dx)<8)return;
+    if(!moved){moved=true;try{s.st.setPointerCapture(e.pointerId)}catch(_){}if(act!==s.id)setAct(s.id)}
+    const n=Math.round(dx/8);if(n!==n0){n0=n;seekManual(s,t0+n*s.frame)}});
+  const end=()=>{x0=null};s.st.addEventListener('pointerup',end);s.st.addEventListener('pointercancel',end);
+  // なぞった後のタップ扱い (比較中の枠の切り替え) を止める
+  s.st.addEventListener('click',e=>{if(moved){e.stopPropagation();moved=false}},true);
+}
 function bindDraw(s){
   const pt=e=>{const r=s.c.getBoundingClientRect();return [Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))]};
   let down=false;
@@ -1073,7 +1112,7 @@ function renderMeas(){
   $('measCard').hidden=!items.length;$('measList').innerHTML=items.map(t=>`<li class="num">${esc(t)}</li>`).join('');
 }
 document.querySelectorAll('.tools [data-tool]').forEach(b=>b.addEventListener('click',()=>{
-  tool=b.dataset.tool;
+  tool=b.dataset.tool;$('toolHint').hidden=tool==='none';
   document.querySelectorAll('.tools [data-tool]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   [slots.A,slots.B].forEach(s=>{s.st.classList.toggle('draw',tool!=='none');if(s.draft&&s.draft.t!==tool){s.draft=null;draw(s)}});
 }));
@@ -1092,12 +1131,13 @@ $('saveSwing').addEventListener('click',()=>{
     meas:s.shapes.map(sh=>measText(s,sh,sh.t==='line'?++li:sh.t==='ang'?++ai:0)).filter(Boolean),thumb,
     marks:{...s.marks},autoMarks:s.auto?{...s.auto}:null,shapes:s.shapes.map(x=>({t:x.t,p:x.p.map(q=>[q[0],q[1]])})),video:false,advice:lastAdvice||undefined,
     pose:s.pose&&s.pose.metrics?{metrics:s.pose.metrics,viewAuto:s.pose.viewAuto,keys:['start','top','impact','finish'].filter(k=>s.marks[k]!=null&&poseAt(s,s.marks[k])).map(k=>({t:s.marks[k],lm:poseAt(s,s.marks[k])}))}:undefined,
-    curve:s.curve?s.curve.map(c=>[+c.t0.toFixed(4),+c.t1.toFixed(4),+c.e.toFixed(1)]):undefined};
+    curve:s.curve?s.curve.map(c=>[+c.t0.toFixed(4),+c.t1.toFixed(4),+c.e.toFixed(1)]):undefined,ball:readBall($('svBall'))};
   CK.forEach(k=>{if(!(S.calib||[]).some(x=>x.vid===s.vid&&x.k===k))logCalib(s,k,'ok')});
   const ex=S.exps.find(x=>x.id===$('svExp').value&&isSwing(x));
   if(ex){rec.exp=ex.id;rec.cond=svCond||planned(ex);svCond=null}
   S.swings.push(rec);
   if(!save()){S.swings.pop();return}
+  fillBall($('svBall'),null);
   if(!$('svVideo').checked||!s.file){toast(rec.exp?`保存して実験に ${rec.cond} として入れた`:'保存しました (記録タブ)');renderSvExp();return}
   const size=s.file.size;toast(`動画 (${mb(size)}) を保存中…`);
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
@@ -1184,6 +1224,13 @@ $('advGo').addEventListener('click',async()=>{
   }finally{advCtl=null;$('advStop').hidden=true;go.disabled=false}
 });
 
+/* ---------- ボールの結果 (スイングごとに手で入れる) ---------- */
+// [名前, 単位, 意味のある差の初期値]
+const BALL={carry:['キャリー','y',8],total:['トータル','y',8],bspd:['ボール初速','m/s',1.5],launch:['打ち出し角','°',1.5],spin:['バックスピン','rpm',300]};
+function fillBall(el,b){el.innerHTML=Object.keys(BALL).map(k=>`<label>${BALL[k][0]}<input data-ball="${k}" inputmode="decimal" class="num" autocomplete="off" placeholder="${BALL[k][1]}" value="${b&&b[k]!=null?b[k]:''}"></label>`).join('')}
+function readBall(el){const b={};el.querySelectorAll('[data-ball]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))b[i.dataset.ball]=v});return Object.keys(b).length?b:undefined}
+const ballText=b=>b?Object.keys(BALL).filter(k=>b[k]!=null).map(k=>BALL[k][0]+' '+b[k]+BALL[k][1]).join(' / '):'';
+
 /* ---------- スイングの計測で比べる実験 ---------- */
 // [名前, 単位, 意味のある差の初期値, 記録から値を取る関数]
 const pm=k=>r=>r.pose&&r.pose.metrics?r.pose.metrics[k]:undefined;
@@ -1192,6 +1239,7 @@ const SWM={ratio:['テンポ比',':1',0.3,r=>r.ratio],bs:['バックスイング
   spineChange:['体の軸の傾きの変化','°',3,pm('spineChange')],shTurn:['肩の回転 (推定)','°',8,pm('shTurn')],hipTurn:['腰の回転 (推定)','°',8,pm('hipTurn')],
   sway:['腰の横ずれ (→トップ)','%',2,pm('sway')],handH:['トップの手の高さ','%',3,pm('handH')],
   bendChange:['前傾の変化 (後方撮影)','°',3,pm('bendChange')],headFwd:['頭の前後 (後方撮影)','%',2,pm('headFwd')],hipFwd:['腰の前方移動 (後方撮影)','%',2,pm('hipFwd')]};
+Object.keys(BALL).forEach(k=>{SWM[k]=[BALL[k][0]+' (ボール)',BALL[k][1],BALL[k][2],r=>r.ball?r.ball[k]:undefined]});
 const isSwing=e=>!!e&&e.kind==='swing';
 function shotsOf(e){
   if(!isSwing(e))return e.shots;
@@ -1390,7 +1438,7 @@ function renderLog(){
     if(hi.length&&hi.length<all.length)return `<tr><td class="l">${esc(c)}<br><small class="hint">低fps ${all.length-hi.length}本は除外</small></td><td class="num">${a.length}</td><td class="num">${f2(mean(r))}</td><td class="num">${a.length>1?f2(sd(r)):'—'}</td><td class="num">${f2(mean(a.map(s=>s.bs)))}s</td><td class="num">${f2(mean(a.map(s=>s.ds)))}s</td></tr>`;
     if(!hi.length)return `<tr><td class="l">${esc(c)}<br><small class="hint">全部低fps (参考値)</small></td><td class="num">${a.length}</td><td class="num">${f2(mean(r))}</td><td class="num">${a.length>1?f2(sd(r)):'—'}</td><td class="num">${f2(mean(a.map(s=>s.bs)))}s</td><td class="num">${f2(mean(a.map(s=>s.ds)))}s</td></tr>`;
     return `<tr><td class="l">${esc(c)}</td><td class="num">${a.length}</td><td class="num">${f2(mean(r))}</td><td class="num">${a.length>1?f2(sd(r)):'—'}</td><td class="num">${f2(mean(a.map(s=>s.bs)))}s</td><td class="num">${f2(mean(a.map(s=>s.ds)))}s</td></tr>`}).join('');
-  renderTrend(sw);
+  renderTrend(sw);renderCorr();
   const nv=sw.filter(x=>x.video).length,u=$('vidUsage');u.textContent=nv?`保存した動画 ${nv}本 (${mb(sw.reduce((a,x)=>a+(x.video&&x.vsize||0),0))})`:'';
   try{navigator.storage.estimate().then(q=>{if(nv&&q&&q.quota)u.textContent+=` ／ 保存できる上限の目安 ${mb(q.quota)}`})}catch(_){}
   $('recs').innerHTML=[...sw].reverse().map(s=>{const d=new Date(s.date);
@@ -1399,6 +1447,7 @@ function renderLog(){
       <div class="s num">${d.getMonth()+1}/${d.getDate()} ${esc(s.club)} ・ テンポ ${f1(s.ratio)}:1 (${f1(s.lo)}〜${f1(s.hi)}) ・ BS ${f2(s.bs)}s / DS ${f2(s.ds)}s${s.fps?` ・ ${s.fps}fps`:''}${s.slow>1?` ×${s.slow}スロー`:''}${reliable(s)?'':' ・ <span class="warn">低fps (テンポは参考値)</span>'}</div>
       ${s.exp&&S.exps.some(x=>x.id===s.exp)?`<div class="s">実験「${esc(S.exps.find(x=>x.id===s.exp).name)}」の ${s.cond}</div>`:''}
       ${s.meas&&s.meas.length?`<div class="s">${s.meas.map(esc).join(' / ')}</div>`:''}
+      <details class="s ballEd" data-rid="${s.id}"><summary>${s.ball?esc(ballText(s.ball)):'ボールの数字を入れる'}</summary><div class="grid3"></div><button type="button" class="ghost" data-ballsave="${s.id}">保存</button></details>
       ${s.advice?`<details class="s" style="margin-top:4px"><summary>Claude のアドバイス</summary><div class="adv" style="margin-top:6px">${advFmt(s.advice)}</div></details>`:''}
       <div class="ropen">${s.video?`<button type="button" class="ghost" data-open="${s.id}" data-slot="A">Aで開く</button><button type="button" class="ghost" data-open="${s.id}" data-slot="B">Bで開く</button><span class="s">${s.vsize?mb(s.vsize):''}</span>`
         :s.marks?`<button type="button" class="ghost" data-pick="${s.id}" data-slot="A">動画を選んで開く</button><span class="s">動画は未保存</span>`:'<span class="s">動画は保存していない記録</span>'}</div></div>
@@ -1416,11 +1465,67 @@ function renderTrend(sw){
   sw.forEach((s,i)=>{g+=`<circle cx="${X(i)}" cy="${Y(s.ratio)}" r="3.5" fill="var(--turf)"/>`});
   el.innerHTML=g+`</svg><p class="note" style="margin-top:4px">テンポ比の推移 (古い→新しい)。薄い縦棒 = ±1コマずれた場合の幅。この幅より小さい変化は計測誤差。</p>`;
 }
+// スイングの数字 (横) とボールの数字 (縦) の散布図。ピアソンの相関と回帰直線
+const SWX=Object.keys(SWM).filter(k=>!BALL[k]);
+function corrPairs(){
+  const C=S.corr||(S.corr={}),sw=S.swings.filter(r=>r.ball);
+  const clubs=[...new Set(sw.map(r=>r.club))];
+  if(!C.club||(C.club!=='*'&&!clubs.includes(C.club))){const cnt=c=>sw.filter(r=>r.club===c).length;C.club=clubs.sort((a,b)=>cnt(b)-cnt(a))[0]||'*'}
+  const pool=sw.filter(r=>C.club==='*'||r.club===C.club);
+  const xs=SWX.filter(k=>pool.some(r=>Number.isFinite(SWM[k][3](r))));
+  if(!xs.includes(C.x))C.x=xs.includes('bendChange')?'bendChange':xs[0];
+  if(!BALL[C.y])C.y='carry';
+  const pts=C.x?pool.map(r=>({x:SWM[C.x][3](r),y:r.ball[C.y],r})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)):[];
+  return {C,clubs,xs,pts};
+}
+function corrStats(pts){
+  const n=pts.length,x=pts.map(p=>p.x),y=pts.map(p=>p.y),c=corr(x,y);if(!c)return null;
+  const b=c.r*sd(y)/sd(x);return {...c,n,b,a:mean(y)-b*mean(x)};
+}
+// r の関係を 80% の確率で見つけるのに必要な本数 (Fisher の z 変換、両側 5%)
+const needR=r=>Math.ceil(((1.96+0.8416)/Math.atanh(r))**2+3);
+function renderCorr(){
+  const card=$('corrCard'),{C,clubs,xs,pts}=corrPairs();
+  if(!S.swings.some(r=>r.ball)){card.hidden=false;$('corrX').parentNode.parentNode.hidden=true;$('corrChart').hidden=true;
+    $('corrNote').innerHTML='<p class="note">動画タブで保存する時に「ボールの結果」(キャリーなど) を入れると、ここにスイングの数字との散布図と相関が出る。後からでも、下の記録の「ボールの数字を入れる」から入れられる。</p>';return}
+  $('corrX').parentNode.parentNode.hidden=false;
+  $('corrX').innerHTML=xs.length?xs.map(k=>`<option value="${k}"${k===C.x?' selected':''}>${SWM[k][0]}</option>`).join(''):'<option>—</option>';
+  $('corrY').innerHTML=Object.keys(BALL).map(k=>`<option value="${k}"${k===C.y?' selected':''}>${BALL[k][0]}</option>`).join('');
+  $('corrClub').innerHTML=clubs.map(c=>`<option${c===C.club?' selected':''}>${esc(c)}</option>`).join('')+`<option value="*"${C.club==='*'?' selected':''}>すべて</option>`;
+  const el=$('corrChart'),V=[],X=C.x&&SWM[C.x],Y=BALL[C.y],st=pts.length>=3?corrStats(pts):null;
+  if(pts.length<2){el.hidden=true}
+  else{el.hidden=false;
+    const W=340,H=220,L=40,R=10,T=10,B=28,xv=pts.map(p=>p.x),yv=pts.map(p=>p.y);
+    const pad=(a,b)=>(b-a)*0.1||1,x0=Math.min(...xv)-pad(Math.min(...xv),Math.max(...xv)),x1=Math.max(...xv)+pad(Math.min(...xv),Math.max(...xv)),y0=Math.min(...yv)-pad(Math.min(...yv),Math.max(...yv)),y1=Math.max(...yv)+pad(Math.min(...yv),Math.max(...yv));
+    const px=v=>L+(v-x0)/(x1-x0)*(W-L-R),py=v=>T+(y1-v)/(y1-y0)*(H-T-B);
+    const ticks=(a,b,n)=>{const s0=Math.pow(10,Math.floor(Math.log10((b-a)/n))),m=[1,2,5,10].find(q=>(b-a)/(s0*q)<=n)*s0,o=[];for(let v=Math.ceil(a/m)*m;v<=b;v+=m)o.push(+v.toFixed(6));return o};
+    let g=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(X[0])}と${esc(Y[0])}の散布図">`;
+    ticks(y0,y1,5).forEach(v=>{g+=`<line x1="${L}" x2="${W-R}" y1="${py(v)}" y2="${py(v)}" stroke="var(--line)"/><text x="${L-4}" y="${py(v)+3}" text-anchor="end">${v}</text>`});
+    ticks(x0,x1,5).forEach(v=>{g+=`<line x1="${px(v)}" x2="${px(v)}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-dasharray="2 3"/><text x="${px(v)}" y="${H-B+13}" text-anchor="middle">${v}</text>`});
+    if(st&&pts.length>=5)g+=`<line x1="${px(x0)}" y1="${py(st.a+st.b*x0)}" x2="${px(x1)}" y2="${py(st.a+st.b*x1)}" stroke="var(--warn)" stroke-width="2" stroke-dasharray="5 4"/>`;
+    pts.forEach(p=>{g+=`<circle cx="${px(p.x)}" cy="${py(p.y)}" r="4.5" fill="var(--turf)" fill-opacity=".75"/>`});
+    el.innerHTML=g+`</svg><p class="note" style="margin-top:4px">横 = ${esc(X[0])} (${esc(X[1])}) ／ 縦 = ${esc(Y[0])} (${esc(Y[1])}) ／ 1点 = 1スイング${pts.length>=5?' ／ 点線 = 回帰直線':''}</p>`}
+  if(!pts.length)V.push(`<p class="note">この組み合わせで両方の数字がそろったスイングがまだない。${X?'':'骨格推定やテンポを測ったスイングにボールの数字を入れてください。'}</p>`);
+  else if(!st)V.push(`<p class="note">${pts.length}本。${pts.length<3?'3本以上で相関を出す。':'どちらかの数字が全部同じなので、相関を出せない。'}</p>`);
+  else{
+    const per=`${esc(X[0])}が 1${esc(X[1])} 増えると、${esc(Y[0])}は平均 ${st.b>0?'+':''}${f1(st.b)}${esc(Y[1])}`;
+    if(st.n<8)V.push(`<p><b>まだ判断できない (${st.n}本)。</b>r=${f2(st.r)} は傾向の目安だけ。8本以上、できれば20本。</p>`);
+    else if(st.p<0.05)V.push(`<p><b class="${st.b>0?'pos':'neg'}">関係あり (r=${f2(st.r)}, ${pTxt(st.p)}, ${st.n}本)。</b>${per}。</p>`);
+    else{const nr=needR(0.5);V.push(`<p><b>はっきりした関係は見えない (r=${f2(st.r)}, ${pTxt(st.p)}, ${st.n}本)。</b>${per} (偶然の範囲)。r=0.5 くらいの関係を 80% の確率で見つけるには約${nr}本${nr>st.n?` (あと約${nr-st.n}本)`:''}。</p>`)}
+    V.push(`<p class="note">相関は原因とは限らない (ミスした球は打点も起き上がりも同時に悪い、など)。横の数字を何個も切り替えて「関係あり」を探すと偶然の相関が必ず見つかるので、打つ前に決めた組み合わせを主に見ること。確かめるには、実験タブで条件を変えて A/B 比較する。</p>`);
+  }
+  if(C.club==='*'&&clubs.length>1)V.push('<p class="warn">⚠ クラブが混ざっている。クラブの違いだけで飛距離が変わるので、1本に絞って見ること。</p>');
+  $('corrNote').innerHTML=V.join('');
+}
+['corrX','corrY','corrClub'].forEach(id=>$(id).addEventListener('change',e=>{const C=S.corr||(S.corr={});C[{corrX:'x',corrY:'y',corrClub:'club'}[id]]=e.target.value;save();renderCorr()}));
 function toVideoTab(id){
   if(id==='B'&&!cmpOn()){$('cmp').checked=true;$('cmp').dispatchEvent(new Event('change'))}
   document.querySelector('nav.tabs [data-tab="video"]').click();
 }
+$('recs').addEventListener('toggle',e=>{const d=e.target;if(d.classList&&d.classList.contains('ballEd')&&d.open){const r=S.swings.find(x=>x.id===d.dataset.rid);fillBall(d.querySelector('.grid3'),r&&r.ball)}},true);
 $('recs').addEventListener('click',e=>{
+  const bs=e.target.closest('button[data-ballsave]');
+  if(bs){const r=S.swings.find(x=>x.id===bs.dataset.ballsave);if(!r)return;r.ball=readBall(bs.closest('details').querySelector('.grid3'));save();renderLog();toast('ボールの数字を保存した');return}
   const o=e.target.closest('button[data-open]');
   if(o){const rec=S.swings.find(x=>x.id===o.dataset.open),id=o.dataset.slot;if(!rec)return;
     o.textContent='読み込み中…';
@@ -1511,13 +1616,16 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v15 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v18 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
       L.push(`- ${c}: n=${a.length} テンポ比 平均${f2(mean(r))} SD${a.length>1?f2(sd(r)):'—'} / BS平均${f2(mean(a.map(s=>s.bs)))}s DS平均${f2(mean(a.map(s=>s.ds)))}s`)});
     L.push('','直近 (古→新): 日付 | クラブ | メモ | テンポ比 [±1コマ幅] | BS | DS | fps | 計測');
-    sw.slice(-15).forEach(s=>{const d=new Date(s.date);L.push(`- ${d.getMonth()+1}/${d.getDate()} | ${s.club} | ${s.label||'-'} | ${f2(s.ratio)} [${f1(s.lo)}-${f1(s.hi)}] | ${f3(s.bs)}s | ${f3(s.ds)}s | ${s.fps||'?'}${s.slow>1?'×'+s.slow+'スロー':''} | ${(s.meas||[]).join(', ')||'-'}`)});
+    sw.slice(-15).forEach(s=>{const d=new Date(s.date);L.push(`- ${d.getMonth()+1}/${d.getDate()} | ${s.club} | ${s.label||'-'} | ${f2(s.ratio)} [${f1(s.lo)}-${f1(s.hi)}] | ${f3(s.bs)}s | ${f3(s.ds)}s | ${s.fps||'?'}${s.slow>1?'×'+s.slow+'スロー':''} | ${(s.meas||[]).join(', ')||'-'}${s.ball?' | ボール: '+ballText(s.ball):''}`)});
+    const {C,pts}=corrPairs(),cs=pts.length>=3?corrStats(pts):null;
+    if(pts.length){L.push('',`## スイングとボールの関係 (${C.club==='*'?'全クラブ':C.club}): ${SWM[C.x][0]} × ${BALL[C.y][0]}`,cs?`n=${cs.n} r=${f2(cs.r)} ${pTxt(cs.p)} 傾き ${f2(cs.b)}${BALL[C.y][1]}/${SWM[C.x][1]}`:`n=${pts.length}`,
+      '各スイング (横,縦): '+pts.map(p=>`${f1(p.x)},${p.y}`).join(' / '))}
     L.push('');
   }
   const e=curExp();
@@ -1546,8 +1654,8 @@ $('bkRestore').addEventListener('click',e=>{const b=e.currentTarget,m=$('bkMsg')
 // テスト用の入口 (tests/ から使う)
 $('poseGo').addEventListener('click',()=>runPose(cur()));
 $('showSkel').addEventListener('change',()=>{draw(slots.A);draw(slots.B)});
-nKindSync();renderSvExp();
-window.SwingLab={WEBKIT,slots,S,shotsOf,zipBlob,unzipBlob,detect,welch,tcdf,tinv,vdb,calibStats,poseMetrics};
+fillBall($('svBall'),null);nKindSync();renderSvExp();
+window.SwingLab={corrPairs,corrStats,renderCorr,slots,S,shotsOf,zipBlob,unzipBlob,detect,welch,tcdf,tinv,vdb,calibStats,poseMetrics};
 renderVideoUI();layout();
 })();
 </script>
