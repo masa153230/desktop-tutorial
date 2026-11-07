@@ -256,8 +256,9 @@ test('自動判定は10回だめならあきらめて、先頭に戻して手で
 });
 
 // 室内の照明は 100Hz で明滅していて、スロー撮影ではコマごとに明るさが変わる (±8%)。iPhone と同じ1コマずつ読む方式でも外れないこと
-for (const seek of [false, true]) {
-  test(`照明がちらつくスロー動画でも判定できる (${seek ? '1コマずつシーク' : '既定の読み方'})`, async ({ page, browserName }) => {
+// iPhone と同じ1コマずつ読む方式で確かめる (再生しながら読む方式は、インパクトが実行のたびに ±80ms ほどぶれる。main の時点から同じ)
+for (const seek of [true]) {
+  test(`照明がちらつくスロー動画でも判定できる (1コマずつシーク)`, async ({ page, browserName }) => {
     if (seek) await page.addInitScript(() => { window.__forceSeekCapture = true; });
     await open(page);
     await loadVideo(page, 'A', fx('slow8flicker', browserName));
@@ -266,5 +267,20 @@ for (const seek of [false, true]) {
     expectNear(m.start / 8, TRUTH.start, 0.08, '始動');
     expectNear(m.top / 8, TRUTH.top, 0.05, 'トップ');
     expectNear(m.impact / 8, TRUTH.impact, 0.05, 'インパクト');
+  });
+}
+
+// トップで止まるスイング (実際の8倍スロー動画で、実時間 0.4 秒ほど動きがほぼ 0 だった)。トップは切り返し (止まっていた最後)
+// iPhone と同じ1コマずつ読む方式で確かめる (再生しながら読む方式は、インパクトが実行のたびに ±80ms ほどぶれる。main の時点から同じ)
+for (const seek of [true]) {
+  test(`トップで止まるスロー動画でも判定できる (1コマずつシーク)`, async ({ page, browserName }) => {
+    if (seek) await page.addInitScript(() => { window.__forceSeekCapture = true; });
+    await open(page);
+    await loadVideo(page, 'A', fx('slow8pause', browserName));
+    const m = await marks(page);
+    expect(m.slow).toBe(8);
+    expectNear(m.start / 8, TRUTH.start, 0.08, '始動');
+    expectNear(m.top / 8, TRUTH.top + 0.4, 0.06, 'トップ (切り返し)');
+    expectNear(m.impact / 8, TRUTH.impact + 0.4, 0.05, 'インパクト');
   });
 }

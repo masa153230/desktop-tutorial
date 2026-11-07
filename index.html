@@ -177,7 +177,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v20</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v21</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -602,15 +602,24 @@ async function capture(s,job,from,to,rate,onp,mode){
   if(window.__failReads>0){window.__failReads--;return []}  // テスト用: 読み取りの失敗を再現する
   const v=s.v,w=64,h=Math.max(8,Math.round(w*v.videoHeight/v.videoWidth));
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d',{willReadFrequently:true});
-  const out=[];let prev=null,pt=0;
+  const fr=[];let method;  // 読んだコマ {t, g (64px 幅の白黒)}
   const grab=t=>{
     cx.drawImage(v,0,0,w,h);const d=cx.getImageData(0,0,w,h).data,g=new Uint8Array(w*h);
     for(let i=0;i<g.length;i++)g[i]=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114;
-    if(prev&&t<=pt+1e-4)return;
-    if(prev)out.push({t0:pt,t1:t,e:gdiff(g,prev,w,h)/(t-pt)});
-    prev=g;pt=t;
+    if(fr.length&&t<=fr[fr.length-1].t+1e-4)return;
+    fr.push({t,g});
   };
-  await seekP(v,from);if(job.stop)return out;grab(v.currentTime);
+  // 動きの量 = L コマ前との差 ÷ 時間。スロー動画は1コマあたりの動きが小さく、隣のコマとの差だとノイズの下に埋もれる
+  // (8倍スローの実際の動画で、トップ手前のゆっくりした腕の動きが 0 になり、谷が長すぎてトップと見なせなかった)。
+  // 長い動画ほど L を大きくして、動画の長さの 1/130 くらいの間隔で比べる。短い動画と、トップ付近の詰め直しは隣のコマのまま
+  const motion=()=>{
+    const out=[];out.method=method;if(fr.length<2)return out;
+    const gaps=fr.slice(1).map((x,i)=>x.t-fr[i].t).sort((a,b)=>a-b),L=Math.max(1,Math.round((to-from)/130/gaps[gaps.length>>1]));
+    for(let i=L;i<fr.length;i++){const a=fr[i-L],b=fr[i],m=(a.t+b.t)/2,hw=(b.t-fr[i-1].t)/2;
+      out.push({t0:m-hw,t1:m+hw,e:gdiff(b.g,a.g,w,h)/(b.t-a.t)})}
+    out.lag=L;return out;
+  };
+  await seekP(v,from);if(job.stop)return motion();grab(v.currentTime);
   // 速いのは再生しながら取り込む方法。WebKit や、iPhone の低電力モードなどで再生できない時は、1コマずつシークして取り込む
   if('requestVideoFrameCallback' in v&&mode!=='seek'&&!WEBKIT){
     await new Promise(res=>{let done=false,tick=Date.now();const fin=()=>{if(done)return;done=true;clearInterval(iv);v.pause();res()};
@@ -621,15 +630,16 @@ async function capture(s,job,from,to,rate,onp,mode){
       try{v.playbackRate=rate}catch(_){}
       v.play().catch(fin);
     });
-    out.method='再生';
+    method='再生';
     if(job.err)throw job.err;
   }
-  const last=out.length?out[out.length-1].t1:from;
+  const last=fr.length?fr[fr.length-1].t:from;
   if(!job.stop&&last<to-Math.max(0.3,(to-from)*0.1)){
-    const st=Math.max(s.seen?s.frame:1/60,Math.min((to-from)/300,0.05));out.method=out.length?'再生+シーク':'シーク';
+    // 1コマずつのシークは iPhone では遅いので、長い動画 (スロー動画) は 250 枚までにする (8倍スローなら実時間 10ms 刻み)
+    const st=Math.max(s.seen?s.frame:1/60,Math.min((to-from)/300,0.05),(to-from)/250);method=fr.length>1?'再生+シーク':'シーク';
     for(let t=last+st;t<=to+1e-6&&!job.stop;t+=st){const mt=await seekFrame(v,t);grab(mt!=null?mt:(v.currentTime||t));onp&&onp((t-from)/(to-from))}
   }
-  return out;
+  return motion();
 }
 // 前のコマとの差。室内の照明 (LED・蛍光灯) は 100/120Hz で明滅していて、スロー撮影ではコマごとに明るさが変わる。
 // iPhone はローリングシャッターなので、それが縞にもなる。明るさの比を合わせてから、行ごと・列ごとの差の中央値を引いて消す
@@ -671,12 +681,29 @@ function detect(c){
       let j=l-1,g=0;while(j>0){if(e[j-1]<half){if(++g>2)break}else g=0;j--}
       const q=e[m]+0.25*(ref-e[m]);let l2=m,r2=m;while(l2>0&&e[l2-1]<q)l2--;while(r2<n-1&&e[r2+1]<q)r2++;
       if(tm(r2)-tm(l2)>0.5*(tm(l)-tm(Math.min(l,j+g))))continue;
+      // 前後の動きが小さすぎる谷は、止まっている間のノイズの揺れ (トップで長く止まる時に、その途中を拾ってしまう)
+      if(ref<0.03*gmax)continue;
       cands.push({m,k,ref,before,sc:(ref-e[m])/ref*after*Math.sqrt(Math.min(3,after/Math.max(before,1e-9)))});
     }});
-  if(!cands.length)return null;
-  const topRef=Math.max(...cands.map(x=>x.ref));
-  const ok=cands.filter(x=>x.ref>=0.25*topRef),hi=Math.max(...ok.map(x=>x.sc));
-  const best=ok.filter(x=>x.sc>=0.85*hi).sort((a,b)=>a.m-b.m||b.sc-a.sc)[0];
+  const pick=cs=>{const topRef=Math.max(...cs.map(x=>x.ref));
+    const ok=cs.filter(x=>x.ref>=0.25*topRef),hi=Math.max(...ok.map(x=>x.sc));
+    return ok.filter(x=>x.sc>=0.85*hi).sort((a,b)=>a.m-b.m||b.sc-a.sc)[0]};
+  // トップで長く止まるスイング (8倍スローの実際の動画で、実時間 0.4 秒ほど動きがほぼ 0 だった) は、谷が長すぎて上では見つからないか、
+  // フォローの途中の谷を拾う。一番大きい山から遡って、動きがほぼ止まる所 (切り返し) をトップにする
+  const pause=()=>{
+    let P=0;for(let i=1;i<n;i++)if(e[i]>e[P])P=i;
+    let T=P;while(T>0&&e[T]>0.02*e[P])T--;
+    let j=T;while(j>0&&e[j]<=0.1*e[P])j--;  // j = 止まる前 (バックスイングの終わり)
+    let bpk=0;for(let i=0;i<=j;i++)bpk=Math.max(bpk,e[i]);
+    if(T<3||j<1||bpk<0.15*e[P])return null;  // 止まる前にバックスイングらしい動きがない
+    // 窓の倍率 (スロー倍率の目安) は、ダウンスイングの長さから決める (実時間 0.3 秒前後で、人による差が小さい)
+    const ds=tm(P)-tm(T),k=[1,2,4,8].reduce((a,b)=>Math.abs(Math.log(ds/0.3/b))<Math.abs(Math.log(ds/0.3/a))?b:a);
+    // 始動: バックスイングの終わりから、動きがバックスイングの山の 1割を切るところまで遡る
+    let i=j,g=0;for(;i>0;i--){if(e[i-1]<0.1*bpk){if(++g>2)break}else g=0}
+    return solve({m:T,k,before:avg(0,j)},Math.min(j,i+g));
+  };
+  // トップの谷 (と、決まっていれば始動) から、始動・インパクト・フィニッシュを決める
+  const solve=(best,S)=>{
   const T=best.m;
   // 静止のレベル: トップより前で一番静かな 0.15秒×k の区間
   const qw=0.15*best.k;let still=Infinity;
@@ -684,10 +711,12 @@ function detect(c){
   if(!Number.isFinite(still))still=0;
   const thr=still+0.3*(best.before-still);
   // 始動: トップの谷を抜けてから、動きが静止レベル近くまで落ちるところまで遡る
-  let i=T-1;while(i>0&&e[i]<thr)i--;
-  let gapN=0;
-  for(;i>0;i--){if(e[i-1]<thr){gapN++;if(gapN>2)break}else gapN=0}
-  const S=Math.min(T-1,i+gapN);
+  if(S==null){
+    let i=T-1;while(i>0&&e[i]<thr)i--;
+    let gapN=0;
+    for(;i>0;i--){if(e[i-1]<thr){gapN++;if(gapN>2)break}else gapN=0}
+    S=Math.min(T-1,i+gapN);
+  }
   if(!(tm(T)-c[S].t0>0))return null;
   // インパクト: トップから「バックスイングの長さ×0.6」以内の山。山の上側 (最大の8割以上) の重心を取る
   const bs=c[T].t1-c[S].t0,ie=idxAt(c[T].t1+0.6*bs,T,1);
@@ -699,9 +728,20 @@ function detect(c){
   if(!(sw>0))return null;
   const impact=st/sw,I=idxAt(impact,T,1);
   // フィニッシュ: インパクトの後で動きが静止レベル近くに落ち着いたところ (無ければなし)
-  let F=null;const fthr=still+0.15*(mx-still);
-  for(let j=I+1;j<n;j++){if(e[j]>=fthr)continue;let q=j;while(q<n-1&&e[q+1]<fthr)q++;if(q===n-1||c[q].t1-c[j].t0>=0.1*best.k){F=j;break}j=q}
+  // インパクト直後の一瞬の静かな間 (正面撮影で、腕が振り抜ける前) で止まらないよう、十分静かな状態が少し続く所にする
+  let F=null;const fthr=still+0.08*(mx-still);
+  for(let j=I+1;j<n;j++){if(e[j]>=fthr)continue;let q=j;while(q<n-1&&e[q+1]<fthr)q++;if(q===n-1||c[q].t1-c[j].t0>=0.2*best.k){F=j;break}j=q}
   return {start:c[S].t0,top:c[T].t1,impact,finish:F!=null?c[F].t0:null,k:best.k};
+  };
+  // テンポ比 (バックスイング ÷ ダウンスイング) が人のスイングとしてありえる範囲 (ツアー平均 3、アマチュアで 2〜5 くらい) か
+  const tempoOk=r=>{const b=r.top-r.start,d=r.impact-r.top;return d>0&&b/d>=1.5&&b/d<=6};
+  // 始動からインパクトまでの動きの総量。構える前のワッグルも小さなスイングに見えるが、本物のスイングの方がずっと大きい
+  const work=r=>c.reduce((a,x,i)=>a+(tm(i)>=r.start&&tm(i)<=r.impact?e[i]*(x.t1-x.t0):0),0);
+  let r=cands.length?solve(pick(cands),null):null;
+  const r2=pause();
+  if(r2&&tempoOk(r2)&&(!r||!tempoOk(r)||work(r2)>2*work(r)))r=r2;
+  else if(!r)r=r2;
+  return r;
 }
 function showBusy(s,t){const b=s.st.querySelector('.busy');b.hidden=!t;if(t)b.firstChild.textContent=t}
 [slots.A,slots.B].forEach(s=>s.st.querySelector('.busy button').addEventListener('click',e=>{e.stopPropagation();if(s.busy)s.busy.stop=true}));
@@ -720,8 +760,8 @@ async function autoDetect(s){
       if(n>1){await new Promise(res=>setTimeout(res,300));if(!alive())return}
       try{
         if(WEBKIT&&!s.seen){await probeFps(s);if(!alive())return}
-        // 2回目からは1コマずつシークして読む (再生しながらだと取りこぼすことがある)
-        c1=await capture(s,job,0,D,Math.min(4,Math.max(1,D/8)),pr(0,80),n>1?'seek':undefined);
+        // 2回目からは1コマずつシークして読む (再生しながらだと取りこぼすことがある)。再生は2倍速まで (速すぎると、パソコンが忙しい時にコマを大量に取りこぼす)
+        c1=await capture(s,job,0,D,Math.min(2,Math.max(1,D/8)),pr(0,80),n>1?'seek':undefined);
         if(!alive())return;
         // 再生しながら取り込んだ分で判定できなければ、1コマずつシークして取り込み直す
         if(c1.method==='再生'&&!detect(c1)){showBusy(s,'もう一度、1コマずつ読み直しています…');c1=await capture(s,job,0,D,1,pr(0,80),'seek');if(!alive())return}
@@ -1645,7 +1685,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v20 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v21 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
