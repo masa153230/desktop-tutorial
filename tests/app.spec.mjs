@@ -232,3 +232,25 @@ test('ボールの数字を入れて保存し、スイングの数字との散�
   await rec.locator('button[data-ballsave]').click();
   expect(await page.evaluate(() => window.SwingLab.S.swings.find((r) => r.id === 'c0').ball.carry)).toBe(250);
 });
+
+test('自動判定は読み取りに失敗しても繰り返し、読めたら判定する', async ({ page, browserName }) => {
+  await open(page);
+  await page.evaluate(() => { window.__failReads = 3; });
+  await loadVideo(page, 'A', fx('swing60', browserName));
+  const m = await marks(page);
+  expectNear(m.top, TRUTH.top, 0.05, 'トップ');
+  expectNear(m.impact, TRUTH.impact, 0.05, 'インパクト');
+  expect(await page.evaluate(() => window.__failReads)).toBe(0);
+});
+
+test('自動判定は10回だめならあきらめて、先頭に戻して手で付けられるようにする', async ({ page, browserName }) => {
+  await open(page);
+  await page.evaluate(() => { window.__failReads = 99; });
+  await page.setInputFiles('#fileA', fx('swing60', browserName));
+  await page.waitForFunction(() => window.SwingLab.slots.A.v.videoWidth > 0);
+  await page.waitForFunction(() => !window.SwingLab.slots.A.busy && document.getElementById('diag').textContent, null, { timeout: 60_000 });
+  await expect(page.locator('#diag')).toContainText('10回試したが');
+  expect(await page.evaluate(() => 99 - window.__failReads)).toBe(10);
+  expect(await page.evaluate(() => window.SwingLab.slots.A.v.currentTime)).toBeLessThan(0.05);
+  expect(await page.evaluate(() => window.SwingLab.slots.A.marks.impact)).toBeUndefined();
+});

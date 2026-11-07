@@ -177,7 +177,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v18</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v19</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -599,6 +599,7 @@ async function probeFps(s){
   if(d.length){const mn=Math.min(...d),near=d.filter(x=>x<=mn*1.5);s.frame=near.reduce((a,b)=>a+b,0)/near.length;s.seen=true}
 }
 async function capture(s,job,from,to,rate,onp,mode){
+  if(window.__failReads>0){window.__failReads--;return []}  // テスト用: 読み取りの失敗を再現する
   const v=s.v,w=64,h=Math.max(8,Math.round(w*v.videoHeight/v.videoWidth));
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d',{willReadFrequently:true});
   const out=[];let prev=null,pt=0;
@@ -698,19 +699,36 @@ async function autoDetect(s){
   const job={stop:false},v=s.v,D=v.duration,url=s.url;s.busy=job;s.diag='';v.pause();
   const alive=()=>!job.stop&&s.url===url;
   try{
-    const pr=(a,b)=>p=>showBusy(s,`スイングを解析中… ${Math.round(a+(b-a)*Math.min(1,Math.max(0,p)))}%`);
-    pr(0,80)(0);
-    if(WEBKIT&&!s.seen){await probeFps(s);if(!alive())return}
-    let c1=await capture(s,job,0,D,Math.min(4,Math.max(1,D/8)),pr(0,80));
-    if(!alive())return;
-    // 再生しながら取り込んだ分で判定できなければ、1コマずつシークして取り込み直す
-    if(c1.method==='再生'&&!detect(c1)){showBusy(s,'もう一度、1コマずつ読み直しています…');c1=await capture(s,job,0,D,1,pr(0,80),'seek');if(!alive())return}
-    s.curve=c1.map(({t0,t1,e})=>({t0,t1,e}));
-    const mx=Math.max(0,...c1.map(x=>x.e));
-    if(c1.length<8){s.diag=`動画のコマを${c1.length}枚しか読み取れなかった (${c1.method||'-'})。もう一度「自動判定」を押してみて。だめなら手で付けてください。`;return}
-    if(!(mx>0)){s.diag=`動画のコマが真っ黒か同じ画にしか見えなかった (${c1.length}枚)。一度「再生」してから「自動判定」を押してみて。`;return}
-    const r=detect(c1);
-    if(!r){s.diag=`スイングを見つけられなかった (${c1.length}コマ解析)。手持ちで画面全体が揺れている、または動きが小さすぎる。三脚などで固定して撮った動画で試すか、手で付けてください。`;return}
+    let tag='';
+    const pr=(a,b)=>p=>showBusy(s,`スイングを解析中…${tag} ${Math.round(a+(b-a)*Math.min(1,Math.max(0,p)))}%`);
+    // iPhone では1回目にコマを読み損ねることがある (読み込み直後の真っ黒なコマなど)。読み取りか判定に失敗したら、
+    // 最大10回まで読み直す。2回続けて同じコマが読めて、それでもスイングが見つからない時は、動画そのものの問題なのでやめる
+    const MAX=10,why=[];let c1=null,r=null,prev=null,n=0,same=false;
+    for(n=1;n<=MAX&&!r;n++){
+      tag=n>1?` (${n}/${MAX}回目)`:'';pr(0,80)(0);
+      if(n>1){await new Promise(res=>setTimeout(res,300));if(!alive())return}
+      try{
+        if(WEBKIT&&!s.seen){await probeFps(s);if(!alive())return}
+        // 2回目からは1コマずつシークして読む (再生しながらだと取りこぼすことがある)
+        c1=await capture(s,job,0,D,Math.min(4,Math.max(1,D/8)),pr(0,80),n>1?'seek':undefined);
+        if(!alive())return;
+        // 再生しながら取り込んだ分で判定できなければ、1コマずつシークして取り込み直す
+        if(c1.method==='再生'&&!detect(c1)){showBusy(s,'もう一度、1コマずつ読み直しています…');c1=await capture(s,job,0,D,1,pr(0,80),'seek');if(!alive())return}
+      }catch(err){if(err&&err.name==='SecurityError')throw err;why.push(`エラー ${err&&err.name||err}`);c1=null;continue}
+      const mx=Math.max(0,...c1.map(x=>x.e)),sum=c1.reduce((a,x)=>a+x.e,0);
+      if(c1.length<8)why.push(`コマが${c1.length}枚しか読めない`);
+      else if(!(mx>0))why.push(`コマが真っ黒か同じ画 (${c1.length}枚)`);
+      else if(!(r=detect(c1))){why.push(`スイングが見つからない (${c1.length}コマ)`);
+        if(prev&&prev.len===c1.length&&Math.abs(prev.sum-sum)<=0.01*sum){same=true;break}prev={len:c1.length,sum}}
+    }
+    tag='';
+    if(c1)s.curve=c1.map(({t0,t1,e})=>({t0,t1,e}));
+    if(!r){
+      const cnt={};why.forEach(w=>{const k=w.replace(/\s*\(.*\)$/,'');cnt[k]=(cnt[k]||0)+1});
+      s.diag=same?`スイングを見つけられなかった (${c1.length}コマ解析、${why.length}回読んで同じ結果)。手持ちで画面全体が揺れている、または動きが小さすぎる。三脚などで固定して撮った動画で試すか、手で付けてください。`
+        :`自動判定を${why.length}回試したが読み取れなかった (${Object.keys(cnt).map(k=>k+(cnt[k]>1?' ×'+cnt[k]:'')).join(' / ')})。動画の先頭に戻したので、コマ送りで手で付けてください。`;
+      v.pause();await seekP(v,0);return}
+    const retried=n>2?` (${n-1}回目で読み取れた)`:'';
     // 再生中にコマが飛んでいたら (高fps動画)、トップとインパクトの付近だけゆっくり再生して詰め直す
     const gaps=c1.map(x=>x.t1-x.t0).sort((a,b)=>a-b),gap=gaps[gaps.length>>1];
     if(s.seen&&gap>1.6*s.frame){
@@ -729,8 +747,8 @@ async function autoDetect(s){
     // 始動→インパクトが普通のスイング (実時間 0.7〜1.8秒くらい) より長すぎるなら、スロー動画とみなして倍率を推定する
     const len=r.impact-r.start;
     if(s.slow===1&&(len>2.2||r.k>1)&&len>1.6){const k=[2,4,8].reduce((a,b)=>Math.abs(Math.log(len/b/1.2))<Math.abs(Math.log(len/a/1.2))?b:a);
-      s.slow=k;s.autoSlow=true;if(!s.restore)toast(`スロー動画と判断して倍率を ${k}× にした。違ったら直してください`)}
-    else if(!s.restore)toast('始動・トップ・インパクトを自動で付けた。動画で確認してください');
+      s.slow=k;s.autoSlow=true;if(!s.restore)toast(`スロー動画と判断して倍率を ${k}× にした。違ったら直してください${retried}`)}
+    else if(!s.restore)toast('始動・トップ・インパクトを自動で付けた。動画で確認してください'+retried);
     // 手直しの記録から分かった癖 (平均のずれ) で補正する
     const off=calibOffsets();
     if(off.any){['start','top','impact'].forEach(k=>{if(off[k])s.marks[k]=Math.max(0,Math.min(D,s.marks[k]+off[k]*s.slow))});s.auto={...s.marks}}
@@ -1616,7 +1634,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v18 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v19 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
