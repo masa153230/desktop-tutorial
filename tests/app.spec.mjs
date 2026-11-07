@@ -254,3 +254,17 @@ test('自動判定は10回だめならあきらめて、先頭に戻して手で
   expect(await page.evaluate(() => window.SwingLab.slots.A.v.currentTime)).toBeLessThan(0.05);
   expect(await page.evaluate(() => window.SwingLab.slots.A.marks.impact)).toBeUndefined();
 });
+
+// 室内の照明は 100Hz で明滅していて、スロー撮影ではコマごとに明るさが変わる (±8%)。iPhone と同じ1コマずつ読む方式でも外れないこと
+for (const seek of [false, true]) {
+  test(`照明がちらつくスロー動画でも判定できる (${seek ? '1コマずつシーク' : '既定の読み方'})`, async ({ page, browserName }) => {
+    if (seek) await page.addInitScript(() => { window.__forceSeekCapture = true; });
+    await open(page);
+    await loadVideo(page, 'A', fx('slow8flicker', browserName));
+    const m = await marks(page);
+    expect(m.slow).toBe(8);
+    expectNear(m.start / 8, TRUTH.start, 0.08, '始動');
+    expectNear(m.top / 8, TRUTH.top, 0.05, 'トップ');
+    expectNear(m.impact / 8, TRUTH.impact, 0.05, 'インパクト');
+  });
+}

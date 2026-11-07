@@ -177,7 +177,7 @@ nav.tabs button[aria-selected="true"]{color:var(--turf)}
 
 <div class="wrap">
   <header>
-    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v19</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
+    <div class="brand"><h1>スイング<b>研究室</b> <small class="ver num">v20</small></h1><button class="share" id="shareBtn" type="button">Claudeに見せる</button></div>
     <textarea id="shareText" readonly hidden style="min-height:120px;font-size:12px;margin-top:8px"></textarea>
     <p class="msg" id="shareMsg" hidden></p>
   </header>
@@ -607,7 +607,7 @@ async function capture(s,job,from,to,rate,onp,mode){
     cx.drawImage(v,0,0,w,h);const d=cx.getImageData(0,0,w,h).data,g=new Uint8Array(w*h);
     for(let i=0;i<g.length;i++)g[i]=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114;
     if(prev&&t<=pt+1e-4)return;
-    if(prev)out.push({t0:pt,t1:t,e:gdiff(g,prev)/(t-pt)});
+    if(prev)out.push({t0:pt,t1:t,e:gdiff(g,prev,w,h)/(t-pt)});
     prev=g;pt=t;
   };
   await seekP(v,from);if(job.stop)return out;grab(v.currentTime);
@@ -631,7 +631,18 @@ async function capture(s,job,from,to,rate,onp,mode){
   }
   return out;
 }
-const gdiff=(a,b)=>{let sum=0;for(let i=0;i<a.length;i++){const x=Math.abs(a[i]-b[i])-6;if(x>0)sum+=x}return sum/a.length};
+// 前のコマとの差。室内の照明 (LED・蛍光灯) は 100/120Hz で明滅していて、スロー撮影ではコマごとに明るさが変わる。
+// iPhone はローリングシャッターなので、それが縞にもなる。明るさの比を合わせてから、行ごと・列ごとの差の中央値を引いて消す
+// (中央値なので、クラブや腕のように一部だけ動いた所は残る)
+const med=a=>{const b=Float32Array.from(a).sort(),n=b.length;return n%2?b[n>>1]:(b[n/2-1]+b[n/2])/2};
+const gdiff=(a,b,w,h)=>{
+  const n=a.length;let sa=0,sb=0;for(let i=0;i<n;i++){sa+=a[i];sb+=b[i]}
+  const k=sb>0?sa/sb:1,d=new Float32Array(n);for(let i=0;i<n;i++)d[i]=a[i]-b[i]*k;
+  if(w&&h){
+    for(let y=0;y<h;y++){const r=d.subarray(y*w,y*w+w),m=med(r);for(let x=0;x<w;x++)r[x]-=m}
+    const col=new Float32Array(h);for(let x=0;x<w;x++){for(let y=0;y<h;y++)col[y]=d[y*w+x];const m=med(col);for(let y=0;y<h;y++)d[y*w+x]-=m}
+  }
+  let sum=0;for(let i=0;i<n;i++){const x=Math.abs(d[i])-6;if(x>0)sum+=x}return sum/n};
 const smooth=a=>a.map((x,i)=>(a[Math.max(0,i-1)]+x+a[Math.min(a.length-1,i+1)])/3);
 // 再生しながら取り込むと、同じコマが2回渡されて「動き0」の点が1つだけ混ざることがある。3点の中央値で消してから平す
 const med3=a=>a.map((x,i)=>{const p=a[Math.max(0,i-1)],q=a[Math.min(a.length-1,i+1)];return Math.max(Math.min(p,x),Math.min(Math.max(p,x),q))});
@@ -1634,7 +1645,7 @@ function copy(text,ta,okMsg,fbMsg,msgEl){
   try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
 }
 function shareText(){
-  const L=['# スイング研究室 v19 のデータ',''],sw=S.swings;
+  const L=['# スイング研究室 v20 のデータ',''],sw=S.swings;
   if(sw.length){
     L.push(`## スイング計測 (${sw.length}件)`);
     [...new Set(sw.map(s=>s.club))].forEach(c=>{const a=sw.filter(s=>s.club===c),r=a.map(s=>s.ratio);
