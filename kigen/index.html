@@ -1,0 +1,941 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>キゲンメモ</title>
+<meta name="description" content="バーコードを読み取って、食品・日用品・化粧品の期限と在庫を管理する">
+<meta name="theme-color" content="#EDF0EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111816" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="キゲンメモ">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+/* 1 列のリスト。上から 状況 → 読み取り → 期限が近い順 → 今月の記録 → 設定 */
+:root{
+  --bg:#EDF0EC; --surface:#FFFFFF; --ink:#16231E; --muted:#5E6B66; --line:#D5DBD6;
+  --accent:#2148B8; --accent-ink:#FFFFFF; --label:#FFD94A; --label-ink:#1C1A0C;
+  --bad:#C62E2E; --bad-bg:#FBE6E3; --warn:#A35D00; --warn-bg:#FFF0D6; --ok:#2C7A4B; --ok-bg:#E3F2E8;
+  --scrim:rgba(10,16,14,.92);
+  --f-body:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;
+  --f-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#111816; --surface:#1A2320; --ink:#E7EEEA; --muted:#94A39D; --line:#2C3833;
+  --accent:#7E9DFF; --accent-ink:#0B1230; --label:#F2CC3A; --label-ink:#1C1A0C;
+  --bad:#FF7B70; --bad-bg:#3A1C1A; --warn:#F5B556; --warn-bg:#352812; --ok:#6FD39A; --ok-bg:#16301F; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;-webkit-text-size-adjust:100%;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:26px;font-weight:900;line-height:1.1;margin:0;letter-spacing:.04em}
+h1 small{font-size:11px;font-weight:500;color:var(--muted);letter-spacing:0;margin-left:6px;font-family:var(--f-mono)}
+.today{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+.net{font-size:12px;color:var(--muted)}
+.net.off{color:var(--warn);font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 6px;text-align:center}
+.stat .n{font-size:24px;font-weight:900;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat .l{font-size:11px;color:var(--muted)}
+.stat.bad .n{color:var(--bad)} .stat.warn .n{color:var(--warn)}
+.scan{display:grid;grid-template-columns:1fr auto;gap:8px}
+.btn{font:inherit;font-weight:700;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:10px 14px;cursor:pointer;min-height:44px;-webkit-tap-highlight-color:transparent}
+.btn:focus-visible,.chip:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.big{background:var(--label);color:var(--label-ink);border:2px solid var(--label-ink);font-size:17px;min-height:60px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:3px 3px 0 var(--label-ink)}
+.btn.big:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--label-ink)}
+.btn.small{min-height:34px;padding:4px 10px;font-size:13px}
+.btn.link{border:0;background:none;color:var(--accent);padding:4px 0;min-height:0;font-weight:500;text-decoration:underline}
+.btn[disabled]{opacity:.5;cursor:default}
+.bars{display:inline-flex;gap:2px;height:22px;align-items:stretch}
+.bars i{display:block;background:currentColor}
+.sub{display:flex;gap:16px;flex-wrap:wrap;font-size:13px}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer;min-height:32px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.group{display:flex;flex-direction:column;gap:6px}
+.group h3{font-size:12px;letter-spacing:.08em;color:var(--muted);margin:6px 0 0;font-weight:700}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center}
+.item.bad{border-left:5px solid var(--bad)} .item.warn{border-left:5px solid var(--warn)}
+.days{font-size:20px;font-weight:900;line-height:1;min-width:54px;text-align:center;padding:8px 4px;border-radius:8px;font-variant-numeric:tabular-nums}
+.days small{display:block;font-size:10px;margin-top:3px;font-weight:700}
+.days.bad{background:var(--bad-bg);color:var(--bad)} .days.warn{background:var(--warn-bg);color:var(--warn)} .days.ok{background:var(--ok-bg);color:var(--ok)} .days.none{background:var(--bg);color:var(--muted);font-size:14px}
+.info{min-width:0;cursor:pointer}
+.name{font-weight:700;overflow-wrap:anywhere}
+.meta{font-size:12px;color:var(--muted);display:flex;gap:4px 8px;flex-wrap:wrap}
+.meta .d{font-family:var(--f-mono)}
+.meta .alert{color:var(--bad);font-weight:700}
+.ops{display:flex;flex-direction:column;gap:4px}
+.empty{text-align:center;color:var(--muted);padding:28px 12px;border:1px dashed var(--line);border-radius:12px;font-size:14px}
+.month{font-size:13px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px}
+.month b{font-family:var(--f-mono);color:var(--ink)}
+details.settings{border-top:1px solid var(--line);padding-top:12px;font-size:13px}
+details.settings summary{cursor:pointer;font-weight:700}
+.settings .body{display:flex;flex-direction:column;gap:10px;padding-top:10px}
+.settings .rowb{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.credit{font-size:11px;color:var(--muted)}
+.credit a{color:inherit}
+
+/* 読み取り画面と入力画面 (全面) */
+.overlay{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column}
+.scanner{background:#000;color:#fff}
+.scanner video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.scanner .guide{position:absolute;left:12%;right:12%;top:36%;height:22%;border:3px solid #FFD94A;border-radius:12px;box-shadow:0 0 0 100vmax rgba(0,0,0,.45)}
+.scanner .guide::after{content:"";position:absolute;left:6%;right:6%;top:50%;height:2px;background:#FF5A4E;opacity:.85;animation:sweep 1.6s ease-in-out infinite alternate}
+@keyframes sweep{from{transform:translateY(-30px)}to{transform:translateY(30px)}}
+.scanner .top,.scanner .bottom{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.scanner .top{padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:12px}
+.scanner .bottom{margin-top:auto;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));padding-top:12px;flex-direction:column;align-items:stretch}
+.scanner .status{font-size:15px;font-weight:700;text-align:center;text-shadow:0 1px 3px #000;min-height:1.6em}
+.scanner .btn{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.3)}
+.scanner .btn[aria-pressed="true"]{background:#FFD94A;color:#1C1A0C}
+.sheet{background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.sheet form{max-width:560px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.sheet .head{display:flex;justify-content:space-between;align-items:center;gap:8px;position:sticky;top:calc(-12px - env(safe-area-inset-top,0px));background:var(--bg);padding-block:8px;z-index:1}
+.sheet h2{font-size:17px;margin:0}
+.msg{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--surface);margin:0}
+.msg.err{background:var(--bad-bg);color:var(--bad)}
+.msg.good{background:var(--ok-bg);color:var(--ok)}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>label,.field>.lab{font-size:12px;color:var(--muted);font-weight:700}
+input,select{font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-height:44px;width:100%}
+input[type=date]{font-family:var(--f-mono)}
+.codeRow{display:grid;grid-template-columns:1fr auto;gap:8px}
+#fCode{font-family:var(--f-mono);letter-spacing:.06em}
+.janNote{font-size:12px;color:var(--muted);min-height:1.2em}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.quick{display:flex;flex-wrap:wrap;gap:6px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{flex:1;font:inherit;font-size:13px;border:0;background:none;color:var(--ink);padding:8px 2px;cursor:pointer;min-height:42px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:700}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.check input{width:22px;height:22px;min-height:0}
+.actions{display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.actions .right{display:flex;gap:8px;margin-left:auto}
+.danger{color:var(--bad)}
+
+/* 商品情報カード */
+.product{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.product .top{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.product img{width:64px;height:64px;object-fit:contain;border-radius:8px;background:var(--bg)}
+.product .pname{font-weight:700;overflow-wrap:anywhere}
+.product .pmeta{font-size:12px;color:var(--muted)}
+.src{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px;background:var(--bg);color:var(--muted);margin-right:4px}
+.src.db{background:var(--ok-bg);color:var(--ok)}
+.nut{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.nut th{text-align:left;font-weight:500;color:var(--muted);padding:3px 0}
+.nut td{text-align:right;font-family:var(--f-mono);padding:3px 0}
+.nut tr+tr{border-top:1px solid var(--line)}
+.nut caption{text-align:left;font-size:12px;color:var(--muted);padding-bottom:4px}
+.allergen{display:flex;flex-wrap:wrap;gap:4px}
+.allergen span{font-size:12px;font-weight:700;border-radius:4px;padding:1px 8px;background:var(--warn-bg);color:var(--warn)}
+.product details{font-size:12px;color:var(--muted)}
+.product details summary{cursor:pointer}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;display:flex;gap:12px;align-items:center;z-index:50;max-width:calc(100% - 32px)}
+.toast button{font:inherit;font-weight:700;background:none;border:0;color:var(--label);cursor:pointer}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:380px){.stat .n{font-size:20px}}
+@media (prefers-reduced-motion:reduce){.scanner .guide::after{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>キゲンメモ<small id="ver"></small></h1>
+      <div class="today" id="today"></div>
+    </div>
+    <div class="net" id="net"></div>
+  </header>
+
+  <div class="stats" aria-label="期限の状況">
+    <div class="stat bad"><div class="n" id="sBad">0</div><div class="l">期限切れ</div></div>
+    <div class="stat warn"><div class="n" id="sSoon">0</div><div class="l">3日以内</div></div>
+    <div class="stat"><div class="n" id="sWeek">0</div><div class="l">1週間以内</div></div>
+    <div class="stat"><div class="n" id="sAll">0</div><div class="l">在庫</div></div>
+  </div>
+
+  <div class="scan">
+    <button class="btn big" id="scanBtn" type="button">
+      <span class="bars" aria-hidden="true"><i style="width:2px"></i><i style="width:1px"></i><i style="width:3px"></i><i style="width:1px"></i><i style="width:2px"></i><i style="width:1px"></i><i style="width:3px"></i></span>
+      バーコードを読む
+    </button>
+    <button class="btn" id="manualBtn" type="button">手入力</button>
+  </div>
+  <div class="sub">
+    <button class="btn link" type="button" id="photoBtn">写真から読む</button>
+    <span class="hint">食品・日用品・化粧品の商品情報を自動で探します。見つからない物は一度入れれば次から自動です。</span>
+  </div>
+  <input type="file" id="filePhoto" accept="image/*" class="sr" tabindex="-1" aria-hidden="true">
+
+  <div class="filters" id="filters" role="group" aria-label="場所で絞り込み"></div>
+  <div id="list"></div>
+  <div class="month" id="month"></div>
+
+  <details class="settings" id="settings">
+    <summary>設定・バックアップ</summary>
+    <div class="body">
+      <p class="hint" id="storeNote">データはこのスマホの中だけに保存されます。機種変更やブラウザのデータ削除に備えて、ときどきバックアップを保存してください。</p>
+      <div class="rowb">
+        <button class="btn small" type="button" id="exportBtn">バックアップを保存</button>
+        <button class="btn small" type="button" id="importBtn">バックアップから戻す</button>
+        <input type="file" id="fileImport" accept="application/json,.json" class="sr" tabindex="-1" aria-hidden="true">
+      </div>
+      <div class="rowb" id="importConfirm" hidden>
+        <span id="importText"></span>
+        <button class="btn small primary" type="button" id="importDo">上書きする</button>
+        <button class="btn small" type="button" id="importCancel">やめる</button>
+      </div>
+      <p class="hint">iPhone は Safari の共有ボタン →「ホーム画面に追加」で、アプリとして使えます。ホーム画面から開くと、期限が近い物の数がアイコンに出ます (iOS 16.4 以降)。</p>
+      <p class="credit">商品情報: <a href="https://world.openfoodfacts.org/" target="_blank" rel="noopener">Open Food Facts</a> /
+        <a href="https://world.openbeautyfacts.org/" target="_blank" rel="noopener">Open Beauty Facts</a> /
+        <a href="https://world.openproductsfacts.org/" target="_blank" rel="noopener">Open Products Facts</a>
+        (ODbL)。バーコード解析: ZXing (Apache-2.0)。</p>
+    </div>
+  </details>
+</div>
+
+<!-- 読み取り画面 -->
+<section class="overlay scanner" id="scanner" hidden aria-label="バーコード読み取り">
+  <video id="video" playsinline muted autoplay></video>
+  <div class="guide" aria-hidden="true"></div>
+  <div class="top">
+    <button class="btn small" type="button" id="scanClose">閉じる</button>
+    <button class="btn small" type="button" id="torchBtn" aria-pressed="false" hidden>ライト</button>
+  </div>
+  <div class="bottom">
+    <div class="status" id="scanStatus" role="status">カメラを起動しています…</div>
+    <div class="rowb" style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+      <button class="btn small" type="button" id="scanPhoto">写真から読む</button>
+      <button class="btn small" type="button" id="scanManual">手入力</button>
+    </div>
+  </div>
+</section>
+
+<!-- 入力画面 -->
+<section class="overlay sheet" id="sheet" hidden aria-labelledby="sheetTitle">
+  <form id="form" novalidate>
+    <div class="head">
+      <h2 id="sheetTitle">追加</h2>
+      <button class="btn small" type="button" id="cancelBtn">閉じる</button>
+    </div>
+    <p class="msg" id="sheetMsg" hidden></p>
+    <div class="field">
+      <label for="fCode">バーコード (JAN)</label>
+      <div class="codeRow">
+        <input id="fCode" inputmode="numeric" autocomplete="off" placeholder="4901234567894">
+        <button class="btn" type="button" id="lookupBtn">検索</button>
+      </div>
+      <div class="janNote" id="janNote"></div>
+    </div>
+    <div id="product" class="product" hidden></div>
+    <div class="field"><label for="fName">商品名</label><input id="fName" autocomplete="off" placeholder="例: 明治おいしい牛乳 900ml"></div>
+    <div class="row2">
+      <div class="field"><label for="fPlace">場所</label><select id="fPlace"></select></div>
+      <div class="field"><label for="fQty">個数</label><input id="fQty" type="number" min="1" max="99" value="1" inputmode="numeric"></div>
+    </div>
+    <div class="field">
+      <span class="lab" id="kindLab">期限の種類</span>
+      <div class="seg" id="segKind" role="group" aria-labelledby="kindLab">
+        <button type="button" data-v="best">賞味期限</button><button type="button" data-v="use">消費期限</button><button type="button" data-v="limit">使用期限</button><button type="button" data-v="none">なし</button>
+      </div>
+    </div>
+    <div class="field" id="dateField">
+      <label for="fDate">期限日</label>
+      <input type="date" id="fDate">
+      <div class="quick" id="quick">
+        <button type="button" class="chip" data-d="3">+3日</button>
+        <button type="button" class="chip" data-d="7">+1週間</button>
+        <button type="button" class="chip" data-d="14">+2週間</button>
+        <button type="button" class="chip" data-m="1">+1か月</button>
+        <button type="button" class="chip" data-m="6">+半年</button>
+        <button type="button" class="chip" data-m="12">+1年</button>
+        <button type="button" class="chip" id="lastDaysChip" hidden></button>
+      </div>
+    </div>
+    <div class="field">
+      <span class="lab" id="paoLab">開封後の使用期限</span>
+      <div class="quick" id="paoChips" role="group" aria-labelledby="paoLab">
+        <button type="button" class="chip" data-p="">なし</button>
+        <button type="button" class="chip" data-p="3d">3日</button>
+        <button type="button" class="chip" data-p="7d">1週間</button>
+        <button type="button" class="chip" data-p="1m">1か月</button>
+        <button type="button" class="chip" data-p="3m">3か月</button>
+        <button type="button" class="chip" data-p="6m">6か月</button>
+        <button type="button" class="chip" data-p="12m">12か月</button>
+      </div>
+      <label class="check"><input type="checkbox" id="fOpened"> 開封済み <span class="hint" id="openedNote"></span></label>
+    </div>
+    <div class="actions">
+      <button class="btn small danger" type="button" id="deleteBtn" hidden>削除</button>
+      <div class="right">
+        <button class="btn primary" type="submit" id="saveBtn">登録する</button>
+      </div>
+    </div>
+  </form>
+</section>
+
+<div class="toast" id="toast" hidden role="status"><span id="toastText"></span><button type="button" id="toastUndo" hidden>元に戻す</button></div>
+
+<script src="vendor/zxing-library-0.21.3.min.js"></script>
+<script>
+(() => {
+'use strict';
+const VERSION = 'v1';
+const $ = id => document.getElementById(id);
+
+/* ================= 日付 ================= */
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const todayStr = () => ymd(new Date());
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (n, base) => { const d = base ? parse(base) : parse(todayStr()); d.setDate(d.getDate() + n); return ymd(d); };
+// 月末をまたいでも「1/31 の 1 か月後 = 2/28」になるようにする
+const addMonths = (n, base) => {
+  const d = base ? parse(base) : parse(todayStr()); const day = d.getDate();
+  d.setDate(1); d.setMonth(d.getMonth() + n);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, last)); return ymd(d);
+};
+const diffDays = s => Math.round((parse(s) - parse(todayStr())) / 864e5);
+const monthKey = () => todayStr().slice(0, 7);
+const fmtDate = s => { const d = parse(s); return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}（${'日月火水木金土'[d.getDay()]}）`; };
+const addPeriod = (p, base) => p.unit === 'm' ? addMonths(p.n, base) : addDays(p.n, base);
+const periodLabel = p => p.unit === 'm' ? `${p.n}か月` : (p.n === 7 ? '1週間' : `${p.n}日`);
+
+/* ================= バーコード ================= */
+function validCode(code) {
+  if (!/^(\d{8}|\d{12,14})$/.test(code)) return false;
+  const ds = code.split('').map(Number), check = ds.pop();
+  const sum = ds.reverse().reduce((s, v, i) => s + v * (i % 2 === 0 ? 3 : 1), 0);
+  return (10 - sum % 10) % 10 === check;
+}
+function codeNote(code) {
+  if (!code) return '';
+  if (!validCode(code)) return '桁数かチェック数字が合いません。読み間違いかもしれません。';
+  if (code.length === 13 && /^4[59]/.test(code)) return '日本で登録された商品';
+  if (/^2/.test(code) || (code.length === 8 && /^2/.test(code))) return '店内コード (その店だけの番号) なので商品情報は出ません';
+  if (/^97[89]/.test(code)) return '本 (ISBN)';
+  if (code.length === 12) return 'UPC (アメリカ・カナダの商品)';
+  return '';
+}
+const isStoreCode = code => /^2/.test(code);
+
+/* ================= 保存 (このスマホの中) ================= */
+const KEY = 'kigen-pwa-v1';
+const PLACES = [
+  ['fridge', '冷蔵'], ['freezer', '冷凍'], ['pantry', '常温'], ['bath', '洗面・化粧'], ['stock', '日用品'],
+];
+const PLACE = Object.fromEntries(PLACES);
+const KIND = { best: '賞味期限', use: '消費期限', limit: '使用期限', none: '期限なし' };
+let S = { items: [], products: {}, log: [] };
+let storageOk = true;
+function load() {
+  try {
+    const v = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (v && typeof v === 'object') S = { items: v.items || [], products: v.products || {}, log: v.log || [] };
+  } catch { storageOk = false; }
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); storageOk = true; }
+  catch { storageOk = false; showToast('保存できませんでした。ブラウザの保存領域がいっぱいか、プライベートブラウズです。'); }
+  render();
+}
+async function askPersist() {
+  try { if (navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); } catch {}
+}
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/* ================= 商品情報の検索 ================= */
+// Open Food Facts 系の 3 つのデータベースを同時に引き、食品 → 化粧品 → 日用品 の順で採用する
+const SOURCES = [
+  { id: 'off', host: 'https://world.openfoodfacts.org', label: 'Open Food Facts', cat: 'food' },
+  { id: 'obf', host: 'https://world.openbeautyfacts.org', label: 'Open Beauty Facts', cat: 'beauty' },
+  { id: 'opf', host: 'https://world.openproductsfacts.org', label: 'Open Products Facts', cat: 'product' },
+];
+const FIELDS = 'code,product_name,product_name_ja,product_name_en,generic_name_ja,generic_name,brands,quantity,nutriments,nutrition_data_per,serving_size,allergens_tags,traces_tags,ingredients_text,ingredients_text_ja,image_front_small_url,image_front_url,periods_after_opening,periods_after_opening_tags,categories_tags';
+const ALLERGEN = {
+  'en:gluten': '小麦', 'en:milk': '乳', 'en:eggs': '卵', 'en:peanuts': '落花生', 'en:crustaceans': 'えび・かに',
+  'en:soybeans': '大豆', 'en:nuts': '木の実', 'en:sesame-seeds': 'ごま', 'en:fish': '魚', 'en:molluscs': 'いか・貝',
+  'en:celery': 'セロリ', 'en:mustard': 'からし', 'en:sulphur-dioxide-and-sulphites': '亜硫酸塩', 'en:lupin': 'ルピナス',
+  'en:buckwheat': 'そば', 'en:wheat': '小麦', 'en:shrimp': 'えび', 'en:crab': 'かに', 'en:walnut': 'くるみ',
+};
+const allergenName = t => ALLERGEN[t] || t.replace(/^[a-z]{2}:/, '').replace(/-/g, ' ');
+const numOrNull = v => (typeof v === 'number' && isFinite(v)) ? v : (typeof v === 'string' && v.trim() !== '' && isFinite(+v) ? +v : null);
+function parsePao(p) {
+  const raw = [p.periods_after_opening, ...(p.periods_after_opening_tags || [])].filter(Boolean).join(' ');
+  const m = raw.match(/(\d+)\s*(?:-\s*)?(months?|m\b|mois|ヶ月|か月)/i);
+  return m ? { n: +m[1], unit: 'm' } : null;
+}
+function normalize(src, p) {
+  const n = p.nutriments || {};
+  const pick = k => ({ g100: numOrNull(n[k + '_100g']), serving: numOrNull(n[k + '_serving']) });
+  let kcal = pick('energy-kcal');
+  if (kcal.g100 == null && numOrNull(n['energy_100g']) != null) kcal.g100 = Math.round(n['energy_100g'] / 4.184);
+  const nutr = { kcal, protein: pick('proteins'), fat: pick('fat'), carbs: pick('carbohydrates'), sugars: pick('sugars'), salt: pick('salt') };
+  const hasNutr = Object.values(nutr).some(v => v.g100 != null || v.serving != null);
+  return {
+    name: (p.product_name_ja || p.product_name || p.generic_name_ja || p.product_name_en || p.generic_name || '').trim(),
+    brand: (p.brands || '').split(',')[0].trim(),
+    quantity: (p.quantity || '').trim(),
+    image: p.image_front_small_url || p.image_front_url || '',
+    nutr: hasNutr ? nutr : null,
+    per: p.nutrition_data_per || '100g',
+    serving: p.serving_size || '',
+    allergens: [...new Set((p.allergens_tags || []).map(allergenName))],
+    traces: [...new Set((p.traces_tags || []).map(allergenName))],
+    ingredients: (p.ingredients_text_ja || p.ingredients_text || '').trim(),
+    pao: parsePao(p),
+    cat: src.cat, source: src.id, fetchedAt: todayStr(),
+  };
+}
+async function fetchOne(src, code, signal) {
+  const res = await fetch(`${src.host}/api/v2/product/${encodeURIComponent(code)}.json?fields=${FIELDS}`, { signal, headers: { Accept: 'application/json' } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('http ' + res.status);
+  const j = await res.json();
+  if (!j || j.status !== 1 || !j.product) return null;
+  const p = normalize(src, j.product);
+  return (p.name || p.brand || p.nutr || p.ingredients) ? p : null;
+}
+// 戻り値: { product, from: 'local'|'online'|'none'|'offline'|'error' }
+// 一度調べた番号は 30 日間は通信しない (無かった物も、あとで誰かが登録するかもしれないので 30 日後に調べ直す)
+const known = p => !!(p && (p.userName || p.name));
+async function lookup(code) {
+  const local = S.products[code];
+  const checked = local && (local.checkedAt || local.fetchedAt);
+  const fresh = checked && diffDays(checked) > -30;
+  const keep = from => ({ product: known(local) ? local : null, from: known(local) ? 'local' : from });
+  if (fresh || isStoreCode(code) || !validCode(code)) return keep('none');
+  if (navigator.onLine === false) return keep('offline');
+  const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 9000);
+  try {
+    const rs = await Promise.allSettled(SOURCES.map(s => fetchOne(s, code, ctl.signal)));
+    const hit = rs.find(r => r.status === 'fulfilled' && r.value);
+    if (hit) {
+      // 手で入れた名前や期限の癖は残し、ネットで取れた情報を足す
+      const merged = { ...hit.value, ...(local ? pickUserBits(local) : {}), checkedAt: todayStr() };
+      S.products[code] = merged; save();
+      return { product: merged, from: 'online' };
+    }
+    if (rs.every(r => r.status === 'rejected')) return keep('error');
+    S.products[code] = { ...(local || { source: 'manual', cat: 'food' }), checkedAt: todayStr() }; save();
+    return keep('none');
+  } finally { clearTimeout(timer); }
+}
+const pickUserBits = p => { const o = {}; for (const k of ['lastDays', 'kind', 'place', 'userPao', 'userName']) if (p[k] != null) o[k] = p[k]; return o; };
+
+/* ================= 画像からの解析 ================= */
+const Z = window.ZXing;
+let zReader = null, zHints = null;
+if (Z) {
+  zHints = new Map();
+  zHints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E]);
+  zHints.set(Z.DecodeHintType.TRY_HARDER, true);
+  zReader = new Z.MultiFormatReader(); zReader.setHints(zHints);
+}
+let detector = null;
+try {
+  if ('BarcodeDetector' in window) detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+} catch { detector = null; }
+// UPC-A は EAN-13 の先頭 0 と同じ物。データベースは 13 桁で引く
+const canon = c => (c && c.length === 12 && validCode(c)) ? '0' + c : c;
+function zxingDecode(canvas) {
+  if (!zReader) return null;
+  try {
+    const bb = new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(canvas)));
+    return zReader.decode(bb, zHints).getText();
+  } catch { return null; }
+}
+async function decodeCanvas(canvas) {
+  if (detector) {
+    try { const r = await detector.detect(canvas); if (r.length) return r[0].rawValue; } catch {}
+  }
+  return zxingDecode(canvas);
+}
+function drawScaled(src, w, h, maxSide, crop) {
+  const [sx, sy, sw, sh] = crop || [0, 0, w, h];
+  const k = Math.min(1, maxSide / Math.max(sw, sh));
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(sw * k)); c.height = Math.max(1, Math.round(sh * k));
+  c.getContext('2d', { willReadFrequently: true }).drawImage(src, sx, sy, sw, sh, 0, 0, c.width, c.height); return c;
+}
+async function loadImage(file) {
+  try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch {
+    const url = URL.createObjectURL(file);
+    try { const img = new Image(); img.src = url; await img.decode(); return img; }
+    finally { setTimeout(() => URL.revokeObjectURL(url), 2000); }
+  }
+}
+async function decodeFile(file) {
+  const img = await loadImage(file);
+  const w = img.width, h = img.height;
+  for (const side of [1400, 900, 2200]) {
+    const code = await decodeCanvas(drawScaled(img, w, h, side));
+    if (code && validCode(code)) return canon(code);
+  }
+  return null;
+}
+
+/* ================= カメラで連続読み取り ================= */
+const Scanner = {
+  stream: null, timer: 0, frame: 0, last: null, lastCount: 0, done: false, torch: false,
+  async open() {
+    this.done = false; this.last = null; this.lastCount = 0; this.frame = 0;
+    $('scanner').hidden = false; document.body.style.overflow = 'hidden';
+    setStatus('カメラを起動しています…');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return setStatus('このブラウザではカメラが使えません。「写真から読む」を使ってください。');
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+    } catch (e) {
+      const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+      return setStatus(denied ? 'カメラの使用が許可されていません。設定で許可するか、「写真から読む」を使ってください。' : 'カメラを起動できませんでした。「写真から読む」を使ってください。');
+    }
+    if ($('scanner').hidden) return this.stop(); // 起動中に閉じられた
+    const v = $('video'); v.srcObject = this.stream;
+    try { await v.play(); } catch {}
+    const track = this.stream.getVideoTracks()[0];
+    const caps = track && track.getCapabilities ? track.getCapabilities() : {};
+    $('torchBtn').hidden = !caps.torch; $('torchBtn').setAttribute('aria-pressed', 'false'); this.torch = false;
+    setStatus('枠の中にバーコードを横向きに入れてください');
+    this.loop();
+  },
+  async loop() {
+    if (this.done || !this.stream) return;
+    const v = $('video');
+    if (v.readyState >= 2 && v.videoWidth) {
+      const w = v.videoWidth, h = v.videoHeight; this.frame++;
+      // ふだんは画面中央の帯だけを見る (速くて誤読が少ない)。4 回に 1 回は全体も見る
+      const crop = this.frame % 4 === 0 ? null : [w * 0.08, h * 0.28, w * 0.84, h * 0.44];
+      const code = await decodeCanvas(drawScaled(v, w, h, 960, crop));
+      if (code && validCode(code)) {
+        // ZXing は 1 回だけの読みを信用しない。同じ番号が 2 回続いたら確定
+        if (code === this.last) this.lastCount++; else { this.last = code; this.lastCount = 1; }
+        if (detector || this.lastCount >= 2) return this.found(canon(code));
+      }
+    }
+    this.timer = setTimeout(() => this.loop(), 90);
+  },
+  found(code) {
+    this.done = true; beep(); try { navigator.vibrate && navigator.vibrate(60); } catch {}
+    this.close(); onCode(code, 'camera');
+  },
+  async setTorch(on) {
+    const track = this.stream && this.stream.getVideoTracks()[0]; if (!track) return;
+    try { await track.applyConstraints({ advanced: [{ torch: on }] }); this.torch = on; $('torchBtn').setAttribute('aria-pressed', String(on)); } catch {}
+  },
+  stop() {
+    clearTimeout(this.timer);
+    if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
+    $('video').srcObject = null;
+  },
+  close() { this.done = true; this.stop(); $('scanner').hidden = true; document.body.style.overflow = ''; },
+};
+function setStatus(t) { $('scanStatus').textContent = t; }
+let audioCtx = null;
+function beep() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = 1760; g.gain.value = 0.08; o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.08);
+  } catch {}
+}
+
+/* ================= 期限の計算 ================= */
+// 実際の期限 = 印字の期限 と 開封日 + 開封後の期限 の早い方
+function due(it) {
+  const cands = [];
+  if (it.kind !== 'none' && it.expiry) cands.push({ date: it.expiry, why: KIND[it.kind] });
+  if (it.opened && it.pao) cands.push({ date: addPeriod(it.pao, it.opened), why: `開封後${periodLabel(it.pao)}` });
+  if (!cands.length) return null;
+  return cands.sort((a, b) => a.date.localeCompare(b.date))[0];
+}
+function level(it) {
+  const d = due(it); if (!d) return 'none';
+  const n = diffDays(d.date);
+  if (n < 0) return 'bad';
+  if (n <= 2) return it.kind === 'use' ? 'bad' : 'warn';
+  if (n <= 7) return 'week';
+  return 'ok';
+}
+
+/* ================= 入力画面 ================= */
+let form = { id: null, kind: 'best', pao: null, product: null, lastDays: null };
+const PAO_KEY = p => p ? `${p.n}${p.unit}` : '';
+function setKind(v) {
+  form.kind = v;
+  $('segKind').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+  $('dateField').hidden = v === 'none';
+  if (v !== 'none' && !$('fDate').value) $('fDate').value = addDays(7);
+}
+function setPao(p) {
+  form.pao = p;
+  $('paoChips').querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.p === PAO_KEY(p))));
+  updateOpenedNote();
+}
+function updateOpenedNote() {
+  const on = $('fOpened').checked;
+  const it = form.id ? S.items.find(i => i.id === form.id) : null;
+  const opened = on ? (it && it.opened) || todayStr() : null;
+  $('openedNote').textContent = on && form.pao ? `→ ${fmtDate(addPeriod(form.pao, opened))} まで` : (on ? '' : '');
+}
+function msg(text, cls) { const m = $('sheetMsg'); m.hidden = !text; m.textContent = text || ''; m.className = 'msg' + (cls ? ' ' + cls : ''); }
+function placeFor(cat) { return cat === 'beauty' ? 'bath' : cat === 'product' ? 'stock' : 'fridge'; }
+function kindFor(cat) { return cat === 'food' ? 'best' : 'none'; }
+
+function openSheet(o = {}) {
+  form = { id: o.id || null, kind: 'best', pao: null, product: null, lastDays: null };
+  $('sheet').hidden = false; document.body.style.overflow = 'hidden';
+  $('sheet').scrollTop = 0;
+  $('sheetTitle').textContent = form.id ? '編集' : '追加';
+  $('saveBtn').textContent = form.id ? '保存する' : '登録する';
+  $('deleteBtn').hidden = !form.id;
+  $('fCode').value = o.code || '';
+  $('fName').value = o.name || '';
+  $('fPlace').value = o.place || 'fridge';
+  $('fQty').value = o.qty || 1;
+  $('fDate').value = o.expiry || '';
+  $('fOpened').checked = !!o.opened;
+  setKind(o.kind || 'best');
+  setPao(o.pao || null);
+  setLastDays(null);
+  $('janNote').textContent = codeNote(o.code || '');
+  renderProduct(o.code ? S.products[o.code] : null);
+  msg(o.msg || '', o.msgCls);
+}
+function closeSheet() { $('sheet').hidden = true; document.body.style.overflow = ''; form.id = null; }
+function setLastDays(n) {
+  form.lastDays = n; const c = $('lastDaysChip');
+  c.hidden = n == null; if (n != null) c.textContent = `前回と同じ (+${n}日)`;
+}
+// 商品情報で、まだ人が触っていない欄を埋める
+function applyProduct(p, { overwriteName = false } = {}) {
+  if (!p) return;
+  const nm = p.userName || [p.name, p.quantity && p.name && !p.name.includes(p.quantity) ? p.quantity : ''].filter(Boolean).join(' ');
+  if (nm && (overwriteName || !$('fName').value.trim())) $('fName').value = nm;
+  if (!form.id) {
+    const cat = p.cat || 'food';
+    $('fPlace').value = p.place || placeFor(cat);
+    setKind(p.kind || kindFor(cat));
+    if (p.lastDays != null && (p.kind || kindFor(cat)) !== 'none') { $('fDate').value = addDays(p.lastDays); setLastDays(p.lastDays); }
+    else if ((p.kind || kindFor(cat)) !== 'none' && !$('fDate').value) $('fDate').value = addDays(7);
+    const pao = p.userPao !== undefined ? p.userPao : p.pao;
+    if (pao) setPao(pao);
+  }
+  renderProduct(p);
+}
+function renderProduct(p) {
+  const box = $('product'); box.replaceChildren();
+  if (!p || (!p.nutr && !p.allergens?.length && !p.ingredients && !p.image && !p.brand && !p.pao)) { box.hidden = true; return; }
+  box.hidden = false;
+  const top = el('div', 'top');
+  if (p.image) { const img = el('img'); img.src = p.image; img.alt = ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; img.onerror = () => img.remove(); top.append(img); }
+  const t = el('div');
+  t.append(el('div', 'pname', p.name || '(名前なし)'));
+  const meta = el('div', 'pmeta');
+  const src = SOURCES.find(s => s.id === p.source);
+  meta.append(el('span', 'src' + (src ? ' db' : ''), src ? src.label : '手入力'));
+  meta.append([p.brand, p.quantity].filter(Boolean).join(' / '));
+  t.append(meta); top.append(t);
+  if (!p.image) top.style.gridTemplateColumns = '1fr';
+  box.append(top);
+  if (p.nutr) {
+    const tb = el('table', 'nut');
+    const per = p.per === 'serving' ? '1食' : '100g (ml) ';
+    const cap = el('caption', '', `栄養成分 (${per}あたり${p.serving ? `、1食 = ${p.serving}` : ''})`); tb.append(cap);
+    const rows = [['エネルギー', 'kcal', 'kcal', 0], ['たんぱく質', 'protein', 'g', 1], ['脂質', 'fat', 'g', 1], ['炭水化物', 'carbs', 'g', 1], ['うち糖類', 'sugars', 'g', 1], ['食塩相当量', 'salt', 'g', 2]];
+    for (const [label, k, unit, dig] of rows) {
+      const v = p.nutr[k]; const val = v && (p.per === 'serving' ? (v.serving ?? v.g100) : (v.g100 ?? v.serving));
+      if (val == null) continue;
+      const tr = el('tr'); tr.append(el('th', '', label), el('td', '', `${(+val).toFixed(dig)} ${unit}`)); tb.append(tr);
+    }
+    box.append(tb);
+  }
+  if (p.allergens && p.allergens.length) {
+    const a = el('div', 'allergen'); a.setAttribute('aria-label', 'アレルゲン');
+    for (const x of p.allergens) a.append(el('span', '', x));
+    const wrap = el('div'); wrap.append(el('div', 'pmeta', 'アレルゲン (データベースの情報。必ずパッケージで確認)'), a); box.append(wrap);
+  }
+  if (p.traces && p.traces.length) box.append(el('div', 'pmeta', '同じ工場で扱う物: ' + p.traces.join('、')));
+  if (p.pao) box.append(el('div', 'pmeta', `開封後の使用期限の目安: ${periodLabel(p.pao)}`));
+  if (p.ingredients) { const d = el('details'); d.append(el('summary', '', '原材料・成分'), el('div', '', p.ingredients)); box.append(d); }
+}
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+let lookupSeq = 0;
+async function runLookup(code, { fromScan = false, prefix = '' } = {}) {
+  const say = (t, c) => msg(t ? prefix + t : t, c);
+  const seq = ++lookupSeq;
+  $('janNote').textContent = codeNote(code);
+  if (!code) return;
+  if (isStoreCode(code)) { applyProduct(S.products[code]); return say(S.products[code] ? '前に登録した店内コードです。' : '店内コードは店ごとの番号なので、商品名を入れてください。'); }
+  if (!validCode(code)) return say('バーコードの番号が正しくありません。もう一度読み取るか、数字を確認してください。', 'err');
+  say('商品情報を探しています…');
+  $('lookupBtn').disabled = true;
+  let r;
+  try { r = await lookup(code); } catch { r = { product: S.products[code] || null, from: 'error' }; }
+  finally { $('lookupBtn').disabled = false; }
+  if (seq !== lookupSeq || $('sheet').hidden) return;
+  const p = r.product;
+  if (p) applyProduct(p, { overwriteName: false });
+  if (r.from === 'local' && p) say(p.lastDays != null ? `登録済みの商品です。期限は前回の目安 (買ってから${p.lastDays}日) で入れました。印字と違えば直してください。` : '登録済みの商品です。', 'good');
+  else if (r.from === 'online') say(`${SOURCES.find(s => s.id === p.source).label} で見つかりました。期限はパッケージの印字で確認してください。`, 'good');
+  else if (r.from === 'offline') say('オフラインなので商品情報を探せません。商品名を入れてください。');
+  else if (r.from === 'error') say('商品データベースにつながりませんでした。商品名を入れてください。次からはこの名前で出ます。', 'err');
+  else {
+    say('データベースに無い商品でした。商品名を入れてください。次からはこの名前で出ます。');
+    addContributeLink(code);
+  }
+  if (fromScan && !$('fName').value.trim()) $('fName').focus();
+}
+function addContributeLink(code) {
+  const m = $('sheetMsg'); const a = el('a', '', ' Open Food Facts に登録する');
+  a.href = `https://world.openfoodfacts.org/cgi/product.pl?type=add&code=${encodeURIComponent(code)}`; a.target = '_blank'; a.rel = 'noopener';
+  m.append(a);
+}
+function onCode(code, via) {
+  const known = S.items.filter(i => i.code === code);
+  openSheet({ code });
+  const prefix = known.length ? `この商品はもう ${known.reduce((s, i) => s + (i.qty || 1), 0)} 個あります (新しく買った分として追加します)。` : '';
+  runLookup(code, { fromScan: true, prefix });
+}
+
+$('form').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('fName').value.trim();
+  const code = $('fCode').value.trim().replace(/\D/g, '');
+  const expiry = form.kind === 'none' ? null : $('fDate').value;
+  if (!name) { msg('商品名を入れてください。', 'err'); $('fName').focus(); return; }
+  if (form.kind !== 'none' && !expiry) { msg('期限日を選んでください。期限が無い物は「なし」を選びます。', 'err'); $('fDate').focus(); return; }
+  const qty = Math.max(1, Math.min(99, parseInt($('fQty').value, 10) || 1));
+  const prev = form.id ? S.items.find(i => i.id === form.id) : null;
+  const addedAt = prev ? prev.addedAt : todayStr();
+  const opened = $('fOpened').checked ? ((prev && prev.opened) || todayStr()) : null;
+  const it = { id: form.id || newId(), code, name, place: $('fPlace').value, kind: form.kind, expiry, qty, addedAt, opened, pao: form.pao };
+  if (prev) Object.assign(prev, it); else S.items.push(it);
+  if (code) {
+    const p = S.products[code] || { source: 'manual', cat: 'food' };
+    if (p.source === 'manual' || !p.name) p.name = name;
+    p.userName = name;
+    p.kind = form.kind; p.place = it.place; p.userPao = form.pao;
+    if (expiry) p.lastDays = Math.max(0, Math.round((parse(expiry) - parse(addedAt)) / 864e5));
+    S.products[code] = p;
+  }
+  save(); askPersist();
+  closeSheet();
+  showToast(prev ? '保存しました' : `${name}を登録しました`);
+});
+$('deleteBtn').addEventListener('click', () => {
+  const it = S.items.find(i => i.id === form.id); if (!it) return;
+  const idx = S.items.indexOf(it);
+  S.items.splice(idx, 1); save(); closeSheet();
+  showToast(`${it.name}を削除しました`, () => { S.items.splice(idx, 0, it); save(); hideToast(); });
+});
+
+/* ================= 一覧 ================= */
+let filter = 'all';
+try { filter = localStorage.getItem('kigen-filter') || 'all'; } catch {}
+function render() {
+  $('today').textContent = fmtDate(todayStr());
+  const items = S.items.filter(i => i && i.name);
+  let bad = 0, soon = 0, week = 0;
+  for (const it of items) { const d = due(it); if (!d) continue; const n = diffDays(d.date); if (n < 0) bad++; else if (n <= 2) soon++; else if (n <= 7) week++; }
+  $('sBad').textContent = bad; $('sSoon').textContent = soon; $('sWeek').textContent = week;
+  $('sAll').textContent = items.reduce((s, i) => s + (i.qty || 1), 0);
+  try { if (navigator.setAppBadge) (bad + soon) ? navigator.setAppBadge(bad + soon) : navigator.clearAppBadge(); } catch {}
+
+  const fl = $('filters'); fl.replaceChildren();
+  const used = new Set(items.map(i => i.place));
+  if (!used.has(filter) && filter !== 'all') filter = 'all';
+  for (const [k, label] of [['all', 'すべて'], ...PLACES.filter(([k]) => used.has(k))]) {
+    const b = el('button', 'chip', label); b.type = 'button'; b.dataset.f = k; b.setAttribute('aria-pressed', String(k === filter)); fl.append(b);
+  }
+  fl.hidden = used.size < 2;
+
+  const shown = items.filter(i => filter === 'all' || i.place === filter)
+    .map(i => ({ i, d: due(i) }))
+    .sort((a, b) => (a.d ? a.d.date : '9999').localeCompare(b.d ? b.d.date : '9999') || a.i.name.localeCompare(b.i.name, 'ja'));
+  const list = $('list'); list.replaceChildren();
+  if (!shown.length) {
+    list.append(el('div', 'empty', items.length ? 'ここには何もありません。' : 'まだ何も登録されていません。買ってきた物のバーコードを読むと、期限が近い順にここに並びます。'));
+  } else {
+    const groups = [['期限切れ', n => n < 0], ['3日以内', n => n >= 0 && n <= 2], ['1週間以内', n => n > 2 && n <= 7], ['1か月以内', n => n > 7 && n <= 31], ['それ以降', n => n > 31]];
+    for (const [label, test] of groups) {
+      const g = shown.filter(x => x.d && test(diffDays(x.d.date))); if (!g.length) continue;
+      list.append(section(label, g));
+    }
+    const none = shown.filter(x => !x.d); if (none.length) list.append(section('期限なし', none));
+  }
+  renderMonth();
+}
+function section(label, g) {
+  const sec = el('section', 'group'); sec.append(el('h3', '', `${label}　${g.length}`));
+  for (const x of g) sec.append(row(x.i, x.d)); return sec;
+}
+function row(it, d) {
+  const lv = level(it);
+  const card = el('article', 'item' + (lv === 'bad' ? ' bad' : lv === 'warn' ? ' warn' : ''));
+  const days = el('div', 'days ' + (lv === 'bad' ? 'bad' : lv === 'warn' || lv === 'week' ? 'warn' : lv === 'none' ? 'none' : 'ok'));
+  if (!d) days.append('—');
+  else {
+    const n = diffDays(d.date);
+    const [big, small] = n < 0 ? [String(-n), '日超過'] : n === 0 ? ['今日', 'まで'] : n === 1 ? ['明日', 'まで'] : [String(n), '日後'];
+    days.append(big, el('small', '', small));
+  }
+  const info = el('div', 'info'); info.tabIndex = 0; info.setAttribute('role', 'button'); info.setAttribute('aria-label', `${it.name} を編集`);
+  info.append(el('div', 'name', it.name + ((it.qty || 1) > 1 ? ` ×${it.qty}` : '')));
+  const meta = el('div', 'meta');
+  if (d) meta.append(el('span', 'd', fmtDate(d.date)), el('span', '', d.why));
+  meta.append(el('span', '', PLACE[it.place] || ''));
+  if (it.opened) meta.append(el('span', '', '開封済み'));
+  if (d && diffDays(d.date) < 0) {
+    if (it.kind === 'use' && d.why === KIND.use) meta.append(el('span', 'alert', '消費期限切れ。食べない方が安全'));
+    else if (it.kind === 'best' && d.why === KIND.best) meta.append(el('span', '', '賞味期限は品質の目安。見て嗅いで判断'));
+  }
+  info.append(meta);
+  const edit = () => openSheet({ ...it });
+  info.addEventListener('click', edit);
+  info.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); edit(); } });
+  const ops = el('div', 'ops');
+  if (it.pao && !it.opened) ops.append(btn('開封した', () => markOpened(it)));
+  ops.append(btn('使った', () => finish(it, 'ate')), btn('捨てた', () => finish(it, 'tossed')));
+  card.append(days, info, ops);
+  return card;
+}
+function btn(t, fn) { const b = el('button', 'btn small', t); b.type = 'button'; b.addEventListener('click', fn); return b; }
+function markOpened(it) {
+  const before = { ...it };
+  if ((it.qty || 1) > 1) {
+    // 1 個だけ開ける。開けた分を別の行に分ける
+    it.qty -= 1; S.items.push({ ...before, id: newId(), qty: 1, opened: todayStr() });
+  } else it.opened = todayStr();
+  save();
+  showToast(`${it.name}: 開封後${periodLabel(it.pao)} (${fmtDate(addPeriod(it.pao, todayStr()))}) まで`, null);
+}
+function finish(it, action) {
+  const before = JSON.stringify(S.items), logBefore = S.log.length;
+  if ((it.qty || 1) > 1) it.qty -= 1; else S.items = S.items.filter(i => i.id !== it.id);
+  S.log.push({ action, name: it.name, code: it.code || '', at: new Date().toISOString(), month: monthKey() });
+  if (S.log.length > 2000) S.log = S.log.slice(-2000);
+  save();
+  showToast(`${it.name}を${action === 'ate' ? '使った' : '捨てた'}にしました`, () => { S.items = JSON.parse(before); S.log.length = Math.min(S.log.length, logBefore); save(); hideToast(); });
+}
+function renderMonth() {
+  const m = monthKey(); const logs = S.log.filter(l => l.month === m);
+  const ate = logs.filter(l => l.action === 'ate').length, tossed = logs.filter(l => l.action === 'tossed').length;
+  const box = $('month'); box.replaceChildren();
+  const add = (label, val) => { const s = el('span'); s.append(label + ' '); s.append(el('b', '', String(val))); box.append(s); };
+  add(`${Number(m.slice(5))}月の使い切り`, ate); add('廃棄', tossed);
+  if (ate + tossed) add('廃棄率', Math.round(tossed / (ate + tossed) * 100) + '%');
+}
+
+/* ================= トースト ================= */
+let undoFn = null, toastTimer = 0;
+function showToast(text, undo) {
+  $('toastText').textContent = text; $('toast').hidden = false;
+  undoFn = undo || null; $('toastUndo').hidden = !undo;
+  clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, undo ? 6000 : 3500);
+}
+function hideToast() { $('toast').hidden = true; undoFn = null; }
+
+/* ================= バックアップ ================= */
+let pendingImport = null;
+$('exportBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ app: 'kigen', version: 1, savedAt: new Date().toISOString(), ...S }, null, 1)], { type: 'application/json' });
+  const a = el('a'); a.href = URL.createObjectURL(blob); a.download = `kigen-backup-${todayStr()}.json`;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+$('importBtn').addEventListener('click', () => $('fileImport').click());
+$('fileImport').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (!j || j.app !== 'kigen' || !Array.isArray(j.items)) throw new Error('bad');
+    pendingImport = { items: j.items, products: j.products || {}, log: j.log || [] };
+    $('importText').textContent = `${j.items.length}件 (${(j.savedAt || '').slice(0, 10)} 保存) で今のデータを置き換えます。`;
+    $('importConfirm').hidden = false;
+  } catch { showToast('キゲンメモのバックアップファイルではありません'); }
+});
+$('importDo').addEventListener('click', () => { if (!pendingImport) return; S = pendingImport; pendingImport = null; $('importConfirm').hidden = true; save(); showToast('バックアップから戻しました'); });
+$('importCancel').addEventListener('click', () => { pendingImport = null; $('importConfirm').hidden = true; });
+
+/* ================= 操作 ================= */
+$('fPlace').replaceChildren(...PLACES.map(([k, l]) => { const o = el('option', '', l); o.value = k; return o; }));
+$('scanBtn').addEventListener('click', () => Scanner.open());
+$('scanClose').addEventListener('click', () => Scanner.close());
+$('torchBtn').addEventListener('click', () => Scanner.setTorch(!Scanner.torch));
+$('scanPhoto').addEventListener('click', () => { Scanner.close(); $('filePhoto').click(); });
+$('scanManual').addEventListener('click', () => { Scanner.close(); openSheet({}); $('fCode').focus(); });
+$('manualBtn').addEventListener('click', () => { openSheet({}); });
+$('photoBtn').addEventListener('click', () => $('filePhoto').click());
+$('filePhoto').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  showToast('バーコードを解析しています…');
+  let code = null; try { code = await decodeFile(f); } catch {}
+  hideToast();
+  if (code) onCode(code, 'photo');
+  else { openSheet({ msg: 'バーコードが見つかりませんでした。バーコードに寄って、ピントを合わせて撮り直すか、数字を入力してください。', msgCls: 'err' }); $('fCode').focus(); }
+});
+$('cancelBtn').addEventListener('click', closeSheet);
+$('lookupBtn').addEventListener('click', () => runLookup($('fCode').value.trim().replace(/\D/g, '')));
+$('fCode').addEventListener('input', () => { $('janNote').textContent = codeNote($('fCode').value.trim()); });
+$('fCode').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('lookupBtn').click(); } });
+$('quick').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  if (b.dataset.d) $('fDate').value = addDays(+b.dataset.d);
+  else if (b.dataset.m) $('fDate').value = addMonths(+b.dataset.m);
+  else if (b === $('lastDaysChip') && form.lastDays != null) $('fDate').value = addDays(form.lastDays);
+});
+$('segKind').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setKind(b.dataset.v); });
+$('paoChips').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  const m = b.dataset.p.match(/^(\d+)([dm])$/); setPao(m ? { n: +m[1], unit: m[2] } : null);
+});
+$('fOpened').addEventListener('change', updateOpenedNote);
+$('filters').addEventListener('click', e => {
+  const b = e.target.closest('[data-f]'); if (!b) return; filter = b.dataset.f;
+  try { localStorage.setItem('kigen-filter', filter); } catch {}
+  render();
+});
+$('toastUndo').addEventListener('click', () => undoFn && undoFn());
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('scanner').hidden) Scanner.close(); else if (!$('sheet').hidden) closeSheet();
+});
+document.addEventListener('visibilitychange', () => {
+  // 裏に回ったらカメラを止める (iPhone は戻ってもストリームが固まる)
+  if (document.hidden && !$('scanner').hidden) Scanner.close();
+  if (!document.hidden) render();
+});
+function updateNet() { const on = navigator.onLine !== false; $('net').textContent = on ? '' : 'オフライン (商品情報は探せません)'; $('net').className = 'net' + (on ? '' : ' off'); }
+window.addEventListener('online', updateNet); window.addEventListener('offline', updateNet);
+
+/* ================= 起動 ================= */
+$('ver').textContent = VERSION;
+load(); render(); updateNet();
+if (!storageOk) $('storeNote').textContent = 'このブラウザではデータを保存できません (プライベートブラウズなど)。閉じると消えます。';
+setInterval(render, 30 * 60 * 1000);
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+// テスト用
+window.Kigen = { S: () => S, lookup, decodeFile, validCode, addMonths, due, onCode, version: VERSION };
+})();
+</script>
+</body>
+</html>

@@ -67,3 +67,7 @@ cd tests && npm ci && npx playwright install chromium webkit && npx playwright t
 ```
 
 テスト用の動画 (`tests/fixtures/`) は腕と棒が回るだけの合成スイング (`make_swing.py` で作成)。正解は 始動 0.80s / トップ 1.565s / インパクト 1.83s。
+
+---
+
+同じリポジトリの別アプリ: **[キゲンメモ](kigen/)** (バーコードで食品・日用品・化粧品の期限を管理する。説明は `kigen/README.md`)
