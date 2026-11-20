@@ -55,6 +55,7 @@
     const b = blank(); const o = Object.assign(b, p || {});
     o.mistakes = Object.assign(blank().mistakes, o.mistakes || {});
     o.daily = o.daily || {}; o.lessons = o.lessons || {};
+    o.play = o.play || {}; o.stats = o.stats || {};
     return o;
   }
   function loadLocal() { try { const s = localStorage.getItem(LS_KEY); return s ? normalize(JSON.parse(s)) : null; } catch { return null; } }
@@ -368,6 +369,8 @@
     else if (view.name === 'course') renderCourse(BY_ID[view.cid]);
     else if (view.name === 'lesson') renderLesson();
     else if (view.name === 'result') renderResult();
+    else if (view.name === 'chess') chessView();
+    else if (view.name === 'mjplay') mjView();
   }
 
   function courseIcon(c) {
@@ -401,6 +404,8 @@
           h('div', { class: 'cprog' }, h('div', { class: 'bar' }, h('i', { style: `width:${pct}%;background:${ccolor(c.id)}` })), h('span', { class: 'num' }, `${s.done}/${s.total}`), mistakes ? h('span', {}, `苦手 ${mistakes}`) : null))));
     }
     root.append(grid);
+    root.append(h('div', { class: 'sec-title' }, 'フリープレイ'));
+    root.append(playCards());
     root.append(h('div', { class: 'sec-title' }, '今週'));
     const wk = h('div', { class: 'week' });
     const vals = Array.from({ length: 7 }, (_, i) => { const d = daysAgo(6 - i); return { d, xp: P.daily[d] || 0 }; });
@@ -428,7 +433,8 @@
       h('p', {}, c.sub),
       h('div', { class: 'row' },
         nx ? h('button', { class: 'hbtn', onclick: () => startLesson(c, nx.u, nx.l) }, icon('play'), '続きから') : null,
-        bank.length ? h('button', { class: nx ? 'hbtn ghost' : 'hbtn', onclick: () => startReview(c) }, icon('review'), `苦手を復習（${bank.length}）`) : null));
+        bank.length ? h('button', { class: nx ? 'hbtn ghost' : 'hbtn', onclick: () => startReview(c) }, icon('review'), `苦手を復習（${bank.length}）`) : null,
+        c.id === 'ch' || c.id === 'mj' ? h('button', { class: 'hbtn ghost', onclick: () => go({ name: c.id === 'ch' ? 'chess' : 'mjplay' }) }, icon('loop'), c.id === 'ch' ? 'CPUと対局' : 'CPUと対局') : null));
     if (!nx && !bank.length) hero.append(h('p', {}, '全部修了。ドリル（∞）は何度でも新しい問題が出ます。'));
     root.append(hero);
     c.units.forEach((u, ui) => {
@@ -528,14 +534,18 @@
     app.append(h('div', { class: 'lesson', style: cvars(L.cid) }, top, body, foot));
   }
 
-  function finishLesson() {
-    const firstTry = L.total - L.wrong.size; const acc = Math.round((firstTry / L.total) * 100);
-    const xp = 10 + (L.wrong.size === 0 ? 5 : 0) + (L.review ? 5 : 0);
+  function awardXP(xp) {
     const d = today();
     if (P.last !== d) { P.streak = (P.last === daysAgo(1)) ? P.streak + 1 : 1; P.last = d; }
     P.best = Math.max(P.best, P.streak);
     P.xp += xp; P.daily[d] = (P.daily[d] || 0) + xp;
     for (const k of Object.keys(P.daily)) if (k < daysAgo(60)) delete P.daily[k];
+  }
+
+  function finishLesson() {
+    const firstTry = L.total - L.wrong.size; const acc = Math.round((firstTry / L.total) * 100);
+    const xp = 10 + (L.wrong.size === 0 ? 5 : 0) + (L.review ? 5 : 0);
+    awardXP(xp);
     if (L.key) { const r = P.lessons[L.key] || { n: 0, best: 0 }; r.n++; r.best = Math.max(r.best, acc); P.lessons[L.key] = r; }
     save();
     L.result = { xp, acc, secs: Math.round((Date.now() - L.t0) / 1000) };
@@ -895,6 +905,8 @@
     bg.append(sheet); document.body.append(bg);
     document.onkeydown = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
   }
+
+  /*__PLAY__*/
 
   // ---------- 起動 ----------
   render();

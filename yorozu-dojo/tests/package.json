@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "教材の検証",
   "scripts": {
-    "verify": "node verify.js"
+    "verify": "node verify.js && node chess-engine.js && node mj-game.js"
   },
   "keywords": [],
   "author": "",
