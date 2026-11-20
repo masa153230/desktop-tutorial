@@ -506,6 +506,12 @@ details.tip p { margin: 6px 0 2px; font-size: 14px; line-height: 1.7; }
 .shout3d { position: absolute; transform: translate(-50%, -50%); font-family: var(--font-display); font-weight: 900; font-size: 34px; color: #fff; letter-spacing: .06em; pointer-events: none;
   text-shadow: 0 3px 0 #b8322a, 0 0 16px rgba(0, 0, 0, .65); animation: shout 1.2s ease-out both; white-space: nowrap; }
 .handlab { margin-top: 6px; font-weight: 800; color: var(--ink); }
+.lvl-h { margin-top: 30px; padding: 10px 14px; border-radius: 14px; background: var(--cd); color: #fff; display: flex; flex-direction: column; gap: 2px; }
+.lvl-h b { font-family: var(--font-display); font-size: 18px; letter-spacing: .08em; }
+.lvl-h span { font-size: 12.5px; opacity: .92; }
+.lvl-h + .unit { margin-top: 14px; }
+.answer-line.spell { justify-content: center; gap: 4px; }
+.answer-line.spell .wtile, .bank .wtile.cyr { font-size: 22px; min-width: 44px; text-align: center; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -519,8 +525,154 @@ details.tip p { margin: 6px 0 2px; font-size: 14px; line-height: 1.7; }
 const CONTENT = (() => {
   const en = {
     id: 'en', name: '英語', short: 'EN', lang: 'en',
-    sub: '使えるフレーズと、日本人がやりがちなミス',
+    sub: '中学英語の土台から、日常会話・仕事の英語まで',
     units: [
+      { id: 'b1', title: '基本の単語①：身の回り', desc: 'まずは目に見えるものの名前', tip: '英語の名詞は、1つなら a（母音で始まる語は an）をつける（a pen, an apple）。2つ以上なら語尾に s（pens, cups）。日本語にない区別なので、最初は「a か s がないと落ち着かない」感覚を作るのが目標。', items: [
+        ['book', '本'], ['pen', 'ペン'], ['desk', '机'], ['bag', 'かばん'], ['phone', '電話・スマホ'], ['cup', 'カップ'],
+        ['water', '水'], ['door', 'ドア'], ['window', '窓'], ['car', '車'], ['key', '鍵'], ['money', 'お金'], ['friend', '友達'], ['family', '家族'],
+      ] },
+      { id: 'b2', title: 'be動詞（am / are / is）', desc: '「〜です」「〜にいる」', tip: '「AはBです」は be動詞でつなぐ。主語で形が決まる：I → am、you・we・they → are、he・she・it・1人の名前 → is。否定は後ろに not（I am not）、疑問は be動詞を前に出す（Are you …?）。短縮形 I\'m / you\'re / he\'s / isn\'t / aren\'t は会話の標準。', items: [
+        ["I'm Taro.", '私は太郎です。'],
+        ['You are kind.', 'あなたは優しい。'],
+        ['He is a teacher.', '彼は先生です。'],
+        ['She is busy now.', '彼女は今忙しい。'],
+        ['It is cold today.', '今日は寒い。'],
+        ['We are friends.', '私たちは友達です。'],
+        ['They are students.', '彼らは学生です。'],
+        ["I'm not hungry.", 'お腹はすいていません。'],
+        ['Are you tired?', '疲れてる？'],
+        ['Is this your bag?', 'これはあなたのかばんですか？'],
+        ['Yes, it is.', 'はい、そうです。'],
+        ["No, I'm not.", 'いいえ、違います。'],
+      ] },
+      { id: 'b3', title: '一般動詞（like / play / have）', desc: '「〜する」「〜が好き」', tip: 'be動詞以外の動詞（like, play, have, go…）は「主語＋動詞＋目的語」の順（I like coffee）。否定は don\'t＋動詞（I don\'t like…）、疑問は Do を前に（Do you like…?）。答えは Yes, I do. / No, I don\'t.。be動詞と一緒に使わない（×I am like coffee）。', items: [
+        ['I like coffee.', '私はコーヒーが好きです。'],
+        ['I play chess.', '私はチェスをします。'],
+        ['I have a car.', '私は車を持っています。'],
+        ['We live in Tokyo.', '私たちは東京に住んでいます。'],
+        ['I drink tea every morning.', '毎朝お茶を飲みます。'],
+        ['They speak English.', '彼らは英語を話します。'],
+        ["I don't like natto.", '私は納豆が好きではありません。'],
+        ['Do you like music?', '音楽は好きですか？'],
+        ['Yes, I do.', 'はい、好きです。'],
+        ['I go to work by train.', '私は電車で通勤しています。'],
+        ['I watch TV at night.', '夜はテレビを見ます。'],
+        ['I study English.', '私は英語を勉強しています。'],
+      ] },
+      { id: 'b4', title: '三単現の s（He likes）', desc: 'TOEIC で一番狙われるところ', tip: '主語が he・she・it・1人の名前（3人称単数）で、今のことを言うときは、動詞に s をつける（He likes, She works）。go → goes、watch → watches、have → has は形が変わる。否定は doesn\'t＋原形（He doesn\'t eat）、疑問は Does＋原形（Does she play…?）。doesn\'t のあとは s をつけない。', items: [
+        ['He likes soccer.', '彼はサッカーが好きです。'],
+        ['She works at a bank.', '彼女は銀行で働いています。'],
+        ['My father drinks coffee.', '父はコーヒーを飲みます。'],
+        ["He doesn't eat meat.", '彼は肉を食べません。'],
+        ['Does she play the piano?', '彼女はピアノを弾きますか？'],
+        ['Yes, she does.', 'はい、弾きます。'],
+        ['It rains a lot in June.', '6月は雨がよく降ります。'],
+        ['The store opens at nine.', 'その店は9時に開きます。'],
+        ['My sister lives in Osaka.', '姉は大阪に住んでいます。'],
+        ['He goes to the gym.', '彼はジムに通っています。'],
+        ['She has two cats.', '彼女は猫を2匹飼っています。'],
+        ['He watches movies on weekends.', '彼は週末に映画を見ます。'],
+      ] },
+      { id: 'b5', title: '曜日・時間・値段', desc: '予定と買い物に必須', tip: '時刻は It\'s を使う（It\'s seven thirty.＝7時30分）。「〜時に」は at（at six）、「〜曜日に」は on（on Friday）。曜日は必ず大文字で始める。値段も It\'s で言える（It\'s five hundred yen.）。', items: [
+        ['Monday', '月曜日'], ['Tuesday', '火曜日'], ['Wednesday', '水曜日'], ['Thursday', '木曜日'], ['Friday', '金曜日'], ['Saturday', '土曜日'], ['Sunday', '日曜日'],
+        ['What time is it?', '今何時？'],
+        ["It's seven thirty.", '7時30分です。'],
+        ['I get up at six.', '私は6時に起きます。'],
+        ["It's five hundred yen.", '500円です。'],
+        ['See you on Friday.', '金曜日に会おう。'],
+      ] },
+      { id: 'b6', title: '代名詞（I / my / me）', desc: '「私は」「私の」「私を」の使い分け', tip: '代名詞は役割で形が変わる。主語「〜は」：I, you, he, she, we, they。持ち主「〜の」：my, your, his, her, our, their。目的語「〜を・に」：me, you, him, her, us, them。「〜のもの」：mine, yours, his, hers, ours, theirs。', items: [
+        ['I like him.', '私は彼のことが好きです。'],
+        ['This is my bag.', 'これは私のかばんです。'],
+        ["That's her car.", 'あれは彼女の車です。'],
+        ['Call me later.', 'あとで電話して。'],
+        ['Is this yours?', 'これはあなたのですか？'],
+        ["It's mine.", 'それは私のです。'],
+        ['We love our dog.', '私たちはうちの犬が大好きです。'],
+        ['Their house is big.', '彼らの家は大きい。'],
+        ['Give it to me.', 'それを私にちょうだい。'],
+        ['His name is Ken.', '彼の名前はケンです。'],
+        ['Tell us about it.', 'それについて私たちに教えて。'],
+        ['Your English is good.', 'あなたの英語は上手です。'],
+      ] },
+      { id: 'b7', title: '疑問詞（What / Where / When…）', desc: '5W1H で質問する', tip: '疑問詞は文の先頭。What＝何、Where＝どこ、When＝いつ、Who＝誰、Why＝なぜ、How＝どう・どのくらい、Which＝どれ。後ろは普通の疑問文の形（Where do you live? / Who is that man?）。How old / How many / How much のように How は組み合わせて使える。', items: [
+        ['What is this?', 'これは何ですか？'],
+        ['Where do you live?', 'どこに住んでいますか？'],
+        ['When is your birthday?', '誕生日はいつですか？'],
+        ['Who is that man?', 'あの男の人は誰ですか？'],
+        ['Why are you late?', 'なぜ遅れたの？'],
+        ['How are you?', '元気ですか？'],
+        ['How old are you?', '何歳ですか？'],
+        ['What do you want?', '何が欲しいですか？'],
+        ['Which one do you like?', 'どれが好きですか？'],
+        ['How many people are there?', '何人いますか？'],
+        ['What time does it start?', '何時に始まりますか？'],
+        ['Where is the toilet?', 'トイレはどこですか？'],
+      ] },
+      { id: 'b8', title: '現在進行形（〜している）', desc: 'be動詞＋-ing', tip: '「今〜している」は be動詞＋動詞ing（I\'m eating）。be動詞を忘れて I eating としがちなので注意。否定は be動詞＋not（He\'s not working）、疑問は be動詞を前に（Are you listening?）。天気の It\'s raining. もこの形。', items: [
+        ["I'm eating lunch.", '昼ごはんを食べています。'],
+        ["She's reading a book.", '彼女は本を読んでいます。'],
+        ['They are playing soccer.', '彼らはサッカーをしています。'],
+        ["It's raining.", '雨が降っています。'],
+        ['What are you doing?', '何をしているの？'],
+        ["I'm watching TV.", 'テレビを見ています。'],
+        ["He's not working today.", '彼は今日は仕事をしていません。'],
+        ['Are you listening?', '聞いてる？'],
+        ['We are waiting for the bus.', 'バスを待っています。'],
+        ['The baby is sleeping.', '赤ちゃんが寝ています。'],
+        ["I'm cooking dinner.", '夕食を作っています。'],
+        ['Who are you talking to?', '誰と話しているの？'],
+      ] },
+      { id: 'b9', title: '過去形（played / went）', desc: '「〜した」', tip: '多くの動詞は -ed をつける（play → played）。よく使う動詞ほど形が不規則：go → went、eat → ate、see → saw、buy → bought、come → came、have → had。否定は didn\'t＋原形（I didn\'t see）、疑問は Did＋原形（Did you sleep?）。be動詞の過去は was / were。', items: [
+        ['I played chess yesterday.', '昨日チェスをしました。'],
+        ['I went to Osaka last week.', '先週大阪に行きました。'],
+        ['She came home late.', '彼女は遅く帰ってきました。'],
+        ['We ate sushi.', '私たちは寿司を食べました。'],
+        ['I bought a new phone.', '新しいスマホを買いました。'],
+        ['Did you sleep well?', 'よく眠れた？'],
+        ["I didn't see him.", '彼には会いませんでした。'],
+        ['It was very hot.', 'とても暑かった。'],
+        ['We were tired.', '私たちは疲れていました。'],
+        ['I saw a movie.', '映画を見ました。'],
+        ['He called me last night.', '昨夜彼から電話がありました。'],
+        ['I had a good time.', '楽しかったです。'],
+      ] },
+      { id: 'b10', title: 'can と will', desc: '「できる」と「〜するつもり」', tip: 'can（できる）・will（〜する／〜だろう）のあとは動詞の原形。主語が he でも s はつかない（×He cans / ×She can speaks）。否定は can\'t / won\'t、疑問は Can you…? / Will you…? と前に出す。Can I…? は「〜してもいい？」、Can you…? は「〜してくれる？」。', items: [
+        ['I can swim.', '私は泳げます。'],
+        ['Can you help me?', '手伝ってくれる？'],
+        ["I can't drive.", '私は運転できません。'],
+        ['She can speak English.', '彼女は英語が話せます。'],
+        ['I will call you tomorrow.', '明日電話します。'],
+        ['It will be sunny.', '晴れるでしょう。'],
+        ["I won't be late.", '遅れません。'],
+        ['Will you come?', '来る？'],
+        ['Can I use this?', 'これを使ってもいいですか？'],
+        ['You can do it!', 'あなたならできる！'],
+        ['Can you open the door?', 'ドアを開けてくれる？'],
+        ['We will see.', 'まあ、様子を見よう。'],
+      ] },
+      { id: 'b11', title: 'There is と場所の言い方', desc: '「〜がある」「〜の上に」', tip: '「〜がある・いる」は There is（1つ）／ There are（2つ以上）。疑問は Is there…?。場所は前置詞で：on（上に接して）、under（下に）、in（中に）、next to（隣に）、in front of（前に）、behind（後ろに）。', items: [
+        ['There is a cat on the bed.', 'ベッドの上に猫がいます。'],
+        ['There are many people here.', 'ここには人がたくさんいます。'],
+        ['Is there a bank near here?', 'この近くに銀行はありますか？'],
+        ['There is no milk.', '牛乳がありません。'],
+        ['The book is on the desk.', '本は机の上にあります。'],
+        ['My bag is under the chair.', 'かばんはいすの下にあります。'],
+        ['The station is next to the park.', '駅は公園の隣です。'],
+        ['The store is in front of the hotel.', '店はホテルの前です。'],
+        ['There are two rooms.', '部屋が2つあります。'],
+        ['Is there Wi-Fi?', 'Wi-Fiはありますか？'],
+        ['The car is behind the house.', '車は家の裏にあります。'],
+        ['Your phone is in your bag.', 'スマホはかばんの中だよ。'],
+      ] },
+      { id: 'b12', title: '基本の単語②：動詞', desc: 'これだけで言えることが一気に増える', tip: 'take（取る・乗る・（時間が）かかる）、get（手に入れる・着く）、make（作る）は意味が広い「万能動詞」。日本語1語に対応させず、例文ごと覚えるのが近道。', items: [
+        ['go', '行く'], ['come', '来る'], ['eat', '食べる'], ['drink', '飲む'], ['see', '見る・会う'], ['buy', '買う'], ['make', '作る'],
+        ['take', '取る・乗る'], ['get', '手に入れる・着く'], ['give', 'あげる'], ['know', '知っている'], ['think', '思う'], ['want', '欲しい'], ['need', '必要とする'],
+      ] },
+      { id: 'b13', title: '基本の単語③：形容詞', desc: '様子・気持ちを言う', tip: '形容詞は be動詞のあと（It\'s cold.）か名詞の前（a cold day）に置く。very をつけると「とても」（very busy）。反対の意味のペアで覚えると2倍速い（hot ↔ cold, easy ↔ difficult）。', items: [
+        ['big', '大きい'], ['small', '小さい'], ['hot', '暑い・熱い'], ['cold', '寒い・冷たい'], ['new', '新しい'], ['old', '古い・年をとった'], ['good', '良い'],
+        ['bad', '悪い'], ['happy', 'うれしい'], ['tired', '疲れた'], ['busy', '忙しい'], ['easy', '簡単な'], ['difficult', '難しい'], ['expensive', '高い（値段）'], ['cheap', '安い'],
+      ] },
       { id: 'u1', title: 'あいさつ・自己紹介', desc: '初対面で詰まらないための定番', items: [
         ['Nice to meet you.', 'はじめまして。'],
         ['How are you doing?', '調子はどう？'],
@@ -936,6 +1088,11 @@ const CONTENT = (() => {
     id: 'mn', name: 'モンゴル語', short: 'МН', lang: 'mn',
     sub: 'キリル文字から旅の一言まで（ハルハ方言）',
     units: [
+      { id: 'm1', title: 'キリル文字③：読みのルール', desc: '長い母音・二重母音・ь', reading: true, tip: '同じ母音を2つ重ねると長く伸ばす（аа・ээ・оо・өө・уу・үү）。ай・ой・уй・үй は「アイ」「オイ」のような二重母音。ы と ий は長い「イー」。ь は前の子音をやわらかくする記号で、短い「イ」の響きが残る（хонь＝ホニ）。語の最後の短い母音は弱く発音されやすい（явна→ヤウン）。', items: [
+        ['аав', '父（аа＝長いア）', 'aav'], ['ширээ', '机（ээ＝長いエ）', 'shiree'], ['тоо', '数（оо＝長いオ）', 'too'], ['өөр', '別の（өө）', 'öör'],
+        ['уул', '山（уу）', 'uul'], ['үүл', '雲（үү）', 'üül'], ['сайн', 'よい（ай＝アイ）', 'sain'], ['ой', '森（ой＝オイ）', 'oi'],
+        ['уйлах', '泣く（уй）', 'uilakh'], ['хүйтэн', '寒い（үй）', 'khüiten'], ['хонь', '羊（ь）', "khoni'"], ['тийм', 'はい（ий＝長いイ）', 'tiim'], ['сарын', '月の（ы＝長いイ）', 'saryn'],
+      ] },
       { id: 'u1', title: 'キリル文字①', desc: '見た目どおりの字と、だまされる字', letters: true, items: [
         ['А', 'a（ア）', 'a'], ['К', 'k（ク）', 'k'], ['М', 'm（ム）', 'm'], ['О', 'o（オ）', 'o'], ['Т', 't（ト）', 't'],
         ['В', 'v / w（ヴ）', 'v'], ['Е', 'ye（イェ）', 'ye'], ['Н', 'n（ン・ナ行）', 'n'], ['Р', 'r（巻き舌のル）', 'r'],
@@ -1393,6 +1550,23 @@ const CONTENT = (() => {
     ],
   };
 
+  // レベル順に並べ替える（ユニットの id は変えないので進捗はそのまま）
+  function arrange(course, order, notes) {
+    const by = Object.fromEntries(course.units.map((u) => [u.id, u])); const out = [];
+    for (const [lv, ids] of Object.entries(order)) for (const id of ids) { if (!by[id]) throw new Error('unit ' + id); by[id].level = lv; out.push(by[id]); delete by[id]; }
+    if (Object.keys(by).length) throw new Error('未配置 ' + Object.keys(by));
+    course.units = out; course.levels = notes;
+  }
+  arrange(en, {
+    '入門': ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10', 'b11', 'b12', 'b13'],
+    '基礎': ['u1', 'u2', 'u3', 'u6', 'u8', 'u9', 'u10', 'u11', 'u12', 'u13', 'u15', 'u20', 'u21', 'u22', 'u23', 'u27', 'u7'],
+    '中級': ['u4', 'u5', 'u14', 'u16', 'u17', 'u18', 'u19', 'u24', 'u25', 'u26', 'u28', 'u29', 'u30'],
+  }, { '入門': 'TOEIC 300〜400：中学1〜2年の文法と基本の単語', '基礎': 'TOEIC 400〜550：日常会話と時制・冠詞・前置詞', '中級': 'TOEIC 600〜：仕事・メール・句動詞・仮定法' });
+  arrange(mn, {
+    '入門': ['u1', 'u2', 'm1', 'u3', 'u4', 'u5'],
+    '基礎': ['u10', 'u6', 'u11', 'u7', 'u8', 'u14', 'u12', 'u13', 'u9'],
+    '応用': ['u15', 'u16', 'u17', 'u18', 'u19', 'u20', 'u21', 'u22', 'u23', 'u24', 'u25', 'u26'],
+  }, { '入門': '文字と読み・あいさつ・数字', '基礎': '「〜です」・自己紹介・疑問文・身近な単語', '応用': '動詞の時制・否定・格・場面の会話' });
   return { courses: [en, mn, ch, mj] };
 })();
 if (typeof module !== 'undefined') module.exports = CONTENT;
@@ -3569,6 +3743,11 @@ const Mahjong3D = (() => {
       if (type === 's2l') return mcFrom({ q: 'この音の文字は？', main: o.ja }, { text: o.t, cls: 'cyr big' }, distract(all, o, 't').map((x) => ({ text: x.t, cls: 'cyr big' })));
       return mcFrom({ q: 'この文字の音は？', main: o.t, mainCls: 'big', ex: o.t + ' ＝ ' + o.ja }, ja(o), distract(all, o, 'ja').map(ja));
     }
+    if (type === 'spell' && !isEn && !/\s/.test(o.t) && [...o.t].length <= 9) {
+      const chars = [...o.t]; const pool = 'абвгдеёжзийклмноөпрстуүфхцчшыьэюя'.split('').filter((c) => !chars.includes(c.toLowerCase()) && !chars.includes(c));
+      return { t: 'spell', q: 'キリル文字でつづろう', main: o.ja, reading: o.rom, cls: 'cyr', words: shuffle([...chars, ...sampleN(pool, 2)]), a: o.t, ex: `${o.t}（${o.rom}）＝ ${o.ja}` };
+    }
+    if (type === 'spell') type = unit.reading ? 'w2r' : 'j2t';
     if (unit.reading) {
       if (type === 'w2j') return mcFrom({ q: 'この単語の意味は？', main: o.t, mainCls: 'cyr', ex: `${o.t}（${o.rom}）＝ ${o.ja}` }, ja(o), distract(all, o, 'ja').map(ja));
       return mcFrom({ q: 'なんと読む？', main: o.t, mainCls: 'cyr', ex: `${o.t}（${o.rom}）＝ ${o.ja}` }, { text: o.rom }, distract(all, o, 'rom').map((x) => ({ text: x.rom })));
@@ -3601,7 +3780,7 @@ const Mahjong3D = (() => {
   }
   const LEVEL_TYPES = {
     en: { 1: ['t2j', 'j2t', 'listen'], 2: ['j2t', 'order', 'listen', 't2j', 'speak'], 3: ['order', 'type', 'listen', 'j2t', 'speak'] },
-    mn: { 1: ['t2j', 'j2t'], 2: ['j2t', 'order', 't2j'], 3: ['order', 'j2t', 't2j'] },
+    mn: { 1: ['t2j', 'j2t', 'spell'], 2: ['j2t', 'order', 't2j', 'spell'], 3: ['order', 'j2t', 'spell', 't2j'] },
   };
   function langLesson(course, unit, lesson) {
     const all = langItems(course, unit);
@@ -3609,7 +3788,7 @@ const Mahjong3D = (() => {
     if (lesson.lv === 3) items = sampleN(items, Math.min(8, items.length)); else items = shuffle(items);
     let types;
     if (unit.letters) types = lesson.lv === 1 ? ['l2s'] : ['l2s', 's2l'];
-    else if (unit.reading) types = lesson.lv === 1 ? ['w2r'] : ['w2r', 'w2j'];
+    else if (unit.reading) types = lesson.lv === 1 ? ['w2r', 'w2j'] : ['w2r', 'w2j', 'spell'];
     else types = LEVEL_TYPES[course.id][lesson.lv];
     if (!canSpeak()) types = types.filter((t) => t !== 'listen');
     if (!Speech.dict || Speech.noSpeak) types = types.filter((t) => t !== 'speak');
@@ -3811,7 +3990,7 @@ const Mahjong3D = (() => {
         courseIcon(c),
         h('div', { class: 'cbody' },
           h('div', { class: 'cname' }, c.name),
-          h('div', { class: 'csub' }, nx ? `次：${nx.u.title} ・ ${nx.l.name}` : '全レッスン修了。復習とドリルで仕上げ'),
+          h('div', { class: 'csub' }, nx ? `次：${nx.u.level ? `【${nx.u.level}】` : ''}${nx.u.title} ・ ${nx.l.name}` : '全レッスン修了。復習とドリルで仕上げ'),
           h('div', { class: 'cprog' }, h('div', { class: 'bar' }, h('i', { style: `width:${pct}%;background:${ccolor(c.id)}` })), h('span', { class: 'num' }, `${s.done}/${s.total}`), srsDue(c.id).length ? h('span', { class: 'due' }, `復習 ${srsDue(c.id).length}`) : mistakes ? h('span', {}, `苦手 ${mistakes}`) : null))));
     }
     root.append(grid);
@@ -3849,7 +4028,9 @@ const Mahjong3D = (() => {
         c.id === 'ch' || c.id === 'mj' ? h('button', { class: 'hbtn ghost', onclick: () => go({ name: c.id === 'ch' ? 'chess' : 'mjplay' }) }, icon('loop'), c.id === 'ch' ? 'CPUと対局' : 'CPUと対局') : null));
     if (!nx && !bank.length) hero.append(h('p', {}, '全部修了。ドリル（∞）は何度でも新しい問題が出ます。'));
     root.append(hero);
+    let prevLv = null;
     c.units.forEach((u, ui) => {
+      if (u.level && u.level !== prevLv) { prevLv = u.level; root.append(h('div', { class: 'lvl-h' }, h('b', {}, u.level), h('span', {}, (c.levels || {})[u.level] || ''))); }
       const sec = h('section', { class: 'unit' }, h('div', { class: 'unit-h' }, h('span', { class: 'no', style: `color:${ccolor(c.id)}` }, 'UNIT ' + (ui + 1)), h('h3', {}, u.title), h('p', {}, u.desc, u.needsAudio && !canSpeak() ? '（この環境では音声が出ないため、文字での確認になります）' : '')),
         u.tip ? h('details', { class: 'tip' }, h('summary', {}, 'このユニットのポイント'), h('p', {}, u.tip)) : null);
       const path = h('div', { class: 'path' });
@@ -3998,7 +4179,7 @@ const Mahjong3D = (() => {
     if (ex.tag) host.append(h('div', { class: 'eyebrow' }, ex.tag));
     host.append(h('p', { class: 'q' }, ex.q));
     if (ex.t === 'mc') return rMC(ex, ctx, host);
-    if (ex.t === 'order') return rOrder(ex, ctx, host);
+    if (ex.t === 'order' || ex.t === 'spell') return rOrder(ex, ctx, host);
     if (ex.t === 'type') return rType(ex, ctx, host);
     if (ex.t === 'pairs') return rPairs(ex, ctx, host);
     if (ex.t === 'chess') return rChess(ex, ctx, host);
@@ -4063,8 +4244,9 @@ const Mahjong3D = (() => {
     .replace(/\blet's\b/g, 'let us').replace(/\b(it|that|what|how|there|he|she|who|where)'s\b/g, '$1 is').replace(/\bcan not\b/g, 'cannot');
   function lev(a, b) { const m = a.length, n = b.length; const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]); for (let j = 1; j <= n; j++) d[0][j] = j; for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[m][n]; }
   function rOrder(ex, ctx, host) {
-    host.append(promptEl({ main: ex.main }));
-    const line = h('div', { class: 'answer-line', 'aria-label': '答えの並び' });
+    host.append(promptEl({ main: ex.main, reading: ex.t === 'spell' && P.reading ? 'ヒント：' + ex.reading : null }));
+    const sep = ex.t === 'spell' ? '' : ' ';
+    const line = h('div', { class: 'answer-line' + (ex.t === 'spell' ? ' spell' : ''), 'aria-label': '答えの並び' });
     const bank = h('div', { class: 'bank' });
     const placed = [];
     ex.words.forEach((w, i) => {
@@ -4080,9 +4262,9 @@ const Mahjong3D = (() => {
     });
     let locked = false;
     host.append(line, bank);
-    const built = () => [...line.children].map((t) => ex.words[+t.dataset.i]).join(' ');
+    const built = () => [...line.children].map((t) => ex.words[+t.dataset.i]).join(sep);
     return {
-      check: () => ({ ok: norm(built()) === norm(ex.a), answer: ex.a }),
+      check: () => ({ ok: ex.t === 'spell' ? built().toLowerCase() === ex.a.toLowerCase() : norm(built()) === norm(ex.a), answer: ex.a }),
       reveal: () => ex.a,
       lock: () => { locked = true; [...bank.children].forEach((b) => { b.disabled = true; }); },
     };

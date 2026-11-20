@@ -241,6 +241,11 @@
       if (type === 's2l') return mcFrom({ q: 'この音の文字は？', main: o.ja }, { text: o.t, cls: 'cyr big' }, distract(all, o, 't').map((x) => ({ text: x.t, cls: 'cyr big' })));
       return mcFrom({ q: 'この文字の音は？', main: o.t, mainCls: 'big', ex: o.t + ' ＝ ' + o.ja }, ja(o), distract(all, o, 'ja').map(ja));
     }
+    if (type === 'spell' && !isEn && !/\s/.test(o.t) && [...o.t].length <= 9) {
+      const chars = [...o.t]; const pool = 'абвгдеёжзийклмноөпрстуүфхцчшыьэюя'.split('').filter((c) => !chars.includes(c.toLowerCase()) && !chars.includes(c));
+      return { t: 'spell', q: 'キリル文字でつづろう', main: o.ja, reading: o.rom, cls: 'cyr', words: shuffle([...chars, ...sampleN(pool, 2)]), a: o.t, ex: `${o.t}（${o.rom}）＝ ${o.ja}` };
+    }
+    if (type === 'spell') type = unit.reading ? 'w2r' : 'j2t';
     if (unit.reading) {
       if (type === 'w2j') return mcFrom({ q: 'この単語の意味は？', main: o.t, mainCls: 'cyr', ex: `${o.t}（${o.rom}）＝ ${o.ja}` }, ja(o), distract(all, o, 'ja').map(ja));
       return mcFrom({ q: 'なんと読む？', main: o.t, mainCls: 'cyr', ex: `${o.t}（${o.rom}）＝ ${o.ja}` }, { text: o.rom }, distract(all, o, 'rom').map((x) => ({ text: x.rom })));
@@ -273,7 +278,7 @@
   }
   const LEVEL_TYPES = {
     en: { 1: ['t2j', 'j2t', 'listen'], 2: ['j2t', 'order', 'listen', 't2j', 'speak'], 3: ['order', 'type', 'listen', 'j2t', 'speak'] },
-    mn: { 1: ['t2j', 'j2t'], 2: ['j2t', 'order', 't2j'], 3: ['order', 'j2t', 't2j'] },
+    mn: { 1: ['t2j', 'j2t', 'spell'], 2: ['j2t', 'order', 't2j', 'spell'], 3: ['order', 'j2t', 'spell', 't2j'] },
   };
   function langLesson(course, unit, lesson) {
     const all = langItems(course, unit);
@@ -281,7 +286,7 @@
     if (lesson.lv === 3) items = sampleN(items, Math.min(8, items.length)); else items = shuffle(items);
     let types;
     if (unit.letters) types = lesson.lv === 1 ? ['l2s'] : ['l2s', 's2l'];
-    else if (unit.reading) types = lesson.lv === 1 ? ['w2r'] : ['w2r', 'w2j'];
+    else if (unit.reading) types = lesson.lv === 1 ? ['w2r', 'w2j'] : ['w2r', 'w2j', 'spell'];
     else types = LEVEL_TYPES[course.id][lesson.lv];
     if (!canSpeak()) types = types.filter((t) => t !== 'listen');
     if (!Speech.dict || Speech.noSpeak) types = types.filter((t) => t !== 'speak');
@@ -483,7 +488,7 @@
         courseIcon(c),
         h('div', { class: 'cbody' },
           h('div', { class: 'cname' }, c.name),
-          h('div', { class: 'csub' }, nx ? `次：${nx.u.title} ・ ${nx.l.name}` : '全レッスン修了。復習とドリルで仕上げ'),
+          h('div', { class: 'csub' }, nx ? `次：${nx.u.level ? `【${nx.u.level}】` : ''}${nx.u.title} ・ ${nx.l.name}` : '全レッスン修了。復習とドリルで仕上げ'),
           h('div', { class: 'cprog' }, h('div', { class: 'bar' }, h('i', { style: `width:${pct}%;background:${ccolor(c.id)}` })), h('span', { class: 'num' }, `${s.done}/${s.total}`), srsDue(c.id).length ? h('span', { class: 'due' }, `復習 ${srsDue(c.id).length}`) : mistakes ? h('span', {}, `苦手 ${mistakes}`) : null))));
     }
     root.append(grid);
@@ -521,7 +526,9 @@
         c.id === 'ch' || c.id === 'mj' ? h('button', { class: 'hbtn ghost', onclick: () => go({ name: c.id === 'ch' ? 'chess' : 'mjplay' }) }, icon('loop'), c.id === 'ch' ? 'CPUと対局' : 'CPUと対局') : null));
     if (!nx && !bank.length) hero.append(h('p', {}, '全部修了。ドリル（∞）は何度でも新しい問題が出ます。'));
     root.append(hero);
+    let prevLv = null;
     c.units.forEach((u, ui) => {
+      if (u.level && u.level !== prevLv) { prevLv = u.level; root.append(h('div', { class: 'lvl-h' }, h('b', {}, u.level), h('span', {}, (c.levels || {})[u.level] || ''))); }
       const sec = h('section', { class: 'unit' }, h('div', { class: 'unit-h' }, h('span', { class: 'no', style: `color:${ccolor(c.id)}` }, 'UNIT ' + (ui + 1)), h('h3', {}, u.title), h('p', {}, u.desc, u.needsAudio && !canSpeak() ? '（この環境では音声が出ないため、文字での確認になります）' : '')),
         u.tip ? h('details', { class: 'tip' }, h('summary', {}, 'このユニットのポイント'), h('p', {}, u.tip)) : null);
       const path = h('div', { class: 'path' });
@@ -670,7 +677,7 @@
     if (ex.tag) host.append(h('div', { class: 'eyebrow' }, ex.tag));
     host.append(h('p', { class: 'q' }, ex.q));
     if (ex.t === 'mc') return rMC(ex, ctx, host);
-    if (ex.t === 'order') return rOrder(ex, ctx, host);
+    if (ex.t === 'order' || ex.t === 'spell') return rOrder(ex, ctx, host);
     if (ex.t === 'type') return rType(ex, ctx, host);
     if (ex.t === 'pairs') return rPairs(ex, ctx, host);
     if (ex.t === 'chess') return rChess(ex, ctx, host);
@@ -735,8 +742,9 @@
     .replace(/\blet's\b/g, 'let us').replace(/\b(it|that|what|how|there|he|she|who|where)'s\b/g, '$1 is').replace(/\bcan not\b/g, 'cannot');
   function lev(a, b) { const m = a.length, n = b.length; const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]); for (let j = 1; j <= n; j++) d[0][j] = j; for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[m][n]; }
   function rOrder(ex, ctx, host) {
-    host.append(promptEl({ main: ex.main }));
-    const line = h('div', { class: 'answer-line', 'aria-label': '答えの並び' });
+    host.append(promptEl({ main: ex.main, reading: ex.t === 'spell' && P.reading ? 'ヒント：' + ex.reading : null }));
+    const sep = ex.t === 'spell' ? '' : ' ';
+    const line = h('div', { class: 'answer-line' + (ex.t === 'spell' ? ' spell' : ''), 'aria-label': '答えの並び' });
     const bank = h('div', { class: 'bank' });
     const placed = [];
     ex.words.forEach((w, i) => {
@@ -752,9 +760,9 @@
     });
     let locked = false;
     host.append(line, bank);
-    const built = () => [...line.children].map((t) => ex.words[+t.dataset.i]).join(' ');
+    const built = () => [...line.children].map((t) => ex.words[+t.dataset.i]).join(sep);
     return {
-      check: () => ({ ok: norm(built()) === norm(ex.a), answer: ex.a }),
+      check: () => ({ ok: ex.t === 'spell' ? built().toLowerCase() === ex.a.toLowerCase() : norm(built()) === norm(ex.a), answer: ex.a }),
       reveal: () => ex.a,
       lock: () => { locked = true; [...bank.children].forEach((b) => { b.disabled = true; }); },
     };
