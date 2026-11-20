@@ -1,0 +1,15 @@
+{
+  "name": "yorozu-dojo-tests",
+  "version": "1.0.0",
+  "description": "教材の検証",
+  "scripts": {
+    "verify": "node verify.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chess.js": "^0.10.3"
+  },
+  "private": true
+}
