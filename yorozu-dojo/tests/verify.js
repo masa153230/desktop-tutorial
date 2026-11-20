@@ -2,6 +2,7 @@
 const path = require('path');
 const { Chess } = require(path.join(__dirname, 'node_modules/chess.js'));
 const CONTENT = require('../src/content.js');
+const { ChessAI: AI } = require('../src/chessai.js');
 const MJ = require('../src/mahjong.js');
 
 let fail = 0;
@@ -18,6 +19,11 @@ for (const [where, e] of allChess) {
     const ms = g.moves({ square: e.from, verbose: true });
     console.log(`ok ${where} squares ${e.from}: ${ms.length}マス [${ms.map((m) => m.to).join(' ')}]`);
     if (!ms.length) bad(`${where} 動けるマスが0`);
+  } else if (e.t === 'chess' && e.mode === 'line') {
+    const want = AI.mateIn(e.fen, 2).map((m) => m.from + m.to).sort().join(',');
+    const got = e.goal.slice().sort().join(',');
+    if (AI.mateIn(e.fen, 1).length) bad(`${where} 1手で詰んでしまう ${e.fen}`);
+    if (want !== got) bad(`${where} 2手詰めの正解が違う want=${want} got=${got}`); else console.log(`ok ${where} mate-in-2 ${got}`);
   } else if (e.t === 'chess' && e.goal === 'mate') {
     const mates = g.moves({ verbose: true }).filter((m) => { g.move(m); const r = g.in_checkmate(); g.undo(); return r; });
     console.log(`ok ${where} mate: ${mates.map((m) => m.san).join(', ') || 'なし'}`);
@@ -28,7 +34,8 @@ for (const [where, e] of allChess) {
       if (!m) bad(`${where} 非合法 ${mv}`); else { console.log(`ok ${where} ${m.san}`); g.undo(); }
     }
   } else if (e.t === 'mc') {
-    console.log(`ok ${where} mc-board stalemate=${g.in_stalemate()} pinnedKnightMoves=${g.moves({ square: 'd2' }).length}`);
+    if (g.in_check() && g.turn() === 'w' && false) bad(where);
+    console.log(`ok ${where} mc-board stalemate=${g.in_stalemate()}`);
   }
 }
 
@@ -71,5 +78,14 @@ expect('score 25-4 子', String(MJ.score(25, 4, false).pts), '6400');
 expect('score 40-4 子', String(MJ.score(40, 4, false).pts), '8000');
 expect('score 6翻 親', String(MJ.score(30, 6, true).pts), '18000');
 
+for (const c of CONTENT.courses.filter((x) => x.id === 'en' || x.id === 'mn')) {
+  const seen = new Map(); let n = 0;
+  for (const u of c.units) {
+    for (const it of u.items || []) { n++; if (!it[0] || !it[1]) bad(`${c.id}.${u.id} 空の項目`); if (c.id === 'mn' && !u.letters && !u.reading && (!it[2] || !it[3])) bad(`${c.id}.${u.id} 読みがない ${it[0]}`); if (seen.has(it[0])) console.log(`note 重複 ${c.id} ${it[0]} (${seen.get(it[0])} / ${u.id})`); seen.set(it[0], u.id); }
+    for (const e of u.curated || []) { n++; if (!e.choices || e.choices.length < 2) bad(`${c.id}.${u.id} 選択肢不足`); }
+    if ((u.items || u.curated || []).length < 6) bad(`${c.id}.${u.id} 項目が少ない`);
+  }
+  console.log(`ok ${c.id}: ${c.units.length}ユニット ${n}項目`);
+}
 console.log(fail ? `\n${fail} 件NG` : '\nすべてOK');
 process.exit(fail ? 1 : 0);

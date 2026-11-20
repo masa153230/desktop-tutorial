@@ -173,16 +173,17 @@ const MJ = (() => {
     8: [[5.5, 11, 13, 'g'], [12, 11, 13, 'g'], [18, 11, 13, 'g'], [24.5, 11, 13, 'g'], [5.5, 29, 13, 'g'], [12, 29, 13, 'g'], [18, 29, 13, 'g'], [24.5, 29, 13, 'g']],
     9: [[7, 7.5, 9, 'g'], [15, 7.5, 9, 'r'], [23, 7.5, 9, 'g'], [7, 20, 9, 'g'], [15, 20, 9, 'r'], [23, 20, 9, 'g'], [7, 32.5, 9, 'g'], [15, 32.5, 9, 'r'], [23, 32.5, 9, 'g']],
   };
-  function svg(c) {
+  function svg(c, red) {
     const i = typeof c === 'number' ? c : idx(c); const n = i % 9 + 1; const s = Math.floor(i / 9);
+    const RC = red ? (k) => (k === 'k' ? COL.r : '#d42a2a') : (k) => COL[k];
     let body = '';
     if (s === 0) {
-      body = `<text x="15" y="17" text-anchor="middle" font-size="14" font-weight="700" fill="${COL.k}">${KAN[n - 1]}</text>` +
+      body = `<text x="15" y="17" text-anchor="middle" font-size="14" font-weight="700" fill="${RC('k')}">${KAN[n - 1]}</text>` +
         `<text x="15" y="35" text-anchor="middle" font-size="15" font-weight="700" fill="${COL.r}">萬</text>`;
     } else if (s === 1) {
       body = PIN[n].map(([x, y, r, k]) =>
-        `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${COL[k]}" stroke-width="${(r * 0.38).toFixed(2)}"/>` +
-        `<circle cx="${x}" cy="${y}" r="${(r * 0.35).toFixed(2)}" fill="${COL[k]}"/>`).join('');
+        `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${RC(k)}" stroke-width="${(r * 0.38).toFixed(2)}"/>` +
+        `<circle cx="${x}" cy="${y}" r="${(r * 0.35).toFixed(2)}" fill="${RC(k)}"/>`).join('');
       if (n === 1) body += `<circle cx="15" cy="20" r="5.2" fill="none" stroke="${COL.g}" stroke-width="1.4"/>`;
     } else if (s === 2) {
       if (n === 1) {
@@ -193,7 +194,7 @@ const MJ = (() => {
       } else {
         body = SOU[n].map(([x, y, l, k]) => {
           const w = n === 8 ? 3.4 : 4;
-          return `<rect x="${x - w / 2}" y="${y - l / 2}" width="${w}" height="${l}" rx="${w / 2}" fill="${COL[k]}"/>` +
+          return `<rect x="${x - w / 2}" y="${y - l / 2}" width="${w}" height="${l}" rx="${w / 2}" fill="${RC(k)}"/>` +
             `<rect x="${x - w / 2 - 0.4}" y="${y - 0.5}" width="${w + 0.8}" height="1" fill="#fbf8ef"/>`;
         }).join('');
       }

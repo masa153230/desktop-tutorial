@@ -42,6 +42,7 @@
     loop: '<path d="M6.5 9.5C4.5 9.5 3 11 3 12.5S4.5 15.5 6.5 15.5c3.5 0 7.5-6 11-6 2 0 3.5 1.5 3.5 3s-1.5 3-3.5 3c-3.5 0-7.5-6-11-6z" fill="none" stroke="currentColor" stroke-width="2.2"/>',
     review: '<path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
     play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M8.5 21h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   };
   const icon = (n, cls = '') => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico ' + cls); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ICONS[n]; return s; };
   const ccolor = (cid) => `var(--c-${cid})`;
@@ -103,33 +104,54 @@
   }
 
   // ---------- 音 ----------
-  const Speech = { tts: null, web: false, off: false };
-  const canSpeak = () => !Speech.off && (!!Speech.tts || Speech.web);
+  const Speech = { tts: null, web: false, off: false, mn: false, mnWeb: null, dict: null, noSpeak: false };
+  const canSpeak = (lang = 'en') => !Speech.off && (lang === 'mn' ? (Speech.mn || !!Speech.mnWeb) : (!!Speech.tts || Speech.web));
   async function initSpeech() {
     Speech.web = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
-    try { if (window.claude && window.claude.use) Speech.tts = await window.claude.use('tts'); } catch { Speech.tts = null; }
+    const findMn = () => { try { Speech.mnWeb = speechSynthesis.getVoices().find((v) => /^mn/i.test(v.lang)) || null; } catch { /* なし */ } };
+    if (Speech.web) { findMn(); try { speechSynthesis.addEventListener('voiceschanged', findMn); } catch { /* なし */ } }
+    if (!window.claude || !window.claude.use) return;
+    try {
+      Speech.tts = await window.claude.use('tts');
+      if (Speech.tts && Speech.tts.languages) { const ls = await Speech.tts.languages().catch(() => []); Speech.mn = (ls || []).some((l) => /^mn/i.test(l)); }
+    } catch { Speech.tts = null; }
+    try { Speech.dict = await window.claude.use('dictation'); } catch { Speech.dict = null; }
   }
-  function webSpeak(text, slow) {
+  function webSpeak(text, slow, lang = 'en') {
     if (!Speech.web) return;
     try {
-      const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = slow ? 0.7 : 0.95;
-      const v = speechSynthesis.getVoices().find((x) => /^en(-|_)US/i.test(x.lang)) || speechSynthesis.getVoices().find((x) => /^en/i.test(x.lang));
-      if (v) u.voice = v;
+      const u = new SpeechSynthesisUtterance(text); u.rate = slow ? 0.7 : 0.95;
+      if (lang === 'mn') { if (!Speech.mnWeb) return; u.lang = Speech.mnWeb.lang; u.voice = Speech.mnWeb; }
+      else {
+        u.lang = 'en-US';
+        const v = speechSynthesis.getVoices().find((x) => /^en(-|_)US/i.test(x.lang)) || speechSynthesis.getVoices().find((x) => /^en/i.test(x.lang));
+        if (v) u.voice = v;
+      }
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     } catch { /* 無音 */ }
   }
-  function speak(text, slow = false) {
+  function speak(text, slow = false, lang = 'en') {
     if (Speech.off) return;
+    if (lang === 'mn' && !Speech.mn) { webSpeak(text, slow, 'mn'); return; }
     if (Speech.tts) {
-      Speech.tts.speak(text, { language: 'en', rate: slow ? 0.75 : 1 }).catch((e) => {
+      Speech.tts.speak(text, { language: lang, rate: slow ? 0.75 : 1 }).catch((e) => {
         const c = e && e.code;
         if (c === 'not_granted') { Speech.off = true; document.querySelectorAll('.say, .listen-big').forEach((b) => { b.hidden = true; }); }
-        else if (c === 'rate_limited' || c === 'unavailable' || c === 'upstream_error') webSpeak(text, slow);
+        else if (c === 'rate_limited' || c === 'unavailable' || c === 'upstream_error') webSpeak(text, slow, lang);
       });
       return;
     }
-    webSpeak(text, slow);
+    webSpeak(text, slow, lang);
   }
+  // ---------- 忘却曲線（SRS） ----------
+  const dayNo = () => { const d = new Date(); return Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 864e5); };
+  const SRS_INT = [0, 1, 3, 7, 14, 30, 60];
+  function srsTouch(key, ok) {
+    P.srs = P.srs || {}; const r = P.srs[key] || [0, 0]; const box = ok ? Math.min(6, r[0] + 1) : 0;
+    P.srs[key] = [box, dayNo() + (ok ? SRS_INT[box] : 1)];
+  }
+  function srsDue(cid) { const t = dayNo(); return Object.entries(P.srs || {}).filter(([k, v]) => k.startsWith(cid + '.') && v[1] <= t).sort((a, b) => a[1][1] - b[1][1]).map(([k]) => k); }
+  function srsCount(cid) { return Object.keys(P.srs || {}).filter((k) => k.startsWith(cid + '.')).length; }
   let actx = null;
   function sfx(kind) {
     if (!P.sound) return;
@@ -221,17 +243,21 @@
     if (type === 'type' && (!isEn || words.length > 6)) type = 'j2t';
     if (type === 'listen' && !isEn) type = 't2j';
     const exText = readingOf(o) ? `${o.t}（${readingOf(o)}）＝ ${o.ja}` : `${o.t} ＝ ${o.ja}`;
-    if (type === 't2j') return mcFrom({ q: 'どういう意味？', main: o.t, mainCls: tcls, reading: readingOf(o), audio: isEn ? o.t : null, ex: exText }, ja(o), distract(all, o, 'ja').map(ja));
-    if (type === 'j2t') return mcFrom({ q: isEn ? '英語で言うと？' : 'モンゴル語で言うと？', main: o.ja, ex: exText, sayAfter: isEn ? o.t : null }, target(o), distract(all, o, 't').map(target));
+    const lang = isEn ? 'en' : 'mn'; const voice = canSpeak(lang) ? o.t : null;
+    if (type === 'speak' && isEn && words.length <= 10) return { t: 'speak', q: '声に出して読んでみよう', main: o.t, ja: o.ja, a: o.t, ex: exText, lang };
+    if (type === 'speak') type = 'j2t';
+    if (type === 't2j') return mcFrom({ q: 'どういう意味？', main: o.t, mainCls: tcls, reading: readingOf(o), audio: voice, lang, ex: exText }, ja(o), distract(all, o, 'ja').map(ja));
+    if (type === 'j2t') return mcFrom({ q: isEn ? '英語で言うと？' : 'モンゴル語で言うと？', main: o.ja, ex: exText, sayAfter: voice, lang }, target(o), distract(all, o, 't').map(target));
     if (type === 'listen') return mcFrom({ q: '聞こえた英語は？', listen: o.t, ex: exText }, target(o), distract(all, o, 't').map(target));
     if (type === 'order') {
       const lower = new Set(words.map((w) => w.toLowerCase()));
       const extra = sampleN([...new Set(all.filter((x) => x !== o).flatMap((x) => tokens(x.t)))].filter((w) => !lower.has(w.toLowerCase())), 2);
-      return { t: 'order', q: '並べかえて文を作ろう', main: o.ja, cls: tcls, words: shuffle([...words, ...extra]), a: words.join(' '), ex: exText, sayAfter: isEn ? o.t : null };
+      return { t: 'order', q: '並べかえて文を作ろう', main: o.ja, cls: tcls, words: shuffle([...words, ...extra]), a: words.join(' '), ex: exText, sayAfter: voice, lang };
     }
     if (type === 'type') return { t: 'type', q: '英語で書いてみよう', main: o.ja, a: o.t, ex: exText, sayAfter: o.t };
     return null;
   }
+  const withItem = (e, course, o) => (e ? Object.assign(e, { _item: `${course.id}.${o.id}` }) : e);
   function pairsEx(course, unit, items) {
     const isEn = course.id === 'en';
     const rightOf = (o) => (unit.letters || unit.reading ? o.rom : o.ja);
@@ -239,7 +265,7 @@
     return { t: 'pairs', q: 'ペアをそろえよう', cls: isEn ? 'en' : 'cyr', pairs: set.map((o) => [o.t, rightOf(o)]) };
   }
   const LEVEL_TYPES = {
-    en: { 1: ['t2j', 'j2t', 'listen'], 2: ['j2t', 'order', 'listen', 't2j'], 3: ['order', 'type', 'listen', 'j2t'] },
+    en: { 1: ['t2j', 'j2t', 'listen'], 2: ['j2t', 'order', 'listen', 't2j', 'speak'], 3: ['order', 'type', 'listen', 'j2t', 'speak'] },
     mn: { 1: ['t2j', 'j2t'], 2: ['j2t', 'order', 't2j'], 3: ['order', 'j2t', 't2j'] },
   };
   function langLesson(course, unit, lesson) {
@@ -251,10 +277,11 @@
     else if (unit.reading) types = lesson.lv === 1 ? ['w2r'] : ['w2r', 'w2j'];
     else types = LEVEL_TYPES[course.id][lesson.lv];
     if (!canSpeak()) types = types.filter((t) => t !== 'listen');
+    if (!Speech.dict || Speech.noSpeak) types = types.filter((t) => t !== 'speak');
     let tq = shuffle(types);
-    const exs = items.map((o, i) => { if (i % tq.length === 0 && i) tq = shuffle(types); return makeLangEx(course, unit, all, o, tq[i % tq.length]); }).filter(Boolean);
+    const exs = items.map((o, i) => { if (i % tq.length === 0 && i) tq = shuffle(types); return withItem(makeLangEx(course, unit, all, o, tq[i % tq.length]), course, o); }).filter(Boolean);
     if (lesson.lv !== 3) {
-      const extra = sampleN(items, 2).map((o) => makeLangEx(course, unit, all, o, unit.letters ? 's2l' : unit.reading ? 'w2j' : 'j2t'));
+      const extra = sampleN(items, 2).map((o) => withItem(makeLangEx(course, unit, all, o, unit.letters ? 's2l' : unit.reading ? 'w2j' : 'j2t'), course, o));
       exs.push(...extra);
     }
     const pairPool = items.length >= 4 ? items : all;
@@ -330,19 +357,68 @@
     }
     return mcFrom({ q: `${who}が ${label} でロン。何点？`, tag: '点数ドリル', ex }, { text: r.pts.toLocaleString('ja-JP') + '点' }, wrongs);
   }
+  function safeEx() {
+    const types = Array.from({ length: 34 }, (_, i) => i);
+    for (let k = 0; k < 80; k++) {
+      const river = sampleN(types, 6 + Math.floor(rand() * 4)); const rs = new Set(river);
+      const suji = (t) => { if (t >= 27 || rs.has(t)) return false; const n = t % 9, b = t - n; return (n >= 3 ? rs.has(b + n - 3) : true) && (n <= 5 ? rs.has(b + n + 3) : true); };
+      const mode = rand() < 0.5 ? 'genbutsu' : 'suji';
+      let answer;
+      if (mode === 'genbutsu') answer = pick(river.filter((t) => t < 27) .concat(river.filter((t) => t >= 27)));
+      else { const c = types.filter(suji); if (!c.length) continue; answer = pick(c); }
+      const others = types.filter((t) => t < 27 && !rs.has(t) && !suji(t) && t !== answer);
+      if (others.length < 13) continue;
+      const hand = [...sampleN(others, 13), answer].sort((a, b) => a - b);
+      let ex;
+      if (mode === 'genbutsu') ex = `${MJ.name(answer)}は現物（リーチした人が自分で捨てている牌）。フリテンになるので絶対にロンされない。`;
+      else { const n = answer % 9, b = answer - n; const via = [n >= 3 ? b + n - 3 : null, n <= 5 ? b + n + 3 : null].filter((x) => x != null).map((x) => MJ.name(x)); ex = `${MJ.name(answer)}は筋（${via.join('と')}が捨てられている）。両面待ちには当たらない。ほかの牌は両面に当たりうる。`; }
+      return { t: 'pick', q: mode === 'genbutsu' ? '対面がリーチ。一番安全な牌を切ろう' : '対面がリーチ。現物がない！一番安全な牌は？', river, hand, answer: [answer], ex };
+    }
+    return safeEx();
+  }
+  function fuEx() {
+    for (let k = 0; k < 100; k++) {
+      const full = MJ.randomComplete(mjRand, { suits: sampleN(['m', 'p', 's'], 2).join(''), seqRate: 0.55 });
+      const c = MJ.counts(full); const winT = MJ.idx(pick(full)); const tsumo = rand() < 0.4; const seat = Math.floor(rand() * 4);
+      const ev = MJG.evaluateWin(c, [], { win: winT, tsumo, riichi: true, seat, round: 0, dealer: seat === 0, doraInd: [], uraInd: [], aka: 0 });
+      if (!ev || ev.yakuman || ev.form !== 'std' || ev.han >= 5) continue;
+      const hand = full.slice(); hand.splice(hand.indexOf(MJ.code(winT)), 1);
+      const wrong = sampleN([ev.fu - 20, ev.fu - 10, ev.fu + 10, ev.fu + 20].filter((f) => f >= 20 && f !== 25 && f <= 110), 3);
+      const sw = ['東', '南', '西', '北'][seat];
+      return mcFrom({ q: `何符？（${tsumo ? 'ツモ' : '門前ロン'}・東場・自風${sw}）`, tiles: MJ.toStr(hand), win: MJ.code(winT), tag: '符計算ドリル', ex: ev.fuParts.join(' ＋ ') + ` → ${ev.fu}符（待ち：${{ ryanmen: '両面', kanchan: '嵌張', penchan: '辺張', shanpon: '双碰', tanki: '単騎' }[ev.wait]}）` }, { text: ev.fu + '符' }, wrong.map((f) => ({ text: f + '符' })));
+    }
+    return scoreEx();
+  }
   function drillLesson(course, lesson) {
     const n = lesson.count || 6;
     const gen = {
-      tileNames: tileNameEx, agari: agariEx, waits: () => waitsEx(false), chinitsu: () => waitsEx(true), discard: discardEx, score: scoreEx,
+      tileNames: tileNameEx, agari: agariEx, waits: () => waitsEx(false), chinitsu: () => waitsEx(true), discard: discardEx, score: scoreEx, safe: safeEx, fu: fuEx,
     }[lesson.drill];
     if (lesson.drill === 'mateRandom') return sampleN(course.mates, 6).map(normCurated);
     return Array.from({ length: n }, gen);
   }
 
+  function curatedEx(course, unit, e, i) {
+    const x = normCurated(Object.assign({ t: 'mc', cls: 'en' }, e, { choices: e.choices.map((c) => ({ text: c, cls: 'en' })) }));
+    if (x.listen && !canSpeak()) { x.main = '（音声が使えない環境です）'; }
+    x._item = `${course.id}.${unit.id}.c${i}`; return x;
+  }
+  // 今日の復習：期限が来た項目から問題を作る
+  function srsLesson(course) {
+    const keys = srsDue(course.id).slice(0, 12); const exs = [];
+    for (const k of shuffle(keys)) {
+      const [, uid, idx] = k.split('.'); const unit = course.units.find((u) => u.id === uid); if (!unit) continue;
+      if (idx[0] === 'c') { const e = unit.curated && unit.curated[+idx.slice(1)]; if (e) exs.push(curatedEx(course, unit, e, +idx.slice(1))); continue; }
+      const all = langItems(course, unit); const o = all[+idx]; if (!o) continue;
+      const types = unit.letters ? ['l2s', 's2l'] : unit.reading ? ['w2r', 'w2j'] : (course.id === 'en' ? ['j2t', 't2j', 'order', 'type'].concat(canSpeak() ? ['listen'] : []) : ['j2t', 't2j', 'order']);
+      exs.push(withItem(makeLangEx(course, unit, all, o, pick(types)), course, o));
+    }
+    return exs.filter(Boolean);
+  }
   function buildLesson(course, unit, lesson) {
     if (lesson.drill) return drillLesson(course, lesson);
     if (lesson.ex) return lesson.ex.map(normCurated);
-    if (lesson.cur) return shuffle(unit.curated.slice(lesson.cur[0], lesson.cur[1]).map((e) => normCurated(Object.assign({ t: 'mc', cls: 'en' }, e, { choices: e.choices.map((c) => ({ text: c, cls: 'en' })) }))));
+    if (lesson.cur) return shuffle(unit.curated.slice(lesson.cur[0], lesson.cur[1]).map((e, i) => curatedEx(course, unit, e, lesson.cur[0] + i)));
     return langLesson(course, unit, lesson);
   }
 
@@ -401,7 +477,7 @@
         h('div', { class: 'cbody' },
           h('div', { class: 'cname' }, c.name),
           h('div', { class: 'csub' }, nx ? `次：${nx.u.title} ・ ${nx.l.name}` : '全レッスン修了。復習とドリルで仕上げ'),
-          h('div', { class: 'cprog' }, h('div', { class: 'bar' }, h('i', { style: `width:${pct}%;background:${ccolor(c.id)}` })), h('span', { class: 'num' }, `${s.done}/${s.total}`), mistakes ? h('span', {}, `苦手 ${mistakes}`) : null))));
+          h('div', { class: 'cprog' }, h('div', { class: 'bar' }, h('i', { style: `width:${pct}%;background:${ccolor(c.id)}` })), h('span', { class: 'num' }, `${s.done}/${s.total}`), srsDue(c.id).length ? h('span', { class: 'due' }, `復習 ${srsDue(c.id).length}`) : mistakes ? h('span', {}, `苦手 ${mistakes}`) : null))));
     }
     root.append(grid);
     root.append(h('div', { class: 'sec-title' }, 'フリープレイ'));
@@ -424,7 +500,7 @@
   }
 
   function renderCourse(c) {
-    const s = courseStats(c); const nx = nextLesson(c); const bank = P.mistakes[c.id] || [];
+    const s = courseStats(c); const nx = nextLesson(c); const bank = P.mistakes[c.id] || []; const due = srsDue(c.id).length;
     const bar = h('div', { class: 'topbar' }, h('div', { class: 'wrap' },
       h('button', { class: 'icon-btn', 'aria-label': 'ホームへ戻る', onclick: () => go({ name: 'home' }) }, icon('back')),
       h('h2', {}, c.name), h('span', { class: 'chip num' }, `${s.done}/${s.total}`)));
@@ -433,12 +509,14 @@
       h('p', {}, c.sub),
       h('div', { class: 'row' },
         nx ? h('button', { class: 'hbtn', onclick: () => startLesson(c, nx.u, nx.l) }, icon('play'), '続きから') : null,
+        due ? h('button', { class: 'hbtn ghost', onclick: () => startSrs(c) }, icon('review'), `今日の復習（${Math.min(12, due)}）`) : null,
         bank.length ? h('button', { class: nx ? 'hbtn ghost' : 'hbtn', onclick: () => startReview(c) }, icon('review'), `苦手を復習（${bank.length}）`) : null,
         c.id === 'ch' || c.id === 'mj' ? h('button', { class: 'hbtn ghost', onclick: () => go({ name: c.id === 'ch' ? 'chess' : 'mjplay' }) }, icon('loop'), c.id === 'ch' ? 'CPUと対局' : 'CPUと対局') : null));
     if (!nx && !bank.length) hero.append(h('p', {}, '全部修了。ドリル（∞）は何度でも新しい問題が出ます。'));
     root.append(hero);
     c.units.forEach((u, ui) => {
-      const sec = h('section', { class: 'unit' }, h('div', { class: 'unit-h' }, h('span', { class: 'no', style: `color:${ccolor(c.id)}` }, 'UNIT ' + (ui + 1)), h('h3', {}, u.title), h('p', {}, u.desc)));
+      const sec = h('section', { class: 'unit' }, h('div', { class: 'unit-h' }, h('span', { class: 'no', style: `color:${ccolor(c.id)}` }, 'UNIT ' + (ui + 1)), h('h3', {}, u.title), h('p', {}, u.desc, u.needsAudio && !canSpeak() ? '（この環境では音声が出ないため、文字での確認になります）' : '')),
+        u.tip ? h('details', { class: 'tip' }, h('summary', {}, 'このユニットのポイント'), h('p', {}, u.tip)) : null);
       const path = h('div', { class: 'path' });
       lessonsOf(c, u).forEach((l, li) => {
         const k = keyOf(c, u, l); const n = timesDone(k); const isNext = nx && nx.u === u && nx.l === l;
@@ -460,14 +538,19 @@
   let L = null;
   function startLesson(course, unit, lesson) {
     const exs = buildLesson(course, unit, lesson);
-    L = { cid: course.id, key: keyOf(course, unit, lesson), title: lesson.name, unit, lesson, queue: exs.map((e, i) => Object.assign(e, { _uid: i, _tries: 0 })), total: exs.length, cleared: 0, wrong: new Set(), combo: 0, maxCombo: 0, t0: Date.now(), review: false };
+    L = { cid: course.id, key: keyOf(course, unit, lesson), title: lesson.name, unit, lesson, queue: exs.map((e, i) => Object.assign(e, { _uid: i, _tries: 0 })), total: exs.length, cleared: 0, wrong: new Set(), combo: 0, maxCombo: 0, t0: Date.now(), review: false, srsSeen: new Set() };
+    go({ name: 'lesson' });
+  }
+  function startSrs(course) {
+    const exs = srsLesson(course); if (!exs.length) return;
+    L = { cid: course.id, key: null, title: '今日の復習', queue: exs.map((e, i) => Object.assign(e, { _uid: i, _tries: 0 })), total: exs.length, cleared: 0, wrong: new Set(), combo: 0, maxCombo: 0, t0: Date.now(), review: true, srsSeen: new Set() };
     go({ name: 'lesson' });
   }
   function startReview(course) {
     const bank = P.mistakes[course.id] || [];
     const exs = shuffle(bank.slice(-10)).map((m) => JSON.parse(JSON.stringify(m.e)));
     if (!exs.length) return;
-    L = { cid: course.id, key: null, title: '苦手を復習', queue: exs.map((e, i) => Object.assign(e, { _uid: i, _tries: 0 })), total: exs.length, cleared: 0, wrong: new Set(), combo: 0, maxCombo: 0, t0: Date.now(), review: true };
+    L = { cid: course.id, key: null, title: '苦手を復習', queue: exs.map((e, i) => Object.assign(e, { _uid: i, _tries: 0 })), total: exs.length, cleared: 0, wrong: new Set(), combo: 0, maxCombo: 0, t0: Date.now(), review: true, srsSeen: new Set() };
     go({ name: 'lesson' });
   }
 
@@ -495,7 +578,7 @@
       if (ctrl && ctrl.lock) ctrl.lock();
       const ok = !!res.ok;
       sfx(ok ? 'good' : 'bad');
-      if (ex.sayAfter && ok && canSpeak()) speak(ex.sayAfter);
+      if (ex.sayAfter && ok && canSpeak(ex.lang || 'en')) speak(ex.sayAfter, false, ex.lang || 'en');
       fwrap.replaceChildren();
       foot.className = 'lfoot ' + (ok ? 'good' : 'bad');
       fwrap.append(h('div', { class: 'fb-title' }, icon(ok ? 'check' : 'x'), ok ? pick(['正解！', 'いいね！', 'その通り！', '完璧！']) : res.skipped ? '答えはこちら' : 'おしい！'));
@@ -507,6 +590,7 @@
       next.onclick = advance; fwrap.append(next); next.focus({ preventScroll: true });
       // 進捗の記録
       const cur = L.queue.shift();
+      if (cur._item && !res.neutral && !L.srsSeen.has(cur._item)) { L.srsSeen.add(cur._item); srsTouch(cur._item, ok); }
       if (ok) {
         L.cleared++; L.combo++; L.maxCombo = Math.max(L.maxCombo, L.combo);
         if (L.review) removeMistake(L.cid, cur);
@@ -585,6 +669,8 @@
     if (ex.t === 'chess') return rChess(ex, ctx, host);
     if (ex.t === 'waits') return rWaits(ex, ctx, host);
     if (ex.t === 'discard') return rDiscard(ex, ctx, host);
+    if (ex.t === 'pick') return rPick(ex, ctx, host);
+    if (ex.t === 'speak') { if (Speech.dict && !Speech.noSpeak) return rSpeak(ex, ctx, host); return rMC(mcFrom({ q: '英語で言うと？', main: ex.ja, ex: ex.ex }, { text: ex.a, cls: 'en' }, [{ text: ex.a.split(' ').reverse().join(' '), cls: 'en' }]), ctx, host); }
     return null;
   }
   function tileEl(c) { return h('span', { class: 'tile', title: MJ.name(c), html: MJ.svg(c) }); }
@@ -596,17 +682,17 @@
   const choiceText = (c) => (c.tile ? MJ.name(c.tile) + '（' + MJ.yomi(c.tile) + '）' : c.text);
   function promptEl(ex) {
     const wrap = h('div', { class: 'prompt' });
-    if (ex.audio && canSpeak()) {
-      const b = h('button', { class: 'say', 'aria-label': '発音を聞く', onclick: () => speak(ex.audio) }, icon('speaker'));
+    if (ex.audio && canSpeak(ex.lang || 'en')) {
+      const b = h('button', { class: 'say', 'aria-label': '発音を聞く', onclick: () => speak(ex.audio, false, ex.lang || 'en') }, icon('speaker'));
       wrap.append(b);
-      if (P.autoplay) setTimeout(() => speak(ex.audio), 250);
+      if (P.autoplay) setTimeout(() => speak(ex.audio, false, ex.lang || 'en'), 250);
     }
     wrap.append(h('div', { class: 'bubble' }, h('div', { class: 'main ' + (ex.mainCls || '') }, ex.main), ex.reading && P.reading ? h('div', { class: 'reading' }, ex.reading) : null));
     return wrap;
   }
   function rMC(ex, ctx, host) {
     if (ex.fen) host.append(staticBoard(ex.fen));
-    if (ex.tiles) { const codes = MJ.parse(ex.tiles); host.append(handEl(codes, codes.length <= 5 ? 'few' : '')); }
+    if (ex.tiles) { const codes = MJ.parse(ex.tiles); const hd = handEl(codes, codes.length <= 5 ? 'few' : ''); if (ex.win) { hd.append(h('span', { class: 'gap' })); const w = tileEl(ex.win); w.classList.add('win'); hd.append(w); } host.append(hd); }
     if (ex.listen && canSpeak()) {
       host.append(h('div', { class: 'listen-big' },
         h('button', { class: 'main-say', 'aria-label': 'もう一度聞く', onclick: () => speak(ex.listen) }, icon('speaker')),
@@ -746,10 +832,60 @@
     if (window.Chess) fill(); else { wrap.append(h('div', { class: 'empty' }, '盤面を読み込み中…')); ensureChess().then((ok) => { wrap.replaceChildren(); if (ok) fill(); else wrap.append(h('div', { class: 'empty' }, 'チェス盤を読み込めませんでした。通信を確認して開き直してください。')); }); }
     return wrap;
   }
+  function similarity(a, b) {
+    const A = expand(norm(a)).split(' ').filter(Boolean), Bw = expand(norm(b)).split(' ').filter(Boolean);
+    if (!Bw.length || !A.length) return 0;
+    const dp = Array.from({ length: A.length + 1 }, () => new Array(Bw.length + 1).fill(0));
+    for (let i = 1; i <= A.length; i++) for (let j = 1; j <= Bw.length; j++) dp[i][j] = A[i - 1] === Bw[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    return dp[A.length][Bw.length] / Math.max(A.length, Bw.length);
+  }
+  function rSpeak(ex, ctx, host) {
+    host.append(promptEl({ main: ex.main, mainCls: 'en', audio: canSpeak() ? ex.main : null, reading: ex.ja, lang: 'en' }));
+    const d = Speech.dict; let finalText = '', listening = false; const unsubs = [];
+    const live = h('div', { class: 'speak-live', 'aria-live': 'polite' }, 'マイクを押して、上の英文を読み上げてください');
+    const mic = h('button', { class: 'mic', 'aria-label': '話す・止める' }, icon('mic'));
+    const skip = h('button', { class: 'subtle', style: 'display:block;margin:10px auto 0' }, '今は話せない');
+    host.append(h('div', { class: 'speak-box' }, mic, live), skip);
+    const cleanup = () => { unsubs.splice(0).forEach((u) => { try { u(); } catch { /* 済み */ } }); if (listening) d.stop().catch(() => {}); };
+    try {
+      unsubs.push(d.onPartial(({ text }) => { live.textContent = (finalText + ' ' + text).trim(); }));
+      unsubs.push(d.onFinal(({ text }) => { finalText = (finalText + ' ' + text).trim(); live.textContent = finalText; ctx.ready(!!finalText); }));
+      unsubs.push(d.onState(({ state }) => { listening = state === 'listening'; mic.classList.toggle('on', listening); if (!listening && finalText) ctx.ready(true); }));
+    } catch { /* 古い環境 */ }
+    mic.onclick = () => {
+      if (listening) { d.stop().catch(() => {}); return; }
+      finalText = ''; live.textContent = '聞いています…';
+      d.start({ language: 'en' }).catch((e) => {
+        const c = e && e.code;
+        live.textContent = c === 'not_granted' ? 'マイクが使えません。「今は話せない」で次へ進めます。' : '開始できませんでした。もう一度マイクを押してください。';
+        if (c === 'not_granted') Speech.noSpeak = true;
+      });
+    };
+    skip.onclick = () => { Speech.noSpeak = true; cleanup(); ctx.finish({ ok: true, neutral: true, note: 'このあとの問題では発話を出しません（設定は次のアプリ起動まで）。' }); };
+    return {
+      check: () => { cleanup(); const sc = similarity(finalText, ex.a); return { ok: sc >= 0.75, neutral: !finalText, note: `聞き取り：「${finalText || '（なし）'}」　一致度 ${Math.round(sc * 100)}%`, answer: ex.a }; },
+      reveal: () => { cleanup(); return ex.a; },
+      lock: cleanup,
+    };
+  }
+  function rPick(ex, ctx, host) {
+    const rv = h('div', { class: 'pick-river' }, h('div', { class: 'palette-label' }, 'リーチした人の捨て牌（最後がリーチ宣言牌）'));
+    const row = h('div', { class: 'river big' }); ex.river.forEach((t, i) => { const el = tileEl(MJ.code(t)); if (i === ex.river.length - 1) el.classList.add('rt'); row.append(el); });
+    rv.append(row); host.append(rv);
+    const hand = h('div', { class: 'hand' }); let sel = null; const btns = [];
+    ex.hand.forEach((t) => { const b = h('button', { class: 'tbtn', 'aria-label': MJ.name(t) + 'を切る' }, tileEl(MJ.code(t))); b.onclick = () => { if (locked) return; btns.forEach((x) => x.classList.remove('sel')); b.classList.add('sel'); sel = t; ctx.ready(true); }; btns.push(b); hand.append(b); });
+    let locked = false;
+    host.append(h('div', { class: 'palette-label' }, 'あなたの手牌：切る牌をタップ'), hand);
+    const mark = () => btns.forEach((b, i) => { if (ex.answer.includes(ex.hand[i])) b.classList.add('right'); else if (ex.hand[i] === sel) b.classList.add('wrong'); });
+    return {
+      check: () => { locked = true; mark(); return { ok: ex.answer.includes(sel), answer: ex.answer.map((t) => MJ.name(t)).join('・') }; },
+      reveal: () => { locked = true; mark(); return ex.answer.map((t) => MJ.name(t)).join('・'); },
+    };
+  }
   function rChess(ex, ctx, host) {
     const wrap = h('div', { class: 'board-wrap' }); host.append(wrap);
-    const api = { auto: ex.mode === 'move' };
-    let game, B, sel = null, locked = false, picked = new Set(), target = [];
+    const api = { auto: ex.mode === 'move' || ex.mode === 'line' };
+    let game, B, sel = null, locked = false, picked = new Set(), target = [], stage = 1, noteEl = null;
     function build() {
       game = new window.Chess(ex.fen);
       const flip = game.turn() === 'b';
@@ -758,7 +894,7 @@
         target = game.moves({ square: ex.from, verbose: true }).map((m) => m.to);
         B.sqs[ex.from].classList.add('from');
         wrap.append(B.el, turnNote(game, `全部で ${new Set(target).size} マス`));
-      } else wrap.append(B.el, turnNote(game, ex.goal === 'mate' ? '詰ませる手ならどれでも正解' : '駒をタップ → 行き先をタップ'));
+      } else { noteEl = turnNote(game, ex.mode === 'line' ? '王手・取る手から読もう' : ex.goal === 'mate' ? '詰ませる手ならどれでも正解' : '駒をタップ → 行き先をタップ'); wrap.append(B.el, noteEl); }
     }
     function clearDots() { Object.values(B.sqs).forEach((b) => { b.classList.remove('sel'); b.querySelectorAll('.dot').forEach((d) => d.remove()); }); }
     function tap(name) {
@@ -783,17 +919,33 @@
     function solutionSan() {
       const g = new window.Chess(ex.fen);
       if (ex.goal === 'mate') { const m = g.moves({ verbose: true }).find((x) => { g.move(x); const r = g.in_checkmate(); g.undo(); return r; }); return m ? m.san : ''; }
+      if (ex.mode === 'line' && stage === 2) { const m = game.moves({ verbose: true }).find((x) => { game.move(x); const r = game.in_checkmate(); game.undo(); return r; }); return m ? m.san : ''; }
       const mv = g.move({ from: ex.goal[0].slice(0, 2), to: ex.goal[0].slice(2, 4), promotion: 'q' }); return mv ? mv.san : '';
     }
     function doMove(from, to) {
       const before = game.fen();
       const m = game.move({ from, to, promotion: 'q' });
       clearDots(); locked = true;
+      Object.values(B.sqs).forEach((b) => b.classList.remove('last'));
       B.paint(); B.sqs[from].classList.add('last'); B.sqs[to].classList.add('last');
+      if (ex.mode === 'line' && stage === 1 && !game.in_checkmate()) {
+        if (!ex.goal.includes(from + to)) {
+          const ans = (() => { const g = new window.Chess(ex.fen); const mv = g.move({ from: ex.goal[0].slice(0, 2), to: ex.goal[0].slice(2, 4), promotion: 'q' }); return mv ? mv.san : ''; })();
+          setTimeout(() => { ctx.finish({ ok: false, answer: ans + ' から', note: `${m.san} では2手で詰まない。` }); setTimeout(() => { game.load(before); B.paint(); }, 900); }, 350);
+          return;
+        }
+        stage = 2; if (noteEl) noteEl.textContent = '相手の受けを考え中…';
+        Eng.call('best', game.fen(), 4, []).then((r) => {
+          if (r && r.from) { game.move({ from: r.from, to: r.to, promotion: r.promotion }); Object.values(B.sqs).forEach((b) => b.classList.remove('last')); B.paint(); B.sqs[r.from].classList.add('last'); B.sqs[r.to].classList.add('last'); }
+          if (noteEl) noteEl.textContent = '最後の一手でチェックメイト！';
+          locked = false;
+        });
+        return;
+      }
       let ok;
-      if (ex.goal === 'mate') ok = game.in_checkmate();
+      if (ex.goal === 'mate' || ex.mode === 'line') ok = game.in_checkmate();
       else ok = ex.goal.includes(from + to);
-      const note = ok ? null : (ex.goal === 'mate' ? (game.in_check() ? `${m.san} はチェックだけど、逃げられる。` : `${m.san} はチェックになっていない。`) : null);
+      const note = ok ? null : (ex.goal === 'mate' || ex.mode === 'line' ? (game.in_check() ? `${m.san} はチェックだけど、逃げられる。` : `${m.san} はチェックになっていない。`) : null);
       setTimeout(() => {
         ctx.finish({ ok, answer: solutionSan(), note: note || (ok ? m.san + (game.in_checkmate() ? '（チェックメイト）' : '') : null) });
         if (!ok) setTimeout(() => { game.load(before); B.paint(); }, 900);
