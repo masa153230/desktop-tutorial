@@ -15,7 +15,7 @@
         h('span', {}, resume ? `対局の途中（${CLEVELS[resume.level - 1].name}）` : all ? `${all}局 ${w}勝` : 'CPU 5段階・対局後に解析')),
       h('button', { class: 'pcard', style: `background:${cdeep('mj')}`, onclick: () => go({ name: 'mjplay' }) },
         h('span', { class: 'big mjbig' }, '中'), h('b', {}, '麻雀 CPU3人'),
-        h('span', {}, ms.games ? `${ms.games}戦 トップ${ms.ranks[0]}回` : '鳴き・槓・赤ドラありの本ルール')));
+        h('span', {}, P.play && P.play.mj ? `途中の対局（${P.play.mj.kyoku}）` : ms.games ? `${ms.games}戦 トップ${ms.ranks[0]}回` : '鳴き・槓・赤ドラありの本ルール')));
   }
   function playTopbar(title, chipText, onBack, extra) {
     return h('div', { class: 'topbar' }, h('div', { class: 'wrap' },
@@ -308,7 +308,7 @@
         h('button', { class: 'sbtn', onclick: () => { const i = rv.moves.findIndex((m, k) => k >= (CP.viewPly ?? 0) && m.color === CP.color && (m.cls === 'blunder' || m.cls === 'mistake')); if (i >= 0) { CP.viewPly = i + 1; render(); } } }, '次の悪手'));
       panel.append(nav);
       const cur = CP.viewPly ? rv.moves[CP.viewPly - 1] : null;
-      if (cur) panel.append(h('p', { class: 'note' }, `${Math.ceil(CP.viewPly / 2)}${CP.viewPly % 2 ? '.' : '...'} ${cur.san}：${cur.label}${cur.cls !== 'best' && cur.bestSan ? `　最善は ${cur.bestSan}（緑のマス）` : ''}`));
+      if (cur) { panel.append(h('p', { class: 'note' }, `${Math.ceil(CP.viewPly / 2)}${CP.viewPly % 2 ? '.' : '...'} ${cur.san}：${cur.label}${cur.cls !== 'best' && cur.bestSan ? `　最善は ${cur.bestSan}（緑のマス）` : ''}`)); if (['inacc', 'mistake', 'blunder'].includes(cur.cls)) { const ply = CP.viewPly; panel.append(explainEl(`chess:${CP.gameId}:${ply}`, 'なぜ悪手？（Claude が解説）', () => promptChess(ply))); } }
       else panel.append(h('p', { class: 'note' }, '棋譜の手をタップするとその局面と最善手を表示します。'));
     }
     const pgnBtn = h('button', { class: 'sbtn' }, '棋譜（PGN）をコピー');
@@ -360,7 +360,7 @@
       if (best) { const t2 = new window.Chess(fens[i]); const r = t2.move({ from: best.from, to: best.to, promotion: best.promotion }); bestSan = r ? r.san : ''; }
       moves.push({ san: sans[i], color, cls, mark, label: `${label}（勝率 ${before.toFixed(0)}% → ${after.toFixed(0)}%）`, best, bestSan });
     }
-    CP.review = { running: false, evals, moves, count, acc: { w: Math.round(accSum.w / Math.max(1, accN.w)), b: Math.round(accSum.b / Math.max(1, accN.b)) } };
+    CP.review = { running: false, evals, moves, count, fens, acc: { w: Math.round(accSum.w / Math.max(1, accN.w)), b: Math.round(accSum.b / Math.max(1, accN.b)) } };
     CP.viewPly = null; CP.evalOn = true;
     if (view.name === 'chess') render();
   }
@@ -402,7 +402,9 @@
     root.append(sw('callPrompt', '鳴きの確認を出す', 'オフにするとチー・ポンの確認を全部スキップ（ロンは必ず聞く）'));
     root.append(sw('aka', '赤ドラあり', '5萬・5筒・5索に1枚ずつ'));
     root.append(sw('reveal', '相手の手牌を見る', '練習用。CPUの狙いや待ちが分かる'));
-    root.append(h('button', { class: 'cta', onclick: startMJ }, '対局をはじめる'));
+    const saved = P.play && P.play.mj;
+    if (saved) root.append(h('button', { class: 'cta', onclick: () => startMJ(saved) }, `続きから（${saved.kyoku}・${saved.honba}本場・あなた ${fmt(saved.scores[0])}点）`), h('button', { class: 'cta alt', onclick: () => { P.play.mj = null; save(); startMJ(); } }, '新しく始める'));
+    else root.append(h('button', { class: 'cta', onclick: () => startMJ() }, '対局をはじめる'));
     if (st.games) {
       const avg = (st.ranks.reduce((a, n, i) => a + n * (i + 1), 0) / st.games).toFixed(2);
       root.append(h('div', { class: 'statline' }, `${st.games}戦　1位${st.ranks[0]}・2位${st.ranks[1]}・3位${st.ranks[2]}・4位${st.ranks[3]}　平均順位 ${avg}　通算 ${st.pt > 0 ? '+' : ''}${(st.pt || 0).toFixed(1)}pt`, h('div', {}, `和了率 ${st.hands ? Math.round(st.agari / st.hands * 100) : 0}%・放銃率 ${st.hands ? Math.round(st.houju / st.hands * 100) : 0}%`), st.best ? h('div', {}, `最高の手：${st.best.name}（${fmt(st.best.total)}点）`) : null));
@@ -410,7 +412,9 @@
     app.append(playTopbar('麻雀 フリープレイ', null, () => go({ name: 'home' })), root);
   }
   function mjRefresh() { if (view.name === 'mjplay') { const y = window.scrollY; render(); window.scrollTo(0, y); } }
-  function startMJ() {
+  function startMJ(resume) {
+    MP.log = resume && resume.log ? resume.log : newLog(); MP.review = null; MP.peek = false;
+    if (resume) { MP.length = resume.rules.length; MP.aka = resume.rules.aka; }
     const human = {
       onTurn: (g, seat, opts) => new Promise((resolve) => {
         const p = g.players[0];
@@ -421,14 +425,15 @@
       onCall: (g, seat, id, o) => new Promise((resolve) => { if (!MP.callPrompt) return resolve(null); MP.ui = { kind: 'call', id, o, resolve }; mjRefresh(); }),
     };
     const g = new MJG.Game({
-      rules: { length: MP.length, aka: MP.aka },
+      rules: { length: MP.length, aka: MP.aka }, resume: resume || null,
       agents: [human, MJG.cpuAgent(), MJG.cpuAgent(), MJG.cpuAgent()],
       hooks: {
         emit: (ev, seat) => {
           if (MP.g !== g || ev === 'result') return;
+          if (ev === 'start') { P.play = P.play || {}; P.play.mj = Object.assign(g.snapshot(), { log: MP.log }); save(); }
           let text = null;
-          if (ev === 'discard') { const rv = g.players[seat].river[g.players[seat].river.length - 1]; if (rv && rv.riichi) text = 'リーチ'; if (seat !== 0) sfx('tile'); }
-          if (ev === 'call') { const m = g.players[seat].melds[g.players[seat].melds.length - 1]; text = { chi: 'チー', pon: 'ポン', minkan: 'カン' }[m.kind]; sfx('tile'); }
+          if (ev === 'discard') { const rv = g.players[seat].river[g.players[seat].river.length - 1]; if (rv && rv.riichi) { text = 'リーチ'; if (seat === 0 && MP.log) MP.log.riichi++; } if (seat !== 0) sfx('tile'); }
+          if (ev === 'call') { const m = g.players[seat].melds[g.players[seat].melds.length - 1]; text = { chi: 'チー', pon: 'ポン', minkan: 'カン' }[m.kind]; sfx('tile'); if (seat === 0 && MP.log) MP.log.calls++; }
           if (ev === 'kan') text = 'カン';
           if (text) { MP.shout = { seat, text, until: Date.now() + 1100 }; setTimeout(() => { if (MP.g === g) mjRefresh(); }, 1150); }
           if (!['turn', 'ron', 'call', 'auto'].includes(MP.ui.kind)) MP.ui = { kind: 'idle' }; mjRefresh();
@@ -437,7 +442,8 @@
         pause: (r) => new Promise((resolve) => {
           if (MP.g !== g) return resolve();
           if (r.type === 'end') finishMJ(g, r);
-          else if (r.wins) {
+          else logResult(g, r);
+          if (r.type !== 'end' && r.wins) {
             const mine = r.wins.find((w) => w.winner === 0);
             if (mine) { const st = statsOf('mj'); if (!st.best || mine.ev.total > st.best.total) st.best = { total: mine.ev.total, name: mine.ev.yaku.filter((y) => !/ドラ/.test(y[0])).map((y) => y[0]).join('・') }; sfx('done'); }
             else if (r.from === 0) sfx('bad');
@@ -453,13 +459,119 @@
   }
   function quitMJ() {
     const g = MP.g; if (g) { g.aborted = true; const r = MP.ui.resolve; MP.ui = { kind: 'idle' }; if (r) r(null); }
-    MP.g = null; go({ name: 'home' });
+    MP.g = null; if (P.play) P.play.mj = null; save(); go({ name: 'home' });
   }
   function finishMJ(g, r) {
     const st = statsOf('mj'); const rank = r.rank.indexOf(0);
     st.games++; st.ranks[rank]++; st.agari += g.stats.agari[0]; st.houju += g.stats.houju[0]; st.hands += g.stats.hands; st.pt = Math.round(((st.pt || 0) + r.pts[0]) * 10) / 10;
     const xp = g.rules.length === 'single' ? [15, 10, 8, 6][rank] : g.rules.length === 'hanchan' ? [50, 35, 25, 15][rank] : [30, 20, 15, 10][rank];
-    r.xp = xp; awardXP(xp); save();
+    r.xp = xp; awardXP(xp); if (P.play) P.play.mj = null; MP.review = MP.log; save();
+  }
+  // ---- 振り返り（麻雀）：自分の判断を記録して、終局後にまとめて見せる ----
+  const newLog = () => ({ eff: 0, match: 0, misses: [], defTurns: 0, foldOK: 0, pushes: [], dealins: [], wins: [], riichi: 0, calls: 0 });
+  const tn = (t) => MJ.name(t);
+  const tl = (ts) => ts.map(tn).join('・');
+  function logDiscard(g, id, opts) {
+    const me = g.players[0]; const Lg = MP.log; if (me.riichi || !Lg) return;
+    const pool = me.hand.filter((x) => !opts.forbidden.includes(x >> 2));
+    const e = MJG.efficiency(g, 0, me.hand);
+    const valid = e.opts.filter((o) => pool.some((x) => (x >> 2) === o.t)); if (!valid.length) return;
+    const minS = Math.min(...valid.map((o) => o.s)); const top = valid.filter((o) => o.s === minS); const maxU = Math.max(...top.map((o) => o.uke));
+    const best = top.filter((o) => o.uke === maxU); const ch = valid.find((o) => o.t === (id >> 2)); if (!ch) return;
+    const threats = MJG.threatsOf(g, 0);
+    const snap = { kyoku: g.kyokuName(), turn: me.river.length + 1, hand: me.hand.slice().sort((a, b) => a - b), melds: me.melds.map((m) => Object.assign({}, m)), chosen: ch.t, chosenS: ch.s, chosenUke: ch.uke, chosenTiles: ch.tiles, best: best.map((o) => o.t), bestS: minS, bestUke: maxU, bestTiles: best[0].tiles };
+    if (!threats.length) {
+      Lg.eff++;
+      if (ch.s === minS && ch.uke === maxU) Lg.match++;
+      else { snap.loss = (ch.s - minS) * 40 + (maxU - ch.uke); if (snap.loss >= 4) { Lg.misses.push(snap); Lg.misses.sort((a, b) => b.loss - a.loss); Lg.misses.length = Math.min(Lg.misses.length, 12); } }
+    } else if (minS >= 1) {
+      Lg.defTurns++;
+      const sf = (t) => MJG.safety(g, 0, t); const maxSafe = Math.max(...valid.map((o) => sf(o.t))); const mine = sf(ch.t);
+      if (minS >= 2 && mine < maxSafe - 10) { Lg.pushes.push(Object.assign(snap, { safety: mine, safest: valid.filter((o) => sf(o.t) === maxSafe).map((o) => o.t), threats: threats.map((s) => SEATN[s]) })); Lg.pushes.length = Math.min(Lg.pushes.length, 10); }
+      else Lg.foldOK++;
+    }
+  }
+  function logResult(g, r) {
+    const Lg = MP.log; if (!Lg || !r.wins) return;
+    const mine = r.wins.find((w) => w.winner === 0);
+    if (mine) Lg.wins.push({ kyoku: r.kyoku, total: mine.ev.total, yaku: mine.ev.yaku.map((y) => y[0]).join('・') });
+    if (r.type === 'ron' && r.from === 0) {
+      const w = r.wins[0]; const wp = g.players[w.winner]; const me = g.players[0];
+      const riverT = wp.river.map((rv) => rv.id >> 2); const myT = [...new Set(me.hand.map((x) => x >> 2))];
+      const gen = myT.filter((t) => riverT.includes(t) || (wp.safe && wp.safe.has(t)));
+      Lg.dealins.push({ kyoku: r.kyoku, tile: r.tile, winner: SEATN[w.winner], pts: w.ev.total, riichi: wp.riichi, open: wp.melds.some((m) => m.kind !== 'ankan'), hand: [...me.hand, r.id].sort((a, b) => a - b), shanten: MJG.shanten(MJG.countsId(me.hand), me.melds.length), river: riverT, genbutsu: gen, yaku: w.ev.yaku.map((y) => y[0]).join('・') });
+    }
+  }
+  function handRowMarked(ids, bad, good) {
+    const row = h('div', { class: 'hand small' }); let badDone = false;
+    ids.forEach((id) => { const t = id >> 2; let cls = ''; if (!badDone && t === bad) { cls = 'bad'; badDone = true; } else if (good.includes(t)) cls = 'good'; row.append(tId(id, cls)); });
+    return row;
+  }
+  const meldText = (ms) => (ms && ms.length ? ms.map((m) => ({ chi: 'チー', pon: 'ポン', minkan: '明槓', ankan: '暗槓', kakan: '加槓' }[m.kind] + tl(m.ids.map((x) => x >> 2)))).join('、') : 'なし');
+  const COACH = 'あなたは日本の麻雀教室の先生です。生徒は麻雀を覚えたばかりの初心者です。下の「計算結果」だけを根拠に、日本語で3〜5文で説明してください。書かれていない他家の手牌や手順を想像で作らないこと。専門用語（受け入れ・両面・嵌張・孤立牌・現物・筋など）には短い補足を付け、最後に「次から気をつけること」を1文で。';
+  function promptMiss(m) {
+    return `${COACH}\n\n【場面】${m.kyoku} ${m.turn}巡目、誰もリーチしていない\n【手牌（14枚）】${tl(m.hand.map((x) => x >> 2))}\n【副露】${meldText(m.melds)}\n【生徒が切った牌】${tn(m.chosen)} → ${m.chosenS}シャンテン、受け入れ ${m.chosenUke}枚（${tl(m.chosenTiles) || 'なし'}）\n【計算上いちばん良い打牌】${tl(m.best)} → ${m.bestS}シャンテン、受け入れ ${m.bestUke}枚（${tl(m.bestTiles) || 'なし'}）\n\n質問：なぜ${tn(m.chosen)}を切るのは損で、${tn(m.best[0])}を切るほうが良いのですか？`;
+  }
+  function promptPush(m) {
+    return `${COACH}\n\n【場面】${m.kyoku} ${m.turn}巡目、${m.threats.join('・')}がリーチ（またはテンパイ気配）\n【生徒の手牌（14枚）】${tl(m.hand.map((x) => x >> 2))}（この時点で${m.bestS}シャンテン）\n【生徒が切った牌】${tn(m.chosen)}（安全度 ${m.safety}／100）\n【手の中で一番安全な牌】${tl(m.safest)}\n\n質問：まだ${m.bestS}シャンテンなのに${tn(m.chosen)}を切るのはなぜ危ないのですか？ 押すか降りるかの考え方も教えてください。`;
+  }
+  function promptDealin(d) {
+    return `${COACH}\n\n【場面】${d.kyoku}、生徒が${tn(d.tile)}を切って${d.winner}に放銃（${fmt(d.pts)}点、${d.riichi ? 'リーチ' : d.open ? '鳴いた手' : 'リーチなしの門前（ダマ）'}、役：${d.yaku}）\n【放銃前の生徒の手牌（14枚）】${tl(d.hand.map((x) => x >> 2))}（切ったあと${d.shanten}シャンテン）\n【${d.winner}の捨て牌】${tl(d.river) || 'なし'}\n【生徒の手にあった現物（${d.winner}が捨てた牌）】${tl(d.genbutsu) || 'なし'}\n\n質問：この放銃は避けられましたか？ どう考えればよかったですか？（${d.riichi ? '' : 'リーチがない相手への放銃は避けにくいこともあるので、その場合は正直にそう言ってください。'}）`;
+  }
+  function mjReview() {
+    const R = MP.review || MP.log;
+    const root = h('div', { class: 'wrap setup', style: cvars('mj') });
+    const back = () => (MP.g ? go({ name: 'mjplay' }) : go({ name: 'home' }));
+    if (!R) { root.append(h('p', { class: 'empty' }, 'まだ記録がありません。1局打つと振り返りが作られます。')); app.append(playTopbar('振り返り', null, back), root); return; }
+    const pct = R.eff ? Math.round((R.match / R.eff) * 100) : 0;
+    const cell = (l, v) => h('div', {}, h('div', { class: 'lbl' }, l), h('b', { class: 'num' }, v));
+    root.append(h('div', { class: 'rv-sum' }, cell('牌効率の一致率', R.eff ? pct + '%' : '—'), cell('和了', R.wins.length + '回'), cell('放銃', R.dealins.length + '回'), cell('リーチ', R.riichi + '回'), cell('鳴き', R.calls + '回'), cell('降りの判断', R.defTurns ? Math.round((R.foldOK / R.defTurns) * 100) + '%' : '—')));
+    root.append(h('p', { class: 'note' }, `一致率＝誰もリーチしていない場面で、あなたの打牌が「シャンテン数が進み、受け入れ枚数が最大」の牌と一致した割合（${R.match}/${R.eff}打）。60%台で初級、80%を超えれば牌効率はかなり身についています。降りの判断＝リーチや3副露の相手がいて自分が1シャンテン以上のとき、手の中で安全な牌を選べた割合。`));
+    if (R.misses.length) {
+      root.append(h('div', { class: 'rv-h' }, '牌効率で損した打牌'));
+      const list = h('div', { class: 'rv-list' });
+      R.misses.forEach((m, i) => {
+        list.append(h('div', { class: 'rv-item' }, h('div', { class: 'note' }, `${m.kyoku} ${m.turn}巡目`), handRowMarked(m.hand, m.chosen, m.best),
+          h('div', { class: 'rv-line' }, '切った：', tT(m.chosen), ` → ${sLabel(m.chosenS)}・受け入れ ${m.chosenUke}枚`),
+          h('div', { class: 'rv-line' }, 'おすすめ：', ...m.best.slice(0, 3).map((t) => tT(t)), ` → ${sLabel(m.bestS)}・受け入れ ${m.bestUke}枚`),
+          explainEl('mjmiss:' + JSON.stringify([m.hand, m.chosen]), 'なぜ損？（Claude が解説）', () => promptMiss(m))));
+      });
+      root.append(list);
+    }
+    if (R.pushes.length) {
+      root.append(h('div', { class: 'rv-h' }, '危ない牌を押した場面'));
+      const list = h('div', { class: 'rv-list' });
+      R.pushes.forEach((m) => list.append(h('div', { class: 'rv-item' }, h('div', { class: 'note' }, `${m.kyoku} ${m.turn}巡目・${m.threats.join('・')}がテンパイ気配・あなたは${sLabel(m.bestS)}`), handRowMarked(m.hand, m.chosen, m.safest),
+        h('div', { class: 'rv-line' }, '切った：', tT(m.chosen), `（安全度 ${m.safety}）　安全だった牌：`, ...m.safest.slice(0, 3).map((t) => tT(t))),
+        explainEl('mjpush:' + JSON.stringify([m.hand, m.chosen]), 'なぜ危ない？（Claude が解説）', () => promptPush(m)))));
+      root.append(list);
+    }
+    if (R.dealins.length) {
+      root.append(h('div', { class: 'rv-h' }, '放銃した局'));
+      const list = h('div', { class: 'rv-list' });
+      R.dealins.forEach((d) => list.append(h('div', { class: 'rv-item' }, h('div', { class: 'note' }, `${d.kyoku}・${d.winner}に ${fmt(d.pts)}点（${d.riichi ? 'リーチ' : d.open ? '鳴き' : 'ダマ'}）・役：${d.yaku}`), handRowMarked(d.hand, d.tile, d.genbutsu),
+        h('div', { class: 'rv-line' }, '放銃牌：', tT(d.tile), d.genbutsu.length ? '　手にあった現物：' : '　手に現物なし', ...d.genbutsu.slice(0, 4).map((t) => tT(t))),
+        explainEl('mjdeal:' + JSON.stringify([d.hand, d.tile]), '避けられた？（Claude が解説）', () => promptDealin(d)))));
+      root.append(list);
+    }
+    if (!R.misses.length && !R.pushes.length && !R.dealins.length) root.append(h('p', { class: 'empty' }, '大きなミスはありませんでした。'));
+    root.append(h('div', { class: 'row2', style: 'margin-top:16px' }, h('button', { class: 'cta', onclick: back }, MP.g ? '対局に戻る' : 'ホーム'), h('button', { class: 'cta alt', onclick: () => go({ name: 'home' }) }, 'ホーム')));
+    app.append(playTopbar('麻雀の振り返り', null, back), root);
+  }
+  // チェス：悪手の説明
+  function pieceList(fen) {
+    const g = new window.Chess(fen); const W = [], B = []; const F = 'abcdefgh';
+    g.board().forEach((row, r) => row.forEach((x, f) => { if (x) (x.color === 'w' ? W : B).push(x.type.toUpperCase() + F[f] + (8 - r)); }));
+    return `白：${W.join(' ')}／黒：${B.join(' ')}`;
+  }
+  async function promptChess(ply) {
+    const rv = CP.review; const i = ply - 1; const mv = rv.moves[i]; const fenB = rv.fens[i];
+    const t = new window.Chess(fenB); t.move(mv.san); const fenA = t.fen();
+    const rep = await Eng.call('analyze', fenA, 600, []); let replySan = '';
+    if (rep && rep.best) { const t2 = new window.Chess(fenA); const r2 = t2.move({ from: rep.best.from, to: rep.best.to, promotion: rep.best.promotion }); replySan = r2 ? r2.san : ''; }
+    const side = mv.color === 'w' ? '白' : '黒'; const sg = mv.color === 'w' ? 1 : -1;
+    const evs = (r) => (r.mate != null ? (Math.sign(r.mate) === sg ? `${side}が${Math.abs(Math.round(r.mate))}手で詰ませる` : `${side}が${Math.abs(Math.round(r.mate))}手で詰まされる`) : `${side}から見て ${(sg * r.score / 100).toFixed(1)}ポーン分`);
+    return `あなたはチェス教室のコーチです。生徒は初心者です。下の「エンジンの事実」だけを根拠に、日本語で3〜5文で説明してください。書かれていない手順や変化を想像で作らないこと（駒の配置は下の一覧で確認すること）。駒の名前は日本語（キング・クイーン・ルーク・ビショップ・ナイト・ポーン）で。最後に「次から気をつけること」を1文で。\n\n【局面】FEN ${fenB}（${side}の番）\n【駒の配置】${pieceList(fenB)}\n【生徒が指した手】${mv.san}（判定：${mv.label}）\n【その後の相手の最善の応手】${replySan || '不明'}、その局面の評価：${rep ? evs(rep) : '不明'}\n【エンジンの最善手】${mv.bestSan || '不明'}、指していれば評価：${evs(rv.evals[i])}\n\n質問：なぜ ${mv.san} は悪い手で、${mv.bestSan || '最善手'} のほうが良いのですか？`;
   }
   // ---- 卓（上から見た配置を奥に傾けて立体に見せる。各家の河・手牌・副露は「自分が下」の向きで作って回転） ----
   const ROT = [0, -90, 180, 90];
@@ -553,7 +665,7 @@
       const e0 = MJG.efficiency(g, 0, me.hand);
       const valid = e0.opts.filter((o) => pool.some((x) => (x >> 2) === o.t));
       const minS = Math.min(...valid.map((o) => o.s)); const top = valid.filter((o) => o.s === minS); const maxU = Math.max(...top.map((o) => o.uke));
-      eff = { minS, best: top.filter((o) => o.uke === maxU) };
+      eff = { minS, best: top.filter((o) => o.uke === maxU), valid };
       if (minS >= 0) eff.best.forEach((o) => rec.add(o.t));
     }
     const handRow = h('div', { class: 'phand' });
@@ -562,7 +674,7 @@
       const forbidden = turn && opts.forbidden.includes(t);
       const allowed = turn && !me.riichi && !forbidden && (!ui.riichiMode || opts.riichi.includes(id));
       const b = h('button', { class: 'tbtn' + (rec.has(t) ? ' rec' : '') + ((turn && ui.riichiMode && !opts.riichi.includes(id)) || forbidden ? ' dim' : ''), disabled: !allowed, 'aria-label': MJ.name(t) + (isDrawn ? '（ツモ）' : '') + (forbidden ? '（喰い替え禁止）' : '') }, tId(id));
-      b.onclick = () => { if (MP.ui !== ui || ui.kind !== 'turn') return; const res = ui.resolve; MP.ui = { kind: 'idle' }; sfx('tile'); res({ type: 'discard', id, riichi: !!ui.riichiMode }); };
+      b.onclick = () => { if (MP.ui !== ui || ui.kind !== 'turn') return; try { logDiscard(g, id, opts); } catch { /* 記録できなくても続ける */ } const res = ui.resolve; MP.ui = { kind: 'idle' }; sfx('tile'); res({ type: 'discard', id, riichi: !!ui.riichiMode }); };
       return b;
     };
     rest.forEach((id) => handRow.append(mkT(id, false)));
@@ -605,6 +717,11 @@
         else hb.append(h('b', {}, `${eff.minS}シャンテン`), '　おすすめ：', ...eff.best.slice(0, 4).map((o) => tT(o.t)), `（受け入れ ${eff.best[0].uke}枚）`);
         const threats = MJG.threatsOf(g, 0);
         if (threats.length) hb.append(h('span', { class: 'warn' }, `　${threats.map((s) => SEATN[s]).join('・')}がテンパイ気配。安全牌は`), ...[...new Set(me.hand.map((x) => x >> 2))].filter((t) => MJG.safety(g, 0, t) >= 92).slice(0, 4).map((t) => tT(t)));
+        if (eff.minS >= 0 && !threats.length) {
+          const bestT = eff.best.map((o) => o.t); const alt = eff.valid.filter((o) => !bestT.includes(o.t)).sort((a, b) => a.s - b.s || b.uke - a.uke)[0];
+          const handNames = tl(me.hand.slice().sort((a, b) => a - b).map((x) => x >> 2));
+          hb.append(explainEl('hint:' + me.hand.slice().sort((a, b) => a - b).join(','), 'なぜこの牌？', () => `${COACH}\n\n【手牌（14枚）】${handNames}\n【副露】${meldText(me.melds)}\n【おすすめの打牌】${tl(bestT)} → ${sLabel(eff.minS)}、受け入れ ${eff.best[0].uke}枚（${tl(eff.best[0].tiles) || 'なし'}）\n${alt ? `【次点の打牌】${tn(alt.t)} → ${sLabel(alt.s)}、受け入れ ${alt.uke}枚（${tl(alt.tiles) || 'なし'}）\n` : ''}\n質問：なぜ${tn(bestT[0])}を切るのがよいのですか？${alt ? `${tn(alt.t)}と比べて教えてください。` : ''}`));
+        }
       } else if (me.hand.length % 3 === 1) {
         const c = MJG.countsId(me.hand); const s = MJG.shanten(c, me.melds.length);
         if (s === 0) {
@@ -620,9 +737,10 @@
     if (ui.kind === 'result' && ui.at && Date.now() - ui.at < 1300) setTimeout(() => { if (MP.ui === ui) mjRefresh(); }, 1350 - (Date.now() - ui.at));
     else if ((ui.kind === 'result' || ui.kind === 'end') && MP.peek) act.replaceChildren(h('button', { class: 'abtn', onclick: () => { MP.peek = false; mjRefresh(); } }, '結果に戻る'));
     else if (ui.kind === 'result' || ui.kind === 'end') root.append(mjResultSheet(g, ui));
-    const quit = () => { if (!MP.quitArmed && ui.kind !== 'end') { MP.quitArmed = true; mjRefresh(); setTimeout(() => { MP.quitArmed = false; }, 3000); return; } quitMJ(); };
+    const quit = () => { if (!MP.quitArmed && ui.kind !== 'end') { MP.quitArmed = true; mjRefresh(); setTimeout(() => { if (MP.quitArmed) { MP.quitArmed = false; mjRefresh(); } }, 3000); return; } quitMJ(); };
     const tog = (key, label) => h('button', { class: 'chip tog' + (MP[key] ? ' on' : ''), 'aria-pressed': String(MP[key]), onclick: () => { MP[key] = !MP[key]; mjRefresh(); } }, label);
-    app.append(playTopbar(MP.quitArmed ? 'もう一度押すとやめます' : '麻雀', null, quit, h('span', { class: 'togs' }, tog('hints', 'ヒント'), tog('callPrompt', '鳴き'), tog('reveal', '手牌'), box3d ? h('button', { class: 'chip tog', onclick: () => Mahjong3D.toggleView() }, '視点') : null)), root);
+    app.append(playTopbar('麻雀', null, () => go({ name: 'home' }), h('span', { class: 'togs' }, tog('hints', 'ヒント'), tog('callPrompt', '鳴き'), tog('reveal', '手牌'), box3d ? h('button', { class: 'chip tog', onclick: () => Mahjong3D.toggleView() }, '視点') : null)), root);
+    root.append(h('div', { class: 'row2 mjfoot' }, h('button', { class: 'sbtn', onclick: () => { MP.review = MP.log; go({ name: 'mjreview' }); } }, 'ここまでの振り返り'), h('button', { class: 'sbtn' + (MP.quitArmed ? ' warn' : ''), onclick: quit }, MP.quitArmed ? '本当にやめる（記録は消える）' : '対局をやめる')));
     if (box3d) {
       Mahjong3D.mount(box3d); Mahjong3D.update(g, { reveal });
       if (MP.shout && Date.now() < MP.shout.until) { const pos = Mahjong3D.screenPos(MP.shout.seat, 0, 7); if (pos) box3d.append(h('div', { class: 'shout3d', style: `left:${pos.x}px;top:${pos.y}px` }, MP.shout.text)); }
@@ -643,7 +761,7 @@
       sh.append(h('h3', {}, { single: '対局終了', tonpu: '東風戦 終了', hanchan: '半荘戦 終了' }[g.rules.length]));
       const t = h('table', { class: 'dtable rank' });
       r.rank.forEach((s, i) => t.append(h('tr', { class: s === 0 ? 'me' : '' }, h('td', {}, `${i + 1}位`), h('td', {}, SEATN[s]), h('td', { class: 'num' }, fmt(r.scores[s]) + '点'), h('td', { class: 'num' }, `${r.pts[s] > 0 ? '+' : ''}${r.pts[s].toFixed(1)}`))));
-      sh.append(t, h('p', { class: 'note' }, `30000点返し・ウマ10-30　+${r.xp || 0} XP`),
+      sh.append(t, h('p', { class: 'note' }, `30000点返し・ウマ10-30　+${r.xp || 0} XP`), h('button', { class: 'cta', style: 'margin-bottom:8px', onclick: () => { const res = ui.resolve; MP.g = null; if (res) res(); MP.review = MP.log; go({ name: 'mjreview' }); } }, 'この対局を振り返る'),
         h('div', { class: 'row2' }, h('button', { class: 'cta', onclick: () => { const res = ui.resolve; MP.g = null; if (res) res(); startMJ(); } }, 'もう一回'), h('button', { class: 'cta alt', onclick: () => { const res = ui.resolve; MP.g = null; if (res) res(); go({ name: 'home' }); } }, 'ホーム')));
       return bg;
     }

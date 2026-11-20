@@ -281,6 +281,12 @@ const MJG = (() => {
       this.dealer = Math.floor(this.rand() * 4); this.startDealer = this.dealer;
       this.rotations = 0; this.handNo = 0; this.over = false; this.aborted = false;
       this.stats = { agari: [0, 0, 0, 0], houju: [0, 0, 0, 0], riichi: [0, 0, 0, 0], calls: [0, 0, 0, 0], hands: 0, aborts: 0 };
+      if (o.resume) { const r = o.resume; Object.assign(this, { scores: r.scores.slice(), honba: r.honba, sticks: r.sticks, dealer: r.dealer, startDealer: r.startDealer, rotations: r.rotations, handNo: r.handNo, stats: JSON.parse(JSON.stringify(r.stats)) }); }
+    }
+    // 局の始まりの状態（この局から再開できる）
+    snapshot() {
+      const st = JSON.parse(JSON.stringify(this.stats)); st.hands = Math.max(0, st.hands - 1);
+      return { rules: this.rules, scores: this.scores.slice(), honba: this.honba, sticks: this.sticks, dealer: this.dealer, startDealer: this.startDealer, rotations: this.rotations, handNo: this.handNo - 1, stats: st, kyoku: this.kyokuName() };
     }
     get round() { return Math.min(3, Math.floor(this.rotations / 4)); }
     seatWind(s) { return (s - this.dealer + 4) % 4; }

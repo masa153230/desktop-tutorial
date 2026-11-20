@@ -110,9 +110,12 @@ const Mahjong3D = (() => {
   function kick() { dirty = true; if (!raf) raf = requestAnimationFrame(loop); }
   function loop() {
     raf = 0; let active = false; const now = performance.now();
+    // 動いている間のフレーム時間を見て、重ければ影を切り解像度を下げる（1回だけ）
+    if (api._lt && now - api._lt < 250) { (api._fs = api._fs || []).push(now - api._lt); if (api._fs.length > 24) api._fs.shift(); if (!api._low && api._fs.length >= 12 && api._fs.reduce((a, b) => a + b, 0) / api._fs.length > 45) { api._low = true; renderer.shadowMap.enabled = false; renderer.setPixelRatio(1); scene.traverse((o) => { if (o.material) [].concat(o.material).forEach((m) => { m.needsUpdate = true; }); }); setTimeout(place, 0); } }
+    api._lt = 0;
     for (let i = anims.length - 1; i >= 0; i--) { const a = anims[i]; const k = Math.min(1, (now - a.t0) / a.dur); const e = 1 - (1 - k) ** 3; a.step(e); if (k >= 1) anims.splice(i, 1); else active = true; }
     if (dirty || active) { renderer.render(scene, camera); dirty = false; }
-    if (active) raf = requestAnimationFrame(loop);
+    if (active) { api._lt = now; raf = requestAnimationFrame(loop); }
   }
   function place() {
     if (!renderer || !host) return;

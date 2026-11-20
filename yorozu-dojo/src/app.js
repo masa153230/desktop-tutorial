@@ -42,6 +42,7 @@
     loop: '<path d="M6.5 9.5C4.5 9.5 3 11 3 12.5S4.5 15.5 6.5 15.5c3.5 0 7.5-6 11-6 2 0 3.5 1.5 3.5 3s-1.5 3-3.5 3c-3.5 0-7.5-6-11-6z" fill="none" stroke="currentColor" stroke-width="2.2"/>',
     review: '<path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
     play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>',
+    spark: '<path d="M12 2.5l2.2 6.3 6.3 2.2-6.3 2.2L12 19.5l-2.2-6.3L3.5 11l6.3-2.2z" fill="currentColor"/>',
     mic: '<rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M8.5 21h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   };
   const icon = (n, cls = '') => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico ' + cls); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ICONS[n]; return s; };
@@ -83,6 +84,51 @@
     Sync.writing = false;
   }
   function save() { P.updatedAt = Date.now(); saveLocal(); pushRemote(); }
+  // 2つの端末の進捗を「どちらかで進んだものは残す」方針で合わせる
+  function mergeProgress(a, b) {
+    const newer = (a.updatedAt || 0) >= (b.updatedAt || 0) ? a : b, older = newer === a ? b : a;
+    const o = normalize(JSON.parse(JSON.stringify(newer))); const x = older;
+    o.xp = Math.max(a.xp || 0, b.xp || 0);
+    for (const [d, v] of Object.entries(x.daily || {})) o.daily[d] = Math.max(o.daily[d] || 0, v);
+    for (const [k, v] of Object.entries(x.lessons || {})) { const m = o.lessons[k] || { n: 0, best: 0 }; o.lessons[k] = { n: Math.max(m.n, v.n || 0), best: Math.max(m.best || 0, v.best || 0) }; }
+    o.srs = o.srs || {}; for (const [k, v] of Object.entries(x.srs || {})) { const m = o.srs[k]; if (!m || v[1] > m[1]) o.srs[k] = v; }
+    for (const cid of Object.keys(o.mistakes)) { const have = new Set((o.mistakes[cid] || []).map((m) => m.k)); for (const m of (x.mistakes || {})[cid] || []) if (!have.has(m.k)) o.mistakes[cid].push(m); o.mistakes[cid] = o.mistakes[cid].slice(-40); }
+    if ((x.last || '') > (o.last || '')) { o.last = x.last; o.streak = x.streak; }
+    o.best = Math.max(a.best || 0, b.best || 0);
+    const sa = (a.stats || {}), sb = (b.stats || {}); o.stats = o.stats || {};
+    if (sa.chess || sb.chess) { o.stats.chess = o.stats.chess || {}; for (const lv of ['1', '2', '3', '4', '5']) { const p = (sa.chess || {})[lv] || {}, q = (sb.chess || {})[lv] || {}; o.stats.chess[lv] = { w: Math.max(p.w || 0, q.w || 0), d: Math.max(p.d || 0, q.d || 0), l: Math.max(p.l || 0, q.l || 0) }; } }
+    if (sa.mj || sb.mj) { const p = sa.mj || { games: 0 }, q = sb.mj || { games: 0 }; o.stats.mj = JSON.parse(JSON.stringify((p.games || 0) >= (q.games || 0) ? p : q)); }
+    o.updatedAt = Math.max(a.updatedAt || 0, b.updatedAt || 0);
+    return o;
+  }
+  // ---------- Claude に解説してもらう ----------
+  let samplerP = null;
+  const getSampler = () => { if (!samplerP) samplerP = window.claude && window.claude.use ? window.claude.use('sample').catch(() => null) : Promise.resolve(null); return samplerP; };
+  const EXPL = new Map();
+  // key：同じ質問を2度聞かない。build：質問文を作る（async 可）
+  function explainEl(key, label, build) {
+    const box = h('div', { class: 'explain' });
+    const out = h('div', { class: 'explain-out', 'aria-live': 'polite' });
+    const clean = (t) => t.replace(/\*\*/g, '').replace(/^#+\s*/gm, '').trim();
+    if (EXPL.has(key)) { out.textContent = EXPL.get(key); box.append(out); return box; }
+    const btn = h('button', { class: 'explain-btn' }, icon('spark'), label);
+    btn.onclick = async () => {
+      btn.disabled = true; out.textContent = 'Claude が考え中…'; box.append(out);
+      const s = await getSampler();
+      if (!s) { out.textContent = 'この環境では Claude の解説が使えません（claude.ai で開いたときに使えます）。'; btn.remove(); return; }
+      try {
+        const prompt = await build();
+        const r = await s(prompt, { modelTier: 'default', onText: ({ text }) => { out.textContent = clean(text); } });
+        const t = clean(r.text || out.textContent); out.textContent = t; EXPL.set(key, t); btn.remove();
+      } catch (e) {
+        const c = e && e.code;
+        out.textContent = c === 'not_granted' ? '解説の利用が許可されていません。アーティファクトの「権限」メニューで許可するとつかえます。' : c === 'rate_limited' ? '混み合っています。少し待ってからもう一度押してください。' : c === 'cancelled' ? '' : '解説を作れませんでした。もう一度押してください。';
+        btn.disabled = false;
+      }
+    };
+    box.append(btn);
+    return box;
+  }
   async function initSync() {
     try {
       if (!window.claude || !window.claude.use) { setSync('local'); return; }
@@ -97,8 +143,12 @@
       Sync.ref = ref;
       if (snap.exists) {
         const remote = normalize(JSON.parse(JSON.stringify(snap.data())));
-        if ((remote.updatedAt || 0) > (P.updatedAt || 0)) { P = remote; saveLocal(); if (view.name !== 'lesson') render(); setSync('cloud'); }
-        else if ((P.updatedAt || 0) > (remote.updatedAt || 0)) pushRemote(); else setSync('cloud');
+        if ((remote.updatedAt || 0) === (P.updatedAt || 0)) setSync('cloud');
+        else {
+          const merged = mergeProgress(P, remote); const same = JSON.stringify(merged) === JSON.stringify(remote);
+          P = merged; saveLocal(); if (view.name !== 'lesson' && view.name !== 'mjplay' && view.name !== 'chess') render();
+          if (!same) pushRemote(); else setSync('cloud');
+        }
       } else if (P.updatedAt) pushRemote(); else setSync('cloud');
     } catch { setSync('local'); }
   }
@@ -449,7 +499,24 @@
 
   // ---------- 画面 ----------
   let view = { name: 'home' };
-  function go(v) { view = v; render(); window.scrollTo(0, 0); }
+  const HASH = (v) => ({ home: 'home', course: 'course-' + v.cid, lesson: 'lesson', result: 'result', chess: 'chess', mjplay: 'mahjong', mjreview: 'mjreview' })[v.name] || 'home';
+  let expectHash = null;
+  function go(v, nav) {
+    view = v; render(); window.scrollTo(0, 0);
+    if (nav === 'pop') return;
+    const hsh = HASH(v); if (location.hash.slice(1) === hsh) return;
+    expectHash = hsh;
+    try { if (nav === 'replace') location.replace('#' + hsh); else location.hash = hsh; } catch { /* 履歴が使えない環境 */ }
+  }
+  function navFromHash(name) {
+    if (name.startsWith('course-') && BY_ID[name.slice(7)]) return go({ name: 'course', cid: name.slice(7) }, 'pop');
+    if (name === 'chess') return go({ name: 'chess' }, 'pop');
+    if (name === 'mahjong') return go({ name: 'mjplay' }, 'pop');
+    if (name === 'mjreview' && MP.review) return go({ name: 'mjreview' }, 'pop');
+    if ((name === 'lesson' || name === 'result') && L) return go({ name: 'course', cid: L.cid }, 'pop');
+    return go({ name: 'home' }, 'pop');
+  }
+  window.addEventListener('hashchange', () => { const name = location.hash.slice(1); if (name === expectHash) { expectHash = null; return; } expectHash = null; navFromHash(name); });
   function render() {
     app.replaceChildren();
     document.onkeydown = null;
@@ -459,6 +526,7 @@
     else if (view.name === 'result') renderResult();
     else if (view.name === 'chess') chessView();
     else if (view.name === 'mjplay') mjView();
+    else if (view.name === 'mjreview') mjReview();
   }
 
   function courseIcon(c) {
@@ -648,7 +716,7 @@
     save();
     L.result = { xp, acc, secs: Math.round((Date.now() - L.t0) / 1000) };
     sfx('done');
-    go({ name: 'result' });
+    go({ name: 'result' }, 'replace');
   }
 
   function renderResult() {
@@ -1102,6 +1170,8 @@
 
   // ---------- 起動 ----------
   render();
+  if (location.hash.length > 1 && location.hash !== '#home') navFromHash(location.hash.slice(1));
+  setTimeout(getSampler, 800);
   initSpeech();
   initSync();
   setTimeout(ensureChess, 1500);
