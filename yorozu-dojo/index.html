@@ -456,6 +456,51 @@ details.tip p { margin: 6px 0 2px; font-size: 14px; line-height: 1.7; }
 .evalgraph { border-radius: 10px; overflow: hidden; cursor: pointer; }
 .evalgraph svg { width: 100%; height: 70px; display: block; }
 .dtable.rank td:last-child { color: var(--muted); }
+/* ---- 麻雀の卓（3D） ---- */
+.mjstage { perspective: 900px; perspective-origin: 50% -40%; display: flex; justify-content: center; align-items: flex-end; margin: 4px 0 14px; }
+.mjtable { position: relative; flex: none; transform: rotateX(30deg); transform-origin: 50% 100%; transform-style: preserve-3d; border-radius: 16px;
+  background: radial-gradient(circle at 50% 50%, #2b8c63 0%, #1f7350 50%, #155a3d 100%);
+  box-shadow: 0 0 0 7px #6a4527, 0 0 0 10px #3b2414, 0 26px 34px rgba(0, 0, 0, .38); }
+.mjtable::before { content: ""; position: absolute; inset: 0; border-radius: 16px; background-image: repeating-radial-gradient(circle at 30% 20%, rgba(255,255,255,.025) 0 1px, transparent 1px 3px); pointer-events: none; }
+.zone { position: absolute; inset: 0; transform-style: preserve-3d; pointer-events: none; }
+.river3d { position: absolute; display: flex; flex-direction: column; gap: 2px; }
+.rrow { display: flex; gap: 1px; height: var(--th); align-items: flex-end; }
+.tile.ft { width: var(--tw); padding: 1px; border-radius: 3px; box-shadow: 0 1.5px 0 #d6cbb0, 0 3px 0 var(--tile-back), 0 4px 4px rgba(0, 0, 0, .35); flex: none; }
+.side-slot { display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.tile.ft.side { transform: rotate(90deg); }
+.tile.ft.last { outline: 2px solid #ffd34d; outline-offset: 1px; animation: tdrop .35s ease-out; }
+.tile.ft.side.last { animation: tdrops .35s ease-out; }
+@keyframes tdrop { from { transform: translateY(-12px) scale(1.18); opacity: .3; } }
+@keyframes tdrops { from { transform: rotate(90deg) translateY(-12px) scale(1.18); opacity: .3; } to { transform: rotate(90deg); } }
+.tile.ft.gone { opacity: .38; }
+.tile.ft.tg { filter: brightness(.94); }
+.ohand3d { position: absolute; display: flex; gap: 1px; transform: translateX(-50%); transform-style: preserve-3d; }
+.ohand3d .stand { width: calc(var(--tw) * .82); height: calc(var(--tw) * 1.06); border-radius: 3px; flex: none;
+  background: linear-gradient(180deg, #f2e9d5 0 20%, #c9bea3 20% 26%, #2c9c6d 26%, #1b7352 100%); box-shadow: 0 2px 0 #10452f, 0 3px 4px rgba(0,0,0,.35); }
+.ohand3d.open .tile.ft.small { width: calc(var(--tw) * .8); }
+.tmelds { position: absolute; display: flex; gap: 4px; flex-direction: row-reverse; }
+.tmelds .meld { --mw: calc(var(--tw) * .9); margin: 0; }
+.tmelds .meld .tile { box-shadow: 0 1px 0 #d6cbb0, 0 2.5px 0 var(--tile-back); }
+.shout { position: absolute; font-family: var(--font-display); font-weight: 900; font-size: calc(var(--tw) * 1.5); color: #fff; letter-spacing: .06em;
+  text-shadow: 0 2px 0 #b8322a, 0 0 14px rgba(0, 0, 0, .6); animation: shout 1.1s ease-out both; white-space: nowrap; z-index: 5; }
+@keyframes shout { 0% { opacity: 0; scale: 1.7; } 15% { opacity: 1; scale: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+.tcenter { position: absolute; border-radius: 12px; background: linear-gradient(145deg, #1b2532, #0f151c); box-shadow: inset 0 0 0 2px #3c4a58, 0 5px 12px rgba(0, 0, 0, .45); color: #e8ecf1; }
+.cseat { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 3px; gap: 2px; }
+.cline { display: flex; gap: 4px; align-items: baseline; font-size: calc(var(--tw) * .55); font-weight: 800; line-height: 1; }
+.cw { color: #9fb3c8; font-family: var(--font-display); }
+.cseat.dealer .cw { color: #ff8f80; }
+.cseat.turn .cline { color: #ffd34d; text-shadow: 0 0 8px rgba(255, 211, 77, .55); }
+.stick { width: 58%; height: calc(var(--tw) * .2); background: #f4f4f0; border-radius: 3px; display: flex; align-items: center; justify-content: center; }
+.stick i { width: calc(var(--tw) * .17); height: calc(var(--tw) * .17); border-radius: 50%; background: #c8312f; }
+.cmid { position: absolute; inset: 22% 18%; white-space: nowrap; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: calc(var(--tw) * .43); text-align: center; line-height: 1.2; }
+.cmid b { font-size: calc(var(--tw) * .62); font-family: var(--font-display); }
+.cdora { display: flex; gap: 1px; margin-top: 2px; }
+.cdora .tile { width: calc(var(--tw) * .6); padding: 0; box-shadow: none; }
+.mebox { background: var(--surface); position: relative; z-index: 2; box-shadow: 0 -6px 16px rgba(0, 0, 0, .18); }
+/* ---- チェス3D ---- */
+.board3d { width: 100%; aspect-ratio: 1 / .9; position: relative; }
+.board3d canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: pointer; }
+.board-wrap .board3d { margin: 0 auto; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -2788,6 +2833,218 @@ const ChessAI = makeChessEngine();
 if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine };
 </script>
 <script>
+/* チェスの3D盤（Three.js r128）。1つのキャンバスを使い回し、画面の描き直しのたびに新しい入れ物へ付け替える。
+ * 使い方: Chess3D.ready() → true なら Chess3D.mount(el), Chess3D.setPosition(board, flip), Chess3D.setMarks(marks), Chess3D.onTap = fn(sq)
+ */
+const Chess3D = (() => {
+  let T = null, renderer = null, scene, camera, canvas, boardTop, boardTexW, boardTexB, frame;
+  let broken = false, flip = false, raf = 0, dirty = true, host = null, ro = null;
+  let az = 0, polar = 0.6; const AZ_LIM = 1.1;
+  const pieces = []; // {mesh, type, color, sq}
+  const anims = [];
+  const geo = {}; let matW, matB, markMats, overlays = [], dots = [], rings = [];
+  const api = { onTap: null };
+  const FILES = 'abcdefgh';
+
+  function load() {
+    if (window.THREE) return Promise.resolve(true);
+    if (api._loading) return api._loading;
+    const add = (src) => new Promise((res) => { const s = document.createElement('script'); s.src = src; s.onload = () => res(!!window.THREE); s.onerror = () => res(false); document.head.append(s); });
+    api._loading = add('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js').then((ok) => ok || add('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'));
+    return api._loading;
+  }
+  const sqPos = (sq) => ({ x: sq.charCodeAt(0) - 97 - 3.5, z: 3.5 - (+sq[1] - 1) });
+  function lathe(pts, segs = 40) { return new T.LatheGeometry(pts.map(([x, y]) => new T.Vector2(x, y)), segs); }
+  function merge(parts) { const g = new T.Group(); parts.forEach((p) => g.add(p)); return g; }
+  function buildGeometries() {
+    geo.p = [lathe([[0, 0], [0.32, 0], [0.33, 0.04], [0.3, 0.08], [0.24, 0.12], [0.2, 0.16], [0.13, 0.22], [0.1, 0.38], [0.17, 0.42], [0.17, 0.45], [0.09, 0.47], [0, 0.47]])];
+    geo.p.push(Object.assign(new T.SphereGeometry(0.135, 28, 20), { _y: 0.57 }));
+    geo.r = [lathe([[0, 0], [0.36, 0], [0.37, 0.05], [0.33, 0.09], [0.26, 0.14], [0.22, 0.2], [0.2, 0.56], [0.27, 0.6], [0.28, 0.76], [0.2, 0.76], [0.2, 0.7], [0, 0.7]])];
+    for (let k = 0; k < 6; k++) { const b = new T.BoxGeometry(0.11, 0.12, 0.09); b.translate(0, 0.79, 0.235); b.rotateY(k * Math.PI / 3); geo.r.push(b); }
+    geo.b = [lathe([[0, 0], [0.34, 0], [0.35, 0.05], [0.3, 0.09], [0.24, 0.13], [0.2, 0.18], [0.12, 0.52], [0.2, 0.56], [0.2, 0.59], [0.11, 0.61], [0.16, 0.7], [0.18, 0.79], [0.15, 0.88], [0.09, 0.95], [0.03, 0.99], [0, 1.0]])];
+    geo.b.push(Object.assign(new T.SphereGeometry(0.05, 16, 12), { _y: 1.03 }));
+    geo.q = [lathe([[0, 0], [0.37, 0], [0.38, 0.05], [0.33, 0.1], [0.26, 0.15], [0.22, 0.2], [0.13, 0.62], [0.22, 0.66], [0.22, 0.69], [0.14, 0.72], [0.19, 0.88], [0.25, 0.99], [0.18, 1.0], [0.1, 1.03], [0, 1.04]])];
+    for (let k = 0; k < 8; k++) { const s = new T.SphereGeometry(0.045, 12, 10); s.translate(0.21 * Math.cos(k * Math.PI / 4), 1.01, 0.21 * Math.sin(k * Math.PI / 4)); geo.q.push(s); }
+    geo.q.push(Object.assign(new T.SphereGeometry(0.075, 16, 12), { _y: 1.1 }));
+    geo.k = [lathe([[0, 0], [0.38, 0], [0.39, 0.05], [0.34, 0.1], [0.27, 0.15], [0.23, 0.21], [0.14, 0.68], [0.23, 0.72], [0.23, 0.75], [0.15, 0.78], [0.2, 0.97], [0.14, 1.03], [0, 1.05]])];
+    const c1 = new T.BoxGeometry(0.075, 0.26, 0.075); c1.translate(0, 1.18, 0); const c2 = new T.BoxGeometry(0.2, 0.07, 0.075); c2.translate(0, 1.2, 0); geo.k.push(c1, c2);
+    // ナイト：台座＋押し出した馬の頭（+x が前）
+    geo.n = [lathe([[0, 0], [0.35, 0], [0.36, 0.05], [0.31, 0.09], [0.26, 0.13], [0.24, 0.18], [0, 0.18]])];
+    const sh = new T.Shape();
+    const P = [[-0.22, 0.16], [0.2, 0.16], [0.17, 0.34], [0.1, 0.44], [0.27, 0.53], [0.36, 0.64], [0.33, 0.74], [0.12, 0.72], [0.06, 0.84], [0.0, 0.93], [-0.06, 0.86], [-0.13, 0.9], [-0.2, 0.8], [-0.27, 0.6], [-0.25, 0.36]];
+    sh.moveTo(P[0][0], P[0][1]); for (let i = 1; i < P.length; i++) sh.lineTo(P[i][0], P[i][1]); sh.lineTo(P[0][0], P[0][1]);
+    const ex = new T.ExtrudeGeometry(sh, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.04, bevelSegments: 3, curveSegments: 6 });
+    ex.translate(0, 0, -0.1); geo.n.push(ex);
+  }
+  function pieceMesh(type, color) {
+    const g = new T.Group(); const inner = new T.Group(); inner.scale.setScalar(1.28); g.add(inner); const mat = color === 'w' ? matW : matB;
+    for (const part of geo[type]) { const m = new T.Mesh(part, mat); if (part._y) m.position.y = part._y; m.castShadow = true; m.receiveShadow = true; inner.add(m); }
+    if (type === 'n') inner.children[1].rotation.y = color === 'w' ? Math.PI / 2 : -Math.PI / 2;
+    if (type === 'b') { // ミトラの切れ込み
+      const cut = new T.Mesh(new T.BoxGeometry(0.03, 0.14, 0.32), color === 'w' ? matB : matW); cut.position.set(0, 0.86, 0); cut.rotation.z = 0.55; inner.add(cut);
+    }
+    g.userData = { type, color };
+    return g;
+  }
+  function boardTexture(flipped) {
+    const N = 1024, cv = document.createElement('canvas'); cv.width = cv.height = N; const x = cv.getContext('2d');
+    const cell = N / 9, o = cell / 2;
+    // 外枠（濃い木）
+    const g = x.createLinearGradient(0, 0, N, N); g.addColorStop(0, '#5a3a22'); g.addColorStop(1, '#3d2716'); x.fillStyle = g; x.fillRect(0, 0, N, N);
+    for (let i = 0; i < 260; i++) { x.strokeStyle = `rgba(0,0,0,${0.03 + Math.random() * 0.05})`; x.lineWidth = 1 + Math.random() * 2; x.beginPath(); const y = Math.random() * N; x.moveTo(0, y); x.bezierCurveTo(N / 3, y + Math.random() * 20 - 10, 2 * N / 3, y + Math.random() * 20 - 10, N, y + Math.random() * 10 - 5); x.stroke(); }
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      const light = (f + r) % 2 === 0; // a8（左上）は明るいマス
+      x.fillStyle = light ? '#ecd6ad' : '#a8754b'; x.fillRect(o + f * cell, o + r * cell, cell, cell);
+      for (let k = 0; k < 7; k++) { x.strokeStyle = light ? 'rgba(150,100,50,.10)' : 'rgba(60,30,10,.16)'; x.lineWidth = 1 + Math.random() * 2; x.beginPath(); const yy = o + r * cell + Math.random() * cell; x.moveTo(o + f * cell, yy); x.quadraticCurveTo(o + f * cell + cell / 2, yy + Math.random() * 10 - 5, o + (f + 1) * cell, yy + Math.random() * 6 - 3); x.stroke(); }
+    }
+    x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = 4; x.strokeRect(o, o, cell * 8, cell * 8);
+    x.fillStyle = '#e9d6b4'; x.font = `600 ${Math.round(cell * 0.32)}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    const txt = (s, cx, cy) => { x.save(); x.translate(cx, cy); if (flipped) x.rotate(Math.PI); x.fillText(s, 0, 0); x.restore(); };
+    for (let f = 0; f < 8; f++) { txt(FILES[f], o + (f + 0.5) * cell, N - o / 2); txt(FILES[f], o + (f + 0.5) * cell, o / 2); }
+    for (let r = 0; r < 8; r++) { txt(String(8 - r), o / 2, o + (r + 0.5) * cell); txt(String(8 - r), N - o / 2, o + (r + 0.5) * cell); }
+    const t = new T.CanvasTexture(cv); t.anisotropy = 4; if (T.sRGBEncoding) t.encoding = T.sRGBEncoding; return t;
+  }
+  function init() {
+    if (renderer || broken) return !!renderer;
+    if (!window.THREE) return false;
+    T = window.THREE;
+    try {
+      canvas = document.createElement('canvas'); canvas.className = 'board3d-canvas';
+      renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    } catch { broken = true; renderer = null; return false; }
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+    if (T.sRGBEncoding) renderer.outputEncoding = T.sRGBEncoding;
+    renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); broken = true; if (api.onBroken) api.onBroken(); });
+    scene = new T.Scene();
+    camera = new T.PerspectiveCamera(36, 1, 0.1, 100);
+    scene.add(new T.HemisphereLight(0xfff6e8, 0x2a2420, 0.55));
+    const sun = new T.DirectionalLight(0xffffff, 1.25); sun.position.set(-4, 11, 6); sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 30 }); sun.shadow.bias = -0.0008; sun.shadow.radius = 3;
+    scene.add(sun);
+    const fill = new T.DirectionalLight(0xbfd4ff, 0.25); fill.position.set(6, 5, -6); scene.add(fill);
+    matW = new T.MeshStandardMaterial({ color: 0xe9dcc0, roughness: 0.42, metalness: 0.02 });
+    matB = new T.MeshStandardMaterial({ color: 0x15110f, roughness: 0.26, metalness: 0.18 });
+    buildGeometries();
+    boardTexW = boardTexture(false); boardTexB = boardTexture(true);
+    frame = new T.Mesh(new T.BoxGeometry(9, 0.35, 9), new T.MeshStandardMaterial({ color: 0x3f2817, roughness: 0.6 })); frame.position.y = -0.18; frame.receiveShadow = true; scene.add(frame);
+    boardTop = new T.Mesh(new T.PlaneGeometry(9, 9), new T.MeshStandardMaterial({ map: boardTexW, roughness: 0.55, metalness: 0.0 }));
+    boardTop.rotation.x = -Math.PI / 2; boardTop.position.y = 0.001; boardTop.receiveShadow = true; scene.add(boardTop);
+    const shadowCatcher = new T.Mesh(new T.PlaneGeometry(40, 40), new T.ShadowMaterial({ opacity: 0.18 })); shadowCatcher.rotation.x = -Math.PI / 2; shadowCatcher.position.y = -0.36; shadowCatcher.receiveShadow = true; scene.add(shadowCatcher);
+    markMats = {
+      sel: new T.MeshBasicMaterial({ color: 0x3348c8, transparent: true, opacity: 0.45 }), last: new T.MeshBasicMaterial({ color: 0xf0b400, transparent: true, opacity: 0.38 }),
+      chk: new T.MeshBasicMaterial({ color: 0xe02020, transparent: true, opacity: 0.55 }), hint: new T.MeshBasicMaterial({ color: 0x18a050, transparent: true, opacity: 0.5 }),
+      pick: new T.MeshBasicMaterial({ color: 0x3348c8, transparent: true, opacity: 0.5 }), ok: new T.MeshBasicMaterial({ color: 0x18a050, transparent: true, opacity: 0.55 }),
+      ng: new T.MeshBasicMaterial({ color: 0xd03030, transparent: true, opacity: 0.6 }), miss: new T.MeshBasicMaterial({ color: 0x18a050, transparent: true, opacity: 0.3 }),
+      from: new T.MeshBasicMaterial({ color: 0xf0b400, transparent: true, opacity: 0.55 }), dot: new T.MeshBasicMaterial({ color: 0x14203c, transparent: true, opacity: 0.35 }),
+    };
+    for (let i = 0; i < 64; i++) { const m = new T.Mesh(new T.PlaneGeometry(0.98, 0.98), markMats.sel); m.rotation.x = -Math.PI / 2; m.position.y = 0.006; m.visible = false; scene.add(m); overlays.push(m); }
+    for (let i = 0; i < 32; i++) {
+      const d = new T.Mesh(new T.CircleGeometry(0.15, 24), markMats.dot); d.rotation.x = -Math.PI / 2; d.position.y = 0.012; d.visible = false; scene.add(d); dots.push(d);
+      const r = new T.Mesh(new T.RingGeometry(0.36, 0.46, 32), markMats.dot); r.rotation.x = -Math.PI / 2; r.position.y = 0.012; r.visible = false; scene.add(r); rings.push(r);
+    }
+    // 操作：ドラッグで視点、タップでマス選択
+    let down = null;
+    canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, az, polar, moved: false }; canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!down) return; const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      if (Math.abs(dx) + Math.abs(dy) > 8) down.moved = true;
+      if (down.moved) { az = Math.max(-AZ_LIM, Math.min(AZ_LIM, down.az - dx * 0.008)); polar = Math.max(0.12, Math.min(1.2, down.polar - dy * 0.006)); place(); }
+    });
+    canvas.addEventListener('pointerup', (e) => { const d = down; down = null; if (d && !d.moved) tapAt(e); });
+    canvas.addEventListener('pointercancel', () => { down = null; });
+    return true;
+  }
+  const ray = () => new T.Raycaster();
+  function tapAt(e) {
+    if (!api.onTap) return;
+    const r = canvas.getBoundingClientRect();
+    const v = new T.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    const rc = ray(); rc.setFromCamera(v, camera);
+    const hitP = rc.intersectObjects(pieces.map((p) => p.mesh), true)[0];
+    if (hitP) { let o = hitP.object; while (o.parent && !o.userData.type) o = o.parent; const p = pieces.find((x) => x.mesh === o); if (p) { api.onTap(p.sq); return; } }
+    const hitB = rc.intersectObject(boardTop)[0];
+    if (hitB) {
+      const f = Math.floor(hitB.point.x + 4), rr = Math.floor(4 - hitB.point.z);
+      if (f >= 0 && f < 8 && rr >= 0 && rr < 8) api.onTap(FILES[f] + (rr + 1));
+    }
+  }
+  function place() {
+    if (!renderer) return;
+    const w = host ? host.clientWidth : 360, hgt = host ? host.clientHeight : 340;
+    if (!w || !hgt) return;
+    renderer.setSize(w, hgt, false); camera.aspect = w / hgt; camera.updateProjectionMatrix();
+    // 盤全体（半幅4.6）が収まる距離
+    const vt = Math.tan((camera.fov * Math.PI / 180) / 2), ht = vt * camera.aspect;
+    const need = Math.max(4.75 / ht, (4.5 * Math.cos(polar) + 1.4 * Math.sin(polar)) / vt) * 1.02;
+    const base = flip ? Math.PI : 0; const a = base + az;
+    camera.position.set(Math.sin(a) * Math.sin(polar) * need, Math.cos(polar) * need, Math.cos(a) * Math.sin(polar) * need);
+    camera.lookAt(0, 0.2, 0);
+    kick();
+  }
+  function kick() { dirty = true; if (!raf) raf = requestAnimationFrame(loop); }
+  function loop(t) {
+    raf = 0; let active = false; const now = performance.now();
+    for (let i = anims.length - 1; i >= 0; i--) {
+      const a = anims[i]; const k = Math.min(1, (now - a.t0) / a.dur); const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+      a.step(e, k);
+      if (k >= 1) { anims.splice(i, 1); if (a.done) a.done(); } else active = true;
+    }
+    if (dirty || active) { renderer.render(scene, camera); dirty = false; }
+    if (active) raf = requestAnimationFrame(loop);
+  }
+  // board: chess.js の board()（[0][0] が a8）
+  function setPosition(board, flipped, animate = true) {
+    if (!renderer) return;
+    if (flip !== flipped) { flip = flipped; boardTop.material.map = flip ? boardTexB : boardTexW; boardTop.material.needsUpdate = true; az = 0; place(); }
+    const want = [];
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) { const x = board[r][f]; if (x) want.push({ type: x.type, color: x.color, sq: FILES[f] + (8 - r) }); }
+    const old = pieces.splice(0); const used = new Set(); const next = [];
+    // 同じマスに同じ駒 → そのまま
+    for (const w of want) { const i = old.findIndex((o, k) => !used.has(k) && o.sq === w.sq && o.type === w.type && o.color === w.color); if (i >= 0) { used.add(i); next.push(Object.assign(old[i], { sq: w.sq })); w.done = true; } }
+    // 動いた駒 → 近い同種の駒を割り当てる
+    for (const w of want) {
+      if (w.done) continue; const p = sqPos(w.sq); let bi = -1, bd = 1e9;
+      old.forEach((o, k) => { if (used.has(k) || o.type !== w.type || o.color !== w.color) return; const q = sqPos(o.sq); const d = (p.x - q.x) ** 2 + (p.z - q.z) ** 2; if (d < bd) { bd = d; bi = k; } });
+      if (bi >= 0) {
+        used.add(bi); const o = old[bi]; const from = sqPos(o.sq); o.sq = w.sq; next.push(o);
+        if (animate) { const m = o.mesh; const lift = o.type === 'n' ? 0.55 : 0.12; anims.push({ t0: performance.now(), dur: 320, step: (e) => { m.position.x = from.x + (p.x - from.x) * e; m.position.z = from.z + (p.z - from.z) * e; m.position.y = Math.sin(Math.PI * e) * lift; } }); }
+        else { o.mesh.position.set(p.x, 0, p.z); }
+      } else { // 新しい駒（昇格・初期配置）
+        const m = pieceMesh(w.type, w.color); m.position.set(p.x, 0, p.z); scene.add(m); next.push({ mesh: m, type: w.type, color: w.color, sq: w.sq });
+        if (animate && old.length) { m.scale.setScalar(0.01); anims.push({ t0: performance.now(), dur: 300, step: (e) => m.scale.setScalar(Math.max(0.01, e)) }); }
+      }
+    }
+    // 取られた駒 → 縮んで消える
+    old.forEach((o, k) => { if (used.has(k)) return; const m = o.mesh; if (animate) anims.push({ t0: performance.now(), dur: 260, step: (e) => { m.scale.setScalar(Math.max(0.01, 1 - e)); m.position.y = e * 0.3; }, done: () => scene.remove(m) }); else scene.remove(m); });
+    pieces.push(...next);
+    kick();
+  }
+  // marks: { [sq]: 'sel'|'last'|'chk'|'hint'|'pick'|'ok'|'ng'|'miss'|'from' }, dots: [{sq, cap}]
+  function setMarks(marks = {}, dl = []) {
+    if (!renderer) return;
+    let i = 0;
+    for (const [sq, kind] of Object.entries(marks)) { if (i >= 64) break; const o = overlays[i++]; const p = sqPos(sq); o.position.x = p.x; o.position.z = p.z; o.material = markMats[kind] || markMats.sel; o.visible = true; o.position.y = kind === 'chk' ? 0.008 : 0.006; }
+    for (; i < 64; i++) overlays[i].visible = false;
+    dots.forEach((d) => { d.visible = false; }); rings.forEach((r) => { r.visible = false; });
+    dl.slice(0, 32).forEach((d, k) => { const m = d.cap ? rings[k] : dots[k]; const p = sqPos(d.sq); m.position.x = p.x; m.position.z = p.z; m.visible = true; });
+    kick();
+  }
+  function mount(el) {
+    if (!init()) return false;
+    host = el; el.append(canvas);
+    if (ro) ro.disconnect();
+    ro = new ResizeObserver(() => place()); ro.observe(el);
+    place();
+    return true;
+  }
+  function resetView() { az = 0; polar = 0.6; place(); }
+  function topView() { polar = polar < 0.3 ? 0.6 : 0.12; az = 0; place(); }
+  return Object.assign(api, { load, mount, setPosition, setMarks, resetView, topView, ok: () => !!window.THREE && !broken, isBroken: () => broken });
+})();
+</script>
+<script>
 /* よろず道場 — アプリ本体 */
 (() => {
   'use strict';
@@ -2948,6 +3205,13 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       const t0 = actx.currentTime;
+      if (kind === 'tile' || kind === 'piece') {
+        const len = 0.06; const buf = actx.createBuffer(1, Math.floor(actx.sampleRate * len), actx.sampleRate); const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, kind === 'tile' ? 6 : 4);
+        const src = actx.createBufferSource(); src.buffer = buf; const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = kind === 'tile' ? 2600 : 900; bp.Q.value = 1.2;
+        const gn = actx.createGain(); gn.gain.value = kind === 'tile' ? 0.5 : 0.7; src.connect(bp); bp.connect(gn); gn.connect(actx.destination); src.start(t0);
+        return;
+      }
       const notes = kind === 'good' ? [[659, 0], [988, 0.08]] : kind === 'bad' ? [[196, 0], [165, 0.12]] : [[523, 0], [659, 0.1], [784, 0.2], [1047, 0.3]];
       for (const [f, dt] of notes) {
         const o = actx.createOscillator(); const g = actx.createGain();
@@ -3321,7 +3585,7 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
     });
     root.append(h('div', { class: 'foot' }, c.id === 'mn' ? 'カナ読みはあくまで目安。Ө・Ү・Х は日本語にない音です。' : c.id === 'mj' ? 'ルールは一般的なリーチ麻雀（喰いタンあり）。' : c.id === 'ch' ? '答えの判定は合法手チェック付き。詰み問題は詰ませる手ならどれでも正解。' : '音声は端末やブラウザによって出ないことがあります。'));
     app.append(bar, root);
-    if (c.id === 'ch') ensureChess();
+    if (c.id === 'ch') { ensureChess(); if (P.board3d !== false) Chess3D.load(); }
   }
 
   // ---------- レッスン進行 ----------
@@ -3612,6 +3876,28 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
     paint();
     return { el, sqs, paint };
   }
+  const use3d = () => P.board3d !== false && window.THREE && Chess3D.ok();
+  function board3dAdapter(game, flip, onTap, key) {
+    const el = h('div', { class: 'board3d', role: 'application', 'aria-label': '3Dチェス盤（ドラッグで視点を回転）' });
+    const cls = {}; const dotMap = {}; let pending = false;
+    const PRI = ['chk', 'ng', 'ok', 'pick', 'sel', 'from', 'hint', 'last', 'miss'];
+    const sync = () => { if (pending) return; pending = true; queueMicrotask(() => { pending = false; const marks = {}; for (const [sq, set] of Object.entries(cls)) { const k = PRI.find((x) => set.has(x)); if (k) marks[sq] = k; } Chess3D.setMarks(marks, Object.entries(dotMap).map(([sq, cap]) => ({ sq, cap }))); }); };
+    const sqs = {};
+    for (const f of FILES) for (let r = 1; r <= 8; r++) {
+      const name = f + r; cls[name] = new Set();
+      sqs[name] = {
+        classList: { add: (k) => { cls[name].add(k); sync(); }, remove: (...ks) => { ks.forEach((k) => cls[name].delete(k)); sync(); }, contains: (k) => cls[name].has(k), toggle: (k, on) => { if (on ?? !cls[name].has(k)) cls[name].add(k); else cls[name].delete(k); sync(); } },
+        append: (node) => { if (node && node.classList && node.classList.contains('dot')) { dotMap[name] = node.classList.contains('cap'); sync(); } },
+        querySelectorAll: (q) => (/dot/.test(q) && name in dotMap ? [{ remove: () => { delete dotMap[name]; sync(); } }] : []),
+        setAttribute() {},
+      };
+    }
+    return {
+      el, sqs, is3d: true,
+      paint: () => Chess3D.setPosition(game.board(), flip, true),
+      mount: () => { if (!el.isConnected) return; Chess3D.mount(el); Chess3D.onTap = onTap; const same = Chess3D.lastKey === key; Chess3D.lastKey = key; Chess3D.setPosition(game.board(), flip, same); sync(); },
+    };
+  }
   function turnNote(game, extra) {
     const w = game.turn() === 'w';
     return h('div', { class: 'board-note' }, h('span', { class: 'turn' }, h('i', { class: w ? 'w' : 'b' }), w ? '白の番' : '黒の番'), extra ? ' ・ ' + extra : '');
@@ -3679,7 +3965,8 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
     function build() {
       game = new window.Chess(ex.fen);
       const flip = game.turn() === 'b';
-      B = boardEl(game, flip, tap);
+      B = use3d() ? board3dAdapter(game, flip, tap, 'lesson:' + ex.fen + ':' + Math.random()) : boardEl(game, flip, tap);
+      if (B.mount) requestAnimationFrame(() => B.mount());
       if (ex.mode === 'squares') {
         target = game.moves({ square: ex.from, verbose: true }).map((m) => m.to);
         B.sqs[ex.from].classList.add('from');
@@ -3842,6 +4129,7 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '効果音'), h('small', {}, '正解・不正解の音')), sw('sound')),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '英語の自動読み上げ'), h('small', {}, canSpeak() ? '問題が出たら発音を流す' : 'この環境では音声が使えません')), sw('autoplay')),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'モンゴル語の読みを表示'), h('small', {}, 'ローマ字とカナ（目安）')), sw('reading')),
+      h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'チェス盤を3Dで表示'), h('small', {}, '立体の駒と盤。重い端末ではオフに')), (() => { const b = h('button', { class: 'switch' + (P.board3d !== false ? ' on' : ''), role: 'switch', 'aria-checked': String(P.board3d !== false) }); b.onclick = () => { P.board3d = P.board3d === false; b.classList.toggle('on', P.board3d !== false); b.setAttribute('aria-checked', String(P.board3d !== false)); if (P.board3d) Chess3D.load(); save(); }; return b; })()),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '保存先'), syncEl)),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '最長連続'), h('small', { class: 'num' }, `${P.best}日`)), reset));
     bg.append(sheet); document.body.append(bg);
@@ -3955,7 +4243,7 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
   function resumeChess() {
     const s = P.play.chess; const g = new window.Chess();
     for (const m of s.moves || []) if (!g.move(m)) break;
-    Object.assign(CP, { game: g, color: s.color, level: s.level, sel: null, hint: null, thinking: false, promo: null, over: null, resignArmed: false, newArmed: false, clock: s.clock || null, review: null, viewPly: null, evalCp: null });
+    CP.gameId = Date.now(); Object.assign(CP, { game: g, color: s.color, level: s.level, sel: null, hint: null, thinking: false, promo: null, over: null, resignArmed: false, newArmed: false, clock: s.clock || null, review: null, viewPly: null, evalCp: null });
     if (CP.clock) CP.clock.last = Date.now();
   }
   function chessSetup() {
@@ -3982,7 +4270,7 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
     const color = CP.pickColor === 'r' ? (rand() < 0.5 ? 'w' : 'b') : CP.pickColor;
     let clock = null;
     if (CP.pickClock !== 'none') { const [m, inc] = CP.pickClock.split('+').map(Number); clock = { w: m * 60000, b: m * 60000, inc: inc * 1000, last: Date.now(), label: CP.pickClock }; }
-    Object.assign(CP, { game: new window.Chess(), color, level: CP.pickLevel, sel: null, hint: null, thinking: false, promo: null, over: null, resignArmed: false, newArmed: false, clock, review: null, viewPly: null, evalCp: null, flip: false });
+    CP.gameId = Date.now(); Object.assign(CP, { game: new window.Chess(), color, level: CP.pickLevel, sel: null, hint: null, thinking: false, promo: null, over: null, resignArmed: false, newArmed: false, clock, review: null, viewPly: null, evalCp: null, flip: false });
     persistChess(); render();
   }
   function persistChess() {
@@ -4007,8 +4295,9 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
     if (bm) { await wait(450); const t = new window.Chess(fen); const r = t.move(bm); if (r) mv = { from: r.from, to: r.to, promotion: r.promotion }; }
     if (!mv) mv = await Eng.call('best', fen, CP.level, prevFens(g));
     if (view.name !== 'chess' || CP.game !== g || g.fen() !== fen || CP.over) { CP.thinking = false; return; }
-    if (mv && mv.from) { pressClock(g.turn()); g.move({ from: mv.from, to: mv.to, promotion: mv.promotion }); }
-    CP.thinking = false; sfx(g.in_check() ? 'bad' : 'good');
+    await wait(0);
+    if (mv && mv.from) { pressClock(g.turn()); g.move({ from: mv.from, to: mv.to, promotion: mv.promotion }); sfx('piece'); }
+    CP.thinking = false;
     afterMove();
   }
   function afterMove() {
@@ -4037,7 +4326,7 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
       const mv = g.moves({ square: CP.sel, verbose: true }).filter((m) => m.to === sq);
       if (mv.length) {
         if (mv.some((m) => m.promotion)) { CP.promo = { from: CP.sel, to: sq }; render(); return; }
-        pressClock(g.turn()); const r = g.move({ from: CP.sel, to: sq }); sfx(r && r.captured ? 'good' : 'good'); afterMove(); return;
+        pressClock(g.turn()); g.move({ from: CP.sel, to: sq }); sfx('piece'); afterMove(); return;
       }
     }
     const p = g.get(sq);
@@ -4061,7 +4350,8 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
     let g = g0; let reviewMove = null;
     if (CP.viewPly != null) { g = new window.Chess(); const hs = g0.history(); for (let i = 0; i < CP.viewPly; i++) g.move(hs[i]); reviewMove = CP.review && CP.review.moves[CP.viewPly - 1]; }
     const flip = (CP.color === 'b') !== CP.flip; const myTurn = g0.turn() === CP.color && !CP.over;
-    const B = boardEl(g, flip, chessTap);
+    const B = use3d() && CP.viewMode !== '2d' ? board3dAdapter(g, flip, chessTap, 'game:' + CP.gameId) : boardEl(g, flip, chessTap);
+    if (P.board3d !== false && !window.THREE) Chess3D.load().then((ok) => { if (ok && view.name === 'chess') render(); });
     const hist = g.history({ verbose: true }); const last = hist[hist.length - 1];
     if (last) { B.sqs[last.from].classList.add('last'); B.sqs[last.to].classList.add('last'); }
     if (g.in_check()) for (const [n, b] of Object.entries(B.sqs)) { const p = g.get(n); if (p && p.type === 'k' && p.color === g.turn()) b.classList.add('chk'); }
@@ -4111,12 +4401,15 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
         btn('ヒント', myTurn && !CP.thinking, async (e) => { e.target.textContent = '考え中…'; const fen = g0.fen(); const m = await Eng.call('best', fen, 'hint', prevFens(g0)); if (m && CP.game === g0 && g0.fen() === fen) { const t2 = new window.Chess(fen); const mv = t2.move({ from: m.from, to: m.to, promotion: m.promotion }); CP.hint = { from: m.from, to: m.to, san: mv ? mv.san : '' }; render(); } }),
         btn(CP.evalOn ? '評価バー○' : '評価バー', true, () => { CP.evalOn = !CP.evalOn; render(); if (CP.evalOn) refreshEval(); }, CP.evalOn ? 'on' : ''),
         btn('盤を反転', true, () => { CP.flip = !CP.flip; render(); }),
+        btn(B.is3d ? '2D表示' : '3D表示', P.board3d !== false || !B.is3d, () => { if (B.is3d) { CP.viewMode = '2d'; } else { CP.viewMode = '3d'; P.board3d = true; Chess3D.load().then(() => render()); } render(); }),
+        B.is3d ? btn('真上から', true, () => Chess3D.topView()) : null,
         btn(CP.newArmed ? '本当に新しく' : '新しく', true, () => { if (!CP.newArmed) { CP.newArmed = true; render(); return; } CP.game = null; CP.over = null; persistChess(); render(); }, CP.newArmed ? 'warn' : ''),
         btn(CP.resignArmed ? '本当に投了' : '投了', !CP.thinking, () => { if (!CP.resignArmed) { CP.resignArmed = true; render(); return; } finishChess('resign'); }, CP.resignArmed ? 'warn' : '')));
       if (CP.clock) root.append(h('p', { class: 'note' }, '持ち時間ありの対局では待ったは使えません。'));
     }
     root.append(moveList(g0));
     app.append(playTopbar('チェス対局', lvName, () => { CP.sel = null; go({ name: 'home' }); }), root);
+    if (B.mount) B.mount();
     const ml = root.querySelector('.movelist'); if (ml && CP.viewPly == null) ml.scrollTop = ml.scrollHeight;
     clearInterval(CP.timer); if (CP.clock && !CP.over) CP.timer = setInterval(() => { if (view.name === 'chess') tickClock(); else clearInterval(CP.timer); }, 250);
     if (!CP.over && g0.turn() !== CP.color && !CP.thinking) aiMove();
@@ -4268,7 +4561,15 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
       rules: { length: MP.length, aka: MP.aka },
       agents: [human, MJG.cpuAgent(), MJG.cpuAgent(), MJG.cpuAgent()],
       hooks: {
-        emit: (ev) => { if (MP.g === g && ev !== 'result') { if (!['turn', 'ron', 'call', 'auto'].includes(MP.ui.kind)) MP.ui = { kind: 'idle' }; mjRefresh(); } },
+        emit: (ev, seat) => {
+          if (MP.g !== g || ev === 'result') return;
+          let text = null;
+          if (ev === 'discard') { const rv = g.players[seat].river[g.players[seat].river.length - 1]; if (rv && rv.riichi) text = 'リーチ'; if (seat !== 0) sfx('tile'); }
+          if (ev === 'call') { const m = g.players[seat].melds[g.players[seat].melds.length - 1]; text = { chi: 'チー', pon: 'ポン', minkan: 'カン' }[m.kind]; sfx('tile'); }
+          if (ev === 'kan') text = 'カン';
+          if (text) { MP.shout = { seat, text, until: Date.now() + 1100 }; setTimeout(() => { if (MP.g === g) mjRefresh(); }, 1150); }
+          if (!['turn', 'ron', 'call', 'auto'].includes(MP.ui.kind)) MP.ui = { kind: 'idle' }; mjRefresh();
+        },
         sleep: (kind, seat) => wait(kind === 'discard' ? (seat === 0 ? 120 : 520) : kind === 'call' ? 500 : 450),
         pause: (r) => new Promise((resolve) => {
           if (MP.g !== g) return resolve();
@@ -4278,7 +4579,8 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
             if (mine) { const st = statsOf('mj'); if (!st.best || mine.ev.total > st.best.total) st.best = { total: mine.ev.total, name: mine.ev.yaku.filter((y) => !/ドラ/.test(y[0])).map((y) => y[0]).join('・') }; sfx('done'); }
             else if (r.from === 0) sfx('bad');
           }
-          MP.ui = { kind: r.type === 'end' ? 'end' : 'result', r, resolve }; mjRefresh();
+          if (r.wins) MP.shout = { seat: r.wins[0].winner, text: r.type === 'ron' ? 'ロン' : 'ツモ', until: Date.now() + 1500 };
+          MP.ui = { kind: r.type === 'end' ? 'end' : 'result', r, resolve, at: Date.now() }; mjRefresh();
         }),
       },
     });
@@ -4296,46 +4598,78 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
     const xp = g.rules.length === 'single' ? [15, 10, 8, 6][rank] : g.rules.length === 'hanchan' ? [50, 35, 25, 15][rank] : [30, 20, 15, 10][rank];
     r.xp = xp; awardXP(xp); save();
   }
-  function riverEl(g, s) {
-    const box = h('div', { class: 'river' });
-    g.players[s].river.forEach((rv, k) => {
-      const isLast = g.lastDiscard && g.lastDiscard.seat === s && k === g.players[s].river.length - 1;
-      box.append(tId(rv.id, (rv.riichi ? 'rt ' : '') + (isLast ? 'last ' : '') + (rv.called ? 'gone ' : '') + (rv.tsumogiri ? 'tg' : '')));
+  // ---- 卓（上から見た配置を奥に傾けて立体に見せる。各家の河・手牌・副露は「自分が下」の向きで作って回転） ----
+  const ROT = [0, -90, 180, 90];
+  function tableSize() { const w = Math.min(window.innerWidth || 390, document.documentElement.clientWidth || 9999); return Math.max(300, Math.min(600, w - 30)); }
+  function riverRows(g, s, tw, th) {
+    const p = g.players[s]; const rows = []; const all = p.river;
+    for (let i = 0; i < all.length; i += 6) rows.push(all.slice(i, i + 6).map((rv, k) => ({ rv, k: i + k })));
+    const box = h('div', { class: 'river3d' });
+    rows.forEach((row) => {
+      const r = h('div', { class: 'rrow' });
+      row.forEach(({ rv, k }) => {
+        const isLast = g.lastDiscard && g.lastDiscard.seat === s && k === all.length - 1;
+        const t = tId(rv.id, 'ft' + (isLast ? ' last' : '') + (rv.called ? ' gone' : '') + (rv.tsumogiri ? ' tg' : ''));
+        if (rv.riichi) { r.append(h('span', { class: 'side-slot', style: `width:${th}px;height:${tw}px` }, Object.assign(t, { className: t.className + ' side' }))); }
+        else r.append(t);
+      });
+      box.append(r);
     });
     return box;
   }
-  function seatHead(g, s, cls) {
+  function zoneEl(g, s, S, C, tw, th) {
     const p = g.players[s];
-    return h('div', { class: cls + (g.turn === s && !g.result ? ' turn' : '') },
-      h('span', { class: 'wind' + (s === g.dealer ? ' dealer' : ''), title: s === g.dealer ? '親' : '子' }, MJG.WIND[g.seatWind(s)]),
-      h('span', {}, SEATN[s]), h('span', { class: 'num' }, fmt(g.scores[s])), p.riichi ? h('span', { class: 'rbadge' }, p.dbl ? 'Wリーチ' : 'リーチ') : null);
+    const z = h('div', { class: 'zone', style: `transform:rotate(${ROT[s]}deg)` });
+    const rv = riverRows(g, s, tw, th); rv.style.left = `${(S - C) / 2}px`; rv.style.top = `${(S + C) / 2 + 3}px`; z.append(rv);
+    if (s !== 0) {
+      const hand = p.hand.slice().sort((a, b) => a - b);
+      const hd = h('div', { class: 'ohand3d' + (MP.reveal ? ' open' : ''), style: `left:${S * 0.44}px;top:${S - tw * 1.12 - 5}px` });
+      hand.forEach((id) => hd.append(MP.reveal ? tId(id, 'ft small') : h('span', { class: 'stand' })));
+      z.append(hd);
+      if (p.melds.length) { const md = h('div', { class: 'tmelds', style: `right:6px;top:${S - th * 0.95 - 6}px` }); p.melds.slice().reverse().forEach((m) => md.append(meldEl(m, s))); z.append(md); }
+    }
+    if (MP.shout && MP.shout.seat === s && Date.now() < MP.shout.until) z.append(h('div', { class: 'shout', style: `left:${S / 2}px;top:${S * 0.77}px;transform:translate(-50%,-50%) rotate(${-ROT[s]}deg)` }, MP.shout.text));
+    return z;
   }
+  function centerEl(g, C) {
+    const c = h('div', { class: 'tcenter', style: `width:${C}px;height:${C}px` });
+    for (let s = 0; s < 4; s++) {
+      const p = g.players[s];
+      const lab = h('div', { class: 'cseat' + (g.turn === s && !g.result ? ' turn' : '') + (s === g.dealer ? ' dealer' : ''), style: `transform:rotate(${ROT[s]}deg)` },
+        h('div', { class: 'cline' }, h('b', { class: 'cw' }, MJG.WIND[g.seatWind(s)]), h('span', { class: 'num' }, fmt(g.scores[s]))),
+        p.riichi ? h('div', { class: 'stick' }, h('i')) : null);
+      c.append(lab);
+    }
+    c.append(h('div', { class: 'cmid' },
+      h('b', {}, `${g.kyokuName()}`), h('span', { class: 'num' }, `${g.honba}本場`), h('span', { class: 'num' }, `供託${g.sticks}・残${g.live.length}`),
+      h('div', { class: 'cdora' }, ...g.doraInd.map((d) => tT(d)))));
+    return c;
+  }
+  function tableEl(g) {
+    const S = tableSize(); const C = Math.round(S * 0.3); const tw = +(C / 4.95).toFixed(2); const th = +(tw * 1.33).toFixed(2);
+    const stage = h('div', { class: 'mjstage', style: `height:${Math.round(S * 0.9)}px` });
+    const table = h('div', { class: 'mjtable', style: `width:${S}px;height:${S}px;--tw:${tw}px;--th:${th}px` });
+    for (const s of [2, 1, 3, 0]) table.append(zoneEl(g, s, S, C, tw, th));
+    const ctr = centerEl(g, C); ctr.style.left = `${(S - C) / 2}px`; ctr.style.top = `${(S - C) / 2}px`; table.append(ctr);
+    stage.append(table);
+    return stage;
+  }
+  const sLabel = (s) => (s === -1 ? 'アガリ' : s === 0 ? 'テンパイ' : `${s}シャンテン`);
   function callShanten(g, pat, kind) {
     const p = g.players[0]; const c = MJG.countsId(p.hand); for (const t of pat) c[t]--; const k = p.melds.length + 1;
     if (kind === 'minkan') return MJG.shanten(c, k);
     let best = 9; for (let t = 0; t < 34; t++) if (c[t]) { c[t]--; best = Math.min(best, MJG.shanten(c, k)); c[t]++; } return best;
   }
-  const sLabel = (s) => (s === -1 ? 'アガリ' : s === 0 ? 'テンパイ' : `${s}シャンテン`);
   function mjTable() {
     const g = MP.g; const ui = MP.ui; const me = g.players[0];
     const root = h('div', { class: 'wrap mjt', style: cvars('mj') });
-    const opps = h('div', { class: 'opps' });
-    for (const s of [3, 2, 1]) {
-      const p = g.players[s];
-      const o = h('div', { class: 'opp' + (g.turn === s && !g.result ? ' turn' : '') }, seatHead(g, s, 'ohead'));
-      if (p.melds.length) o.append(h('div', { class: 'omelds' }, ...p.melds.map((m) => meldEl(m, s))));
-      o.append(riverEl(g, s));
-      if (MP.reveal) { const hd = h('div', { class: 'ohand' }); p.hand.slice().sort((a, b) => a - b).forEach((id) => hd.append(tId(id))); o.append(hd); }
-      opps.append(o);
-    }
-    root.append(opps);
-    root.append(h('div', { class: 'mjinfo' },
-      h('span', {}, `${g.kyokuName()} ${g.honba}本場`), h('span', {}, `供託 ${g.sticks}`), h('span', { class: 'num' }, `残り ${g.live.length}`),
-      h('span', { class: 'dora' }, 'ドラ表示', ...g.doraInd.map((d) => tT(d)))));
-    const meBox = h('div', { class: 'mebox' });
-    const head = seatHead(g, 0, 'mehead');
+    root.append(tableEl(g));
+    const meBox = h('div', { class: 'mebox', style: `margin-top:${-Math.round(tableSize() * 0.05)}px` });
+    const head = h('div', { class: 'mehead' + (g.turn === 0 && !g.result ? ' turn' : '') },
+      h('span', { class: 'wind' + (g.dealer === 0 ? ' dealer' : '') }, MJG.WIND[g.seatWind(0)]), h('span', {}, 'あなた'), h('span', { class: 'num' }, fmt(g.scores[0])),
+      me.riichi ? h('span', { class: 'rbadge' }, me.dbl ? 'Wリーチ' : 'リーチ') : null);
     if (me.hand.length % 3 === 1 && MJG.shanten(MJG.countsId(me.hand), me.melds.length) === 0 && g.isFuriten(0)) head.append(h('span', { class: 'rbadge warnb' }, 'フリテン'));
-    meBox.append(head, riverEl(g, 0));
+    meBox.append(head);
     // 手牌
     const turn = ui.kind === 'turn'; const opts = turn ? ui.opts : null;
     let rest = me.hand.slice(), drawn = null;
@@ -4344,8 +4678,8 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
     let eff = null; const rec = new Set();
     if (turn && MP.hints && !me.riichi) {
       const pool = me.hand.filter((x) => !opts.forbidden.includes(x >> 2));
-      eff = MJG.efficiency(g, 0, me.hand);
-      const valid = eff.opts.filter((o) => pool.some((x) => (x >> 2) === o.t));
+      const e0 = MJG.efficiency(g, 0, me.hand);
+      const valid = e0.opts.filter((o) => pool.some((x) => (x >> 2) === o.t));
       const minS = Math.min(...valid.map((o) => o.s)); const top = valid.filter((o) => o.s === minS); const maxU = Math.max(...top.map((o) => o.uke));
       eff = { minS, best: top.filter((o) => o.uke === maxU) };
       if (minS >= 0) eff.best.forEach((o) => rec.add(o.t));
@@ -4356,7 +4690,7 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
       const forbidden = turn && opts.forbidden.includes(t);
       const allowed = turn && !me.riichi && !forbidden && (!ui.riichiMode || opts.riichi.includes(id));
       const b = h('button', { class: 'tbtn' + (rec.has(t) ? ' rec' : '') + ((turn && ui.riichiMode && !opts.riichi.includes(id)) || forbidden ? ' dim' : ''), disabled: !allowed, 'aria-label': MJ.name(t) + (isDrawn ? '（ツモ）' : '') + (forbidden ? '（喰い替え禁止）' : '') }, tId(id));
-      b.onclick = () => { if (MP.ui !== ui || ui.kind !== 'turn') return; const res = ui.resolve; MP.ui = { kind: 'idle' }; res({ type: 'discard', id, riichi: !!ui.riichiMode }); };
+      b.onclick = () => { if (MP.ui !== ui || ui.kind !== 'turn') return; const res = ui.resolve; MP.ui = { kind: 'idle' }; sfx('tile'); res({ type: 'discard', id, riichi: !!ui.riichiMode }); };
       return b;
     };
     rest.forEach((id) => handRow.append(mkT(id, false)));
@@ -4411,7 +4745,8 @@ if (typeof module !== 'undefined') module.exports = { ChessAI, makeChessEngine }
       meBox.append(hb);
     }
     root.append(meBox);
-    if (ui.kind === 'result' || ui.kind === 'end') root.append(mjResultSheet(g, ui));
+    if (ui.kind === 'result' && ui.at && Date.now() - ui.at < 1100) setTimeout(() => { if (MP.ui === ui) mjRefresh(); }, 1150 - (Date.now() - ui.at));
+    else if (ui.kind === 'result' || ui.kind === 'end') root.append(mjResultSheet(g, ui));
     const quit = () => { if (!MP.quitArmed && ui.kind !== 'end') { MP.quitArmed = true; mjRefresh(); setTimeout(() => { MP.quitArmed = false; }, 3000); return; } quitMJ(); };
     const tog = (key, label) => h('button', { class: 'chip tog' + (MP[key] ? ' on' : ''), 'aria-pressed': String(MP[key]), onclick: () => { MP[key] = !MP[key]; mjRefresh(); } }, label);
     app.append(playTopbar(MP.quitArmed ? 'もう一度押すとやめます' : '麻雀', null, quit, h('span', { class: 'togs' }, tog('hints', 'ヒント'), tog('callPrompt', '鳴き'), tog('reveal', '手牌'))), root);

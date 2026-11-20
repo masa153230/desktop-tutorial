@@ -105,7 +105,7 @@
   function resumeChess() {
     const s = P.play.chess; const g = new window.Chess();
     for (const m of s.moves || []) if (!g.move(m)) break;
-    Object.assign(CP, { game: g, color: s.color, level: s.level, sel: null, hint: null, thinking: false, promo: null, over: null, resignArmed: false, newArmed: false, clock: s.clock || null, review: null, viewPly: null, evalCp: null });
+    CP.gameId = Date.now(); Object.assign(CP, { game: g, color: s.color, level: s.level, sel: null, hint: null, thinking: false, promo: null, over: null, resignArmed: false, newArmed: false, clock: s.clock || null, review: null, viewPly: null, evalCp: null });
     if (CP.clock) CP.clock.last = Date.now();
   }
   function chessSetup() {
@@ -132,7 +132,7 @@
     const color = CP.pickColor === 'r' ? (rand() < 0.5 ? 'w' : 'b') : CP.pickColor;
     let clock = null;
     if (CP.pickClock !== 'none') { const [m, inc] = CP.pickClock.split('+').map(Number); clock = { w: m * 60000, b: m * 60000, inc: inc * 1000, last: Date.now(), label: CP.pickClock }; }
-    Object.assign(CP, { game: new window.Chess(), color, level: CP.pickLevel, sel: null, hint: null, thinking: false, promo: null, over: null, resignArmed: false, newArmed: false, clock, review: null, viewPly: null, evalCp: null, flip: false });
+    CP.gameId = Date.now(); Object.assign(CP, { game: new window.Chess(), color, level: CP.pickLevel, sel: null, hint: null, thinking: false, promo: null, over: null, resignArmed: false, newArmed: false, clock, review: null, viewPly: null, evalCp: null, flip: false });
     persistChess(); render();
   }
   function persistChess() {
@@ -157,8 +157,9 @@
     if (bm) { await wait(450); const t = new window.Chess(fen); const r = t.move(bm); if (r) mv = { from: r.from, to: r.to, promotion: r.promotion }; }
     if (!mv) mv = await Eng.call('best', fen, CP.level, prevFens(g));
     if (view.name !== 'chess' || CP.game !== g || g.fen() !== fen || CP.over) { CP.thinking = false; return; }
-    if (mv && mv.from) { pressClock(g.turn()); g.move({ from: mv.from, to: mv.to, promotion: mv.promotion }); }
-    CP.thinking = false; sfx(g.in_check() ? 'bad' : 'good');
+    await wait(0);
+    if (mv && mv.from) { pressClock(g.turn()); g.move({ from: mv.from, to: mv.to, promotion: mv.promotion }); sfx('piece'); }
+    CP.thinking = false;
     afterMove();
   }
   function afterMove() {
@@ -187,7 +188,7 @@
       const mv = g.moves({ square: CP.sel, verbose: true }).filter((m) => m.to === sq);
       if (mv.length) {
         if (mv.some((m) => m.promotion)) { CP.promo = { from: CP.sel, to: sq }; render(); return; }
-        pressClock(g.turn()); const r = g.move({ from: CP.sel, to: sq }); sfx(r && r.captured ? 'good' : 'good'); afterMove(); return;
+        pressClock(g.turn()); g.move({ from: CP.sel, to: sq }); sfx('piece'); afterMove(); return;
       }
     }
     const p = g.get(sq);
@@ -211,7 +212,8 @@
     let g = g0; let reviewMove = null;
     if (CP.viewPly != null) { g = new window.Chess(); const hs = g0.history(); for (let i = 0; i < CP.viewPly; i++) g.move(hs[i]); reviewMove = CP.review && CP.review.moves[CP.viewPly - 1]; }
     const flip = (CP.color === 'b') !== CP.flip; const myTurn = g0.turn() === CP.color && !CP.over;
-    const B = boardEl(g, flip, chessTap);
+    const B = use3d() && CP.viewMode !== '2d' ? board3dAdapter(g, flip, chessTap, 'game:' + CP.gameId) : boardEl(g, flip, chessTap);
+    if (P.board3d !== false && !window.THREE) Chess3D.load().then((ok) => { if (ok && view.name === 'chess') render(); });
     const hist = g.history({ verbose: true }); const last = hist[hist.length - 1];
     if (last) { B.sqs[last.from].classList.add('last'); B.sqs[last.to].classList.add('last'); }
     if (g.in_check()) for (const [n, b] of Object.entries(B.sqs)) { const p = g.get(n); if (p && p.type === 'k' && p.color === g.turn()) b.classList.add('chk'); }
@@ -261,12 +263,15 @@
         btn('ヒント', myTurn && !CP.thinking, async (e) => { e.target.textContent = '考え中…'; const fen = g0.fen(); const m = await Eng.call('best', fen, 'hint', prevFens(g0)); if (m && CP.game === g0 && g0.fen() === fen) { const t2 = new window.Chess(fen); const mv = t2.move({ from: m.from, to: m.to, promotion: m.promotion }); CP.hint = { from: m.from, to: m.to, san: mv ? mv.san : '' }; render(); } }),
         btn(CP.evalOn ? '評価バー○' : '評価バー', true, () => { CP.evalOn = !CP.evalOn; render(); if (CP.evalOn) refreshEval(); }, CP.evalOn ? 'on' : ''),
         btn('盤を反転', true, () => { CP.flip = !CP.flip; render(); }),
+        btn(B.is3d ? '2D表示' : '3D表示', P.board3d !== false || !B.is3d, () => { if (B.is3d) { CP.viewMode = '2d'; } else { CP.viewMode = '3d'; P.board3d = true; Chess3D.load().then(() => render()); } render(); }),
+        B.is3d ? btn('真上から', true, () => Chess3D.topView()) : null,
         btn(CP.newArmed ? '本当に新しく' : '新しく', true, () => { if (!CP.newArmed) { CP.newArmed = true; render(); return; } CP.game = null; CP.over = null; persistChess(); render(); }, CP.newArmed ? 'warn' : ''),
         btn(CP.resignArmed ? '本当に投了' : '投了', !CP.thinking, () => { if (!CP.resignArmed) { CP.resignArmed = true; render(); return; } finishChess('resign'); }, CP.resignArmed ? 'warn' : '')));
       if (CP.clock) root.append(h('p', { class: 'note' }, '持ち時間ありの対局では待ったは使えません。'));
     }
     root.append(moveList(g0));
     app.append(playTopbar('チェス対局', lvName, () => { CP.sel = null; go({ name: 'home' }); }), root);
+    if (B.mount) B.mount();
     const ml = root.querySelector('.movelist'); if (ml && CP.viewPly == null) ml.scrollTop = ml.scrollHeight;
     clearInterval(CP.timer); if (CP.clock && !CP.over) CP.timer = setInterval(() => { if (view.name === 'chess') tickClock(); else clearInterval(CP.timer); }, 250);
     if (!CP.over && g0.turn() !== CP.color && !CP.thinking) aiMove();
@@ -418,7 +423,15 @@
       rules: { length: MP.length, aka: MP.aka },
       agents: [human, MJG.cpuAgent(), MJG.cpuAgent(), MJG.cpuAgent()],
       hooks: {
-        emit: (ev) => { if (MP.g === g && ev !== 'result') { if (!['turn', 'ron', 'call', 'auto'].includes(MP.ui.kind)) MP.ui = { kind: 'idle' }; mjRefresh(); } },
+        emit: (ev, seat) => {
+          if (MP.g !== g || ev === 'result') return;
+          let text = null;
+          if (ev === 'discard') { const rv = g.players[seat].river[g.players[seat].river.length - 1]; if (rv && rv.riichi) text = 'リーチ'; if (seat !== 0) sfx('tile'); }
+          if (ev === 'call') { const m = g.players[seat].melds[g.players[seat].melds.length - 1]; text = { chi: 'チー', pon: 'ポン', minkan: 'カン' }[m.kind]; sfx('tile'); }
+          if (ev === 'kan') text = 'カン';
+          if (text) { MP.shout = { seat, text, until: Date.now() + 1100 }; setTimeout(() => { if (MP.g === g) mjRefresh(); }, 1150); }
+          if (!['turn', 'ron', 'call', 'auto'].includes(MP.ui.kind)) MP.ui = { kind: 'idle' }; mjRefresh();
+        },
         sleep: (kind, seat) => wait(kind === 'discard' ? (seat === 0 ? 120 : 520) : kind === 'call' ? 500 : 450),
         pause: (r) => new Promise((resolve) => {
           if (MP.g !== g) return resolve();
@@ -428,7 +441,8 @@
             if (mine) { const st = statsOf('mj'); if (!st.best || mine.ev.total > st.best.total) st.best = { total: mine.ev.total, name: mine.ev.yaku.filter((y) => !/ドラ/.test(y[0])).map((y) => y[0]).join('・') }; sfx('done'); }
             else if (r.from === 0) sfx('bad');
           }
-          MP.ui = { kind: r.type === 'end' ? 'end' : 'result', r, resolve }; mjRefresh();
+          if (r.wins) MP.shout = { seat: r.wins[0].winner, text: r.type === 'ron' ? 'ロン' : 'ツモ', until: Date.now() + 1500 };
+          MP.ui = { kind: r.type === 'end' ? 'end' : 'result', r, resolve, at: Date.now() }; mjRefresh();
         }),
       },
     });
@@ -446,46 +460,78 @@
     const xp = g.rules.length === 'single' ? [15, 10, 8, 6][rank] : g.rules.length === 'hanchan' ? [50, 35, 25, 15][rank] : [30, 20, 15, 10][rank];
     r.xp = xp; awardXP(xp); save();
   }
-  function riverEl(g, s) {
-    const box = h('div', { class: 'river' });
-    g.players[s].river.forEach((rv, k) => {
-      const isLast = g.lastDiscard && g.lastDiscard.seat === s && k === g.players[s].river.length - 1;
-      box.append(tId(rv.id, (rv.riichi ? 'rt ' : '') + (isLast ? 'last ' : '') + (rv.called ? 'gone ' : '') + (rv.tsumogiri ? 'tg' : '')));
+  // ---- 卓（上から見た配置を奥に傾けて立体に見せる。各家の河・手牌・副露は「自分が下」の向きで作って回転） ----
+  const ROT = [0, -90, 180, 90];
+  function tableSize() { const w = Math.min(window.innerWidth || 390, document.documentElement.clientWidth || 9999); return Math.max(300, Math.min(600, w - 30)); }
+  function riverRows(g, s, tw, th) {
+    const p = g.players[s]; const rows = []; const all = p.river;
+    for (let i = 0; i < all.length; i += 6) rows.push(all.slice(i, i + 6).map((rv, k) => ({ rv, k: i + k })));
+    const box = h('div', { class: 'river3d' });
+    rows.forEach((row) => {
+      const r = h('div', { class: 'rrow' });
+      row.forEach(({ rv, k }) => {
+        const isLast = g.lastDiscard && g.lastDiscard.seat === s && k === all.length - 1;
+        const t = tId(rv.id, 'ft' + (isLast ? ' last' : '') + (rv.called ? ' gone' : '') + (rv.tsumogiri ? ' tg' : ''));
+        if (rv.riichi) { r.append(h('span', { class: 'side-slot', style: `width:${th}px;height:${tw}px` }, Object.assign(t, { className: t.className + ' side' }))); }
+        else r.append(t);
+      });
+      box.append(r);
     });
     return box;
   }
-  function seatHead(g, s, cls) {
+  function zoneEl(g, s, S, C, tw, th) {
     const p = g.players[s];
-    return h('div', { class: cls + (g.turn === s && !g.result ? ' turn' : '') },
-      h('span', { class: 'wind' + (s === g.dealer ? ' dealer' : ''), title: s === g.dealer ? '親' : '子' }, MJG.WIND[g.seatWind(s)]),
-      h('span', {}, SEATN[s]), h('span', { class: 'num' }, fmt(g.scores[s])), p.riichi ? h('span', { class: 'rbadge' }, p.dbl ? 'Wリーチ' : 'リーチ') : null);
+    const z = h('div', { class: 'zone', style: `transform:rotate(${ROT[s]}deg)` });
+    const rv = riverRows(g, s, tw, th); rv.style.left = `${(S - C) / 2}px`; rv.style.top = `${(S + C) / 2 + 3}px`; z.append(rv);
+    if (s !== 0) {
+      const hand = p.hand.slice().sort((a, b) => a - b);
+      const hd = h('div', { class: 'ohand3d' + (MP.reveal ? ' open' : ''), style: `left:${S * 0.44}px;top:${S - tw * 1.12 - 5}px` });
+      hand.forEach((id) => hd.append(MP.reveal ? tId(id, 'ft small') : h('span', { class: 'stand' })));
+      z.append(hd);
+      if (p.melds.length) { const md = h('div', { class: 'tmelds', style: `right:6px;top:${S - th * 0.95 - 6}px` }); p.melds.slice().reverse().forEach((m) => md.append(meldEl(m, s))); z.append(md); }
+    }
+    if (MP.shout && MP.shout.seat === s && Date.now() < MP.shout.until) z.append(h('div', { class: 'shout', style: `left:${S / 2}px;top:${S * 0.77}px;transform:translate(-50%,-50%) rotate(${-ROT[s]}deg)` }, MP.shout.text));
+    return z;
   }
+  function centerEl(g, C) {
+    const c = h('div', { class: 'tcenter', style: `width:${C}px;height:${C}px` });
+    for (let s = 0; s < 4; s++) {
+      const p = g.players[s];
+      const lab = h('div', { class: 'cseat' + (g.turn === s && !g.result ? ' turn' : '') + (s === g.dealer ? ' dealer' : ''), style: `transform:rotate(${ROT[s]}deg)` },
+        h('div', { class: 'cline' }, h('b', { class: 'cw' }, MJG.WIND[g.seatWind(s)]), h('span', { class: 'num' }, fmt(g.scores[s]))),
+        p.riichi ? h('div', { class: 'stick' }, h('i')) : null);
+      c.append(lab);
+    }
+    c.append(h('div', { class: 'cmid' },
+      h('b', {}, `${g.kyokuName()}`), h('span', { class: 'num' }, `${g.honba}本場`), h('span', { class: 'num' }, `供託${g.sticks}・残${g.live.length}`),
+      h('div', { class: 'cdora' }, ...g.doraInd.map((d) => tT(d)))));
+    return c;
+  }
+  function tableEl(g) {
+    const S = tableSize(); const C = Math.round(S * 0.3); const tw = +(C / 4.95).toFixed(2); const th = +(tw * 1.33).toFixed(2);
+    const stage = h('div', { class: 'mjstage', style: `height:${Math.round(S * 0.9)}px` });
+    const table = h('div', { class: 'mjtable', style: `width:${S}px;height:${S}px;--tw:${tw}px;--th:${th}px` });
+    for (const s of [2, 1, 3, 0]) table.append(zoneEl(g, s, S, C, tw, th));
+    const ctr = centerEl(g, C); ctr.style.left = `${(S - C) / 2}px`; ctr.style.top = `${(S - C) / 2}px`; table.append(ctr);
+    stage.append(table);
+    return stage;
+  }
+  const sLabel = (s) => (s === -1 ? 'アガリ' : s === 0 ? 'テンパイ' : `${s}シャンテン`);
   function callShanten(g, pat, kind) {
     const p = g.players[0]; const c = MJG.countsId(p.hand); for (const t of pat) c[t]--; const k = p.melds.length + 1;
     if (kind === 'minkan') return MJG.shanten(c, k);
     let best = 9; for (let t = 0; t < 34; t++) if (c[t]) { c[t]--; best = Math.min(best, MJG.shanten(c, k)); c[t]++; } return best;
   }
-  const sLabel = (s) => (s === -1 ? 'アガリ' : s === 0 ? 'テンパイ' : `${s}シャンテン`);
   function mjTable() {
     const g = MP.g; const ui = MP.ui; const me = g.players[0];
     const root = h('div', { class: 'wrap mjt', style: cvars('mj') });
-    const opps = h('div', { class: 'opps' });
-    for (const s of [3, 2, 1]) {
-      const p = g.players[s];
-      const o = h('div', { class: 'opp' + (g.turn === s && !g.result ? ' turn' : '') }, seatHead(g, s, 'ohead'));
-      if (p.melds.length) o.append(h('div', { class: 'omelds' }, ...p.melds.map((m) => meldEl(m, s))));
-      o.append(riverEl(g, s));
-      if (MP.reveal) { const hd = h('div', { class: 'ohand' }); p.hand.slice().sort((a, b) => a - b).forEach((id) => hd.append(tId(id))); o.append(hd); }
-      opps.append(o);
-    }
-    root.append(opps);
-    root.append(h('div', { class: 'mjinfo' },
-      h('span', {}, `${g.kyokuName()} ${g.honba}本場`), h('span', {}, `供託 ${g.sticks}`), h('span', { class: 'num' }, `残り ${g.live.length}`),
-      h('span', { class: 'dora' }, 'ドラ表示', ...g.doraInd.map((d) => tT(d)))));
-    const meBox = h('div', { class: 'mebox' });
-    const head = seatHead(g, 0, 'mehead');
+    root.append(tableEl(g));
+    const meBox = h('div', { class: 'mebox', style: `margin-top:${-Math.round(tableSize() * 0.05)}px` });
+    const head = h('div', { class: 'mehead' + (g.turn === 0 && !g.result ? ' turn' : '') },
+      h('span', { class: 'wind' + (g.dealer === 0 ? ' dealer' : '') }, MJG.WIND[g.seatWind(0)]), h('span', {}, 'あなた'), h('span', { class: 'num' }, fmt(g.scores[0])),
+      me.riichi ? h('span', { class: 'rbadge' }, me.dbl ? 'Wリーチ' : 'リーチ') : null);
     if (me.hand.length % 3 === 1 && MJG.shanten(MJG.countsId(me.hand), me.melds.length) === 0 && g.isFuriten(0)) head.append(h('span', { class: 'rbadge warnb' }, 'フリテン'));
-    meBox.append(head, riverEl(g, 0));
+    meBox.append(head);
     // 手牌
     const turn = ui.kind === 'turn'; const opts = turn ? ui.opts : null;
     let rest = me.hand.slice(), drawn = null;
@@ -494,8 +540,8 @@
     let eff = null; const rec = new Set();
     if (turn && MP.hints && !me.riichi) {
       const pool = me.hand.filter((x) => !opts.forbidden.includes(x >> 2));
-      eff = MJG.efficiency(g, 0, me.hand);
-      const valid = eff.opts.filter((o) => pool.some((x) => (x >> 2) === o.t));
+      const e0 = MJG.efficiency(g, 0, me.hand);
+      const valid = e0.opts.filter((o) => pool.some((x) => (x >> 2) === o.t));
       const minS = Math.min(...valid.map((o) => o.s)); const top = valid.filter((o) => o.s === minS); const maxU = Math.max(...top.map((o) => o.uke));
       eff = { minS, best: top.filter((o) => o.uke === maxU) };
       if (minS >= 0) eff.best.forEach((o) => rec.add(o.t));
@@ -506,7 +552,7 @@
       const forbidden = turn && opts.forbidden.includes(t);
       const allowed = turn && !me.riichi && !forbidden && (!ui.riichiMode || opts.riichi.includes(id));
       const b = h('button', { class: 'tbtn' + (rec.has(t) ? ' rec' : '') + ((turn && ui.riichiMode && !opts.riichi.includes(id)) || forbidden ? ' dim' : ''), disabled: !allowed, 'aria-label': MJ.name(t) + (isDrawn ? '（ツモ）' : '') + (forbidden ? '（喰い替え禁止）' : '') }, tId(id));
-      b.onclick = () => { if (MP.ui !== ui || ui.kind !== 'turn') return; const res = ui.resolve; MP.ui = { kind: 'idle' }; res({ type: 'discard', id, riichi: !!ui.riichiMode }); };
+      b.onclick = () => { if (MP.ui !== ui || ui.kind !== 'turn') return; const res = ui.resolve; MP.ui = { kind: 'idle' }; sfx('tile'); res({ type: 'discard', id, riichi: !!ui.riichiMode }); };
       return b;
     };
     rest.forEach((id) => handRow.append(mkT(id, false)));
@@ -561,7 +607,8 @@
       meBox.append(hb);
     }
     root.append(meBox);
-    if (ui.kind === 'result' || ui.kind === 'end') root.append(mjResultSheet(g, ui));
+    if (ui.kind === 'result' && ui.at && Date.now() - ui.at < 1100) setTimeout(() => { if (MP.ui === ui) mjRefresh(); }, 1150 - (Date.now() - ui.at));
+    else if (ui.kind === 'result' || ui.kind === 'end') root.append(mjResultSheet(g, ui));
     const quit = () => { if (!MP.quitArmed && ui.kind !== 'end') { MP.quitArmed = true; mjRefresh(); setTimeout(() => { MP.quitArmed = false; }, 3000); return; } quitMJ(); };
     const tog = (key, label) => h('button', { class: 'chip tog' + (MP[key] ? ' on' : ''), 'aria-pressed': String(MP[key]), onclick: () => { MP[key] = !MP[key]; mjRefresh(); } }, label);
     app.append(playTopbar(MP.quitArmed ? 'もう一度押すとやめます' : '麻雀', null, quit, h('span', { class: 'togs' }, tog('hints', 'ヒント'), tog('callPrompt', '鳴き'), tog('reveal', '手牌'))), root);
