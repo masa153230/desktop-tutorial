@@ -830,7 +830,7 @@
     return { el, sqs, paint };
   }
   const use3d = () => P.board3d !== false && window.THREE && Chess3D.ok();
-  function board3dAdapter(game, flip, onTap, key) {
+  function board3dAdapter(game, flip, onTap, key, canDrag) {
     const el = h('div', { class: 'board3d', role: 'application', 'aria-label': '3Dチェス盤（ドラッグで視点を回転）' });
     const cls = {}; const dotMap = {}; let pending = false;
     const PRI = ['chk', 'ng', 'ok', 'pick', 'sel', 'from', 'hint', 'last', 'miss'];
@@ -848,7 +848,7 @@
     return {
       el, sqs, is3d: true,
       paint: () => Chess3D.setPosition(game.board(), flip, true),
-      mount: () => { if (!el.isConnected) return; Chess3D.mount(el); Chess3D.onTap = onTap; const same = Chess3D.lastKey === key; Chess3D.lastKey = key; Chess3D.setPosition(game.board(), flip, same); sync(); },
+      mount: () => { if (!el.isConnected) return; Chess3D.mount(el); Chess3D.onTap = onTap; Chess3D.canDrag = canDrag || null; const same = Chess3D.lastKey === key; Chess3D.lastKey = key; Chess3D.setPosition(game.board(), flip, same); sync(); },
     };
   }
   function turnNote(game, extra) {
@@ -918,7 +918,7 @@
     function build() {
       game = new window.Chess(ex.fen);
       const flip = game.turn() === 'b';
-      B = use3d() ? board3dAdapter(game, flip, tap, 'lesson:' + ex.fen + ':' + Math.random()) : boardEl(game, flip, tap);
+      B = use3d() ? board3dAdapter(game, flip, tap, 'lesson:' + ex.fen + ':' + Math.random(), (sq) => ex.mode !== 'squares' && !locked && (game.get(sq) || {}).color === game.turn()) : boardEl(game, flip, tap);
       if (B.mount) requestAnimationFrame(() => B.mount());
       if (ex.mode === 'squares') {
         target = game.moves({ square: ex.from, verbose: true }).map((m) => m.to);
@@ -1082,6 +1082,7 @@
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '効果音'), h('small', {}, '正解・不正解の音')), sw('sound')),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '英語の自動読み上げ'), h('small', {}, canSpeak() ? '問題が出たら発音を流す' : 'この環境では音声が使えません')), sw('autoplay')),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'モンゴル語の読みを表示'), h('small', {}, 'ローマ字とカナ（目安）')), sw('reading')),
+      h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '麻雀の卓を3Dで表示'), h('small', {}, '牌・山・河を立体で。重い端末ではオフに')), (() => { const b = h('button', { class: 'switch' + (P.mj3d !== false ? ' on' : ''), role: 'switch', 'aria-checked': String(P.mj3d !== false) }); b.onclick = () => { P.mj3d = P.mj3d === false; b.classList.toggle('on', P.mj3d !== false); b.setAttribute('aria-checked', String(P.mj3d !== false)); if (P.mj3d) Mahjong3D.prepare(); save(); }; return b; })()),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'チェス盤を3Dで表示'), h('small', {}, '立体の駒と盤。重い端末ではオフに')), (() => { const b = h('button', { class: 'switch' + (P.board3d !== false ? ' on' : ''), role: 'switch', 'aria-checked': String(P.board3d !== false) }); b.onclick = () => { P.board3d = P.board3d === false; b.classList.toggle('on', P.board3d !== false); b.setAttribute('aria-checked', String(P.board3d !== false)); if (P.board3d) Chess3D.load(); save(); }; return b; })()),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '保存先'), syncEl)),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '最長連続'), h('small', { class: 'num' }, `${P.best}日`)), reset));

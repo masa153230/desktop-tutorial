@@ -212,7 +212,7 @@
     let g = g0; let reviewMove = null;
     if (CP.viewPly != null) { g = new window.Chess(); const hs = g0.history(); for (let i = 0; i < CP.viewPly; i++) g.move(hs[i]); reviewMove = CP.review && CP.review.moves[CP.viewPly - 1]; }
     const flip = (CP.color === 'b') !== CP.flip; const myTurn = g0.turn() === CP.color && !CP.over;
-    const B = use3d() && CP.viewMode !== '2d' ? board3dAdapter(g, flip, chessTap, 'game:' + CP.gameId) : boardEl(g, flip, chessTap);
+    const B = use3d() && CP.viewMode !== '2d' ? board3dAdapter(g, flip, chessTap, 'game:' + CP.gameId, (sq) => !CP.over && !CP.thinking && CP.viewPly == null && !CP.promo && g0.turn() === CP.color && (g.get(sq) || {}).color === CP.color) : boardEl(g, flip, chessTap);
     if (P.board3d !== false && !window.THREE) Chess3D.load().then((ok) => { if (ok && view.name === 'chess') render(); });
     const hist = g.history({ verbose: true }); const last = hist[hist.length - 1];
     if (last) { B.sqs[last.from].classList.add('last'); B.sqs[last.to].classList.add('last'); }
@@ -264,7 +264,7 @@
         btn(CP.evalOn ? '評価バー○' : '評価バー', true, () => { CP.evalOn = !CP.evalOn; render(); if (CP.evalOn) refreshEval(); }, CP.evalOn ? 'on' : ''),
         btn('盤を反転', true, () => { CP.flip = !CP.flip; render(); }),
         btn(B.is3d ? '2D表示' : '3D表示', P.board3d !== false || !B.is3d, () => { if (B.is3d) { CP.viewMode = '2d'; } else { CP.viewMode = '3d'; P.board3d = true; Chess3D.load().then(() => render()); } render(); }),
-        B.is3d ? btn('真上から', true, () => Chess3D.topView()) : null,
+        B.is3d ? btn('視点を変える', true, () => Chess3D.topView()) : null,
         btn(CP.newArmed ? '本当に新しく' : '新しく', true, () => { if (!CP.newArmed) { CP.newArmed = true; render(); return; } CP.game = null; CP.over = null; persistChess(); render(); }, CP.newArmed ? 'warn' : ''),
         btn(CP.resignArmed ? '本当に投了' : '投了', !CP.thinking, () => { if (!CP.resignArmed) { CP.resignArmed = true; render(); return; } finishChess('resign'); }, CP.resignArmed ? 'warn' : '')));
       if (CP.clock) root.append(h('p', { class: 'note' }, '持ち時間ありの対局では待ったは使えません。'));
@@ -390,6 +390,7 @@
   function mjView() { if (!MP.g) return mjSetup(); mjTable(); }
   function mjSetup() {
     const st = statsOf('mj');
+    if (P.mj3d !== false) Mahjong3D.prepare();
     const root = h('div', { class: 'wrap setup', style: cvars('mj') });
     root.append(h('p', { class: 'note' }, 'CPU3人との4人打ち。一般的なリーチ麻雀のルール：鳴き（チー・ポン・カン）、赤ドラ3枚、槓ドラ・裏ドラ・一発・嶺上・槍槓・海底・河底、喰いタン・後付けあり、喰い替え禁止、ダブロンあり、途中流局（九種九牌・四風連打・四家立直・四槓散了・三家和）、流し満貫、ダブル役満。25000点持ち30000点返し、ウマ10-30。'));
     root.append(h('div', { class: 'sec-title' }, '長さ'));
@@ -479,14 +480,15 @@
     });
     return box;
   }
-  function zoneEl(g, s, S, C, tw, th) {
+  function zoneEl(g, s, S, C, tw, th, reveal) {
     const p = g.players[s];
     const z = h('div', { class: 'zone', style: `transform:rotate(${ROT[s]}deg)` });
     const rv = riverRows(g, s, tw, th); rv.style.left = `${(S - C) / 2}px`; rv.style.top = `${(S + C) / 2 + 3}px`; z.append(rv);
     if (s !== 0) {
       const hand = p.hand.slice().sort((a, b) => a - b);
-      const hd = h('div', { class: 'ohand3d' + (MP.reveal ? ' open' : ''), style: `left:${S * 0.44}px;top:${S - tw * 1.12 - 5}px` });
-      hand.forEach((id) => hd.append(MP.reveal ? tId(id, 'ft small') : h('span', { class: 'stand' })));
+      const open = MP.reveal || reveal.has(s);
+      const hd = h('div', { class: 'ohand3d' + (open ? ' open' : ''), style: `left:${S * 0.44}px;top:${S - tw * 1.12 - 5}px` });
+      hand.forEach((id) => hd.append(open ? tId(id, 'ft small') : h('span', { class: 'stand' })));
       z.append(hd);
       if (p.melds.length) { const md = h('div', { class: 'tmelds', style: `right:6px;top:${S - th * 0.95 - 6}px` }); p.melds.slice().reverse().forEach((m) => md.append(meldEl(m, s))); z.append(md); }
     }
@@ -507,11 +509,11 @@
       h('div', { class: 'cdora' }, ...g.doraInd.map((d) => tT(d)))));
     return c;
   }
-  function tableEl(g) {
+  function tableEl(g, reveal = new Set()) {
     const S = tableSize(); const C = Math.round(S * 0.3); const tw = +(C / 4.95).toFixed(2); const th = +(tw * 1.33).toFixed(2);
     const stage = h('div', { class: 'mjstage', style: `height:${Math.round(S * 0.9)}px` });
     const table = h('div', { class: 'mjtable', style: `width:${S}px;height:${S}px;--tw:${tw}px;--th:${th}px` });
-    for (const s of [2, 1, 3, 0]) table.append(zoneEl(g, s, S, C, tw, th));
+    for (const s of [2, 1, 3, 0]) table.append(zoneEl(g, s, S, C, tw, th, reveal));
     const ctr = centerEl(g, C); ctr.style.left = `${(S - C) / 2}px`; ctr.style.top = `${(S - C) / 2}px`; table.append(ctr);
     stage.append(table);
     return stage;
@@ -525,8 +527,16 @@
   function mjTable() {
     const g = MP.g; const ui = MP.ui; const me = g.players[0];
     const root = h('div', { class: 'wrap mjt', style: cvars('mj') });
-    root.append(tableEl(g));
-    const meBox = h('div', { class: 'mebox', style: `margin-top:${-Math.round(tableSize() * 0.05)}px` });
+    const reveal = new Set();
+    if ((ui.kind === 'result' || ui.kind === 'end') && ui.r) { if (ui.r.type === 'draw') [0, 1, 2, 3].forEach((s) => reveal.add(s)); else if (ui.r.wins) ui.r.wins.forEach((w) => reveal.add(w.winner)); }
+    if (MP.reveal) [1, 2, 3].forEach((s) => reveal.add(s));
+    let box3d = null;
+    if (P.mj3d !== false && Mahjong3D.ready()) { box3d = h('div', { class: 'mj3d' }); root.append(box3d); }
+    else {
+      root.append(tableEl(g, reveal));
+      if (P.mj3d !== false && !Mahjong3D.isBroken()) Mahjong3D.prepare().then((ok) => { if (ok && view.name === 'mjplay' && MP.g) mjRefresh(); });
+    }
+    const meBox = h('div', { class: 'mebox', style: `margin-top:${box3d ? -10 : -Math.round(tableSize() * 0.05)}px` });
     const head = h('div', { class: 'mehead' + (g.turn === 0 && !g.result ? ' turn' : '') },
       h('span', { class: 'wind' + (g.dealer === 0 ? ' dealer' : '') }, MJG.WIND[g.seatWind(0)]), h('span', {}, 'あなた'), h('span', { class: 'num' }, fmt(g.scores[0])),
       me.riichi ? h('span', { class: 'rbadge' }, me.dbl ? 'Wリーチ' : 'リーチ') : null);
@@ -607,11 +617,16 @@
       meBox.append(hb);
     }
     root.append(meBox);
-    if (ui.kind === 'result' && ui.at && Date.now() - ui.at < 1100) setTimeout(() => { if (MP.ui === ui) mjRefresh(); }, 1150 - (Date.now() - ui.at));
+    if (ui.kind === 'result' && ui.at && Date.now() - ui.at < 1300) setTimeout(() => { if (MP.ui === ui) mjRefresh(); }, 1350 - (Date.now() - ui.at));
+    else if ((ui.kind === 'result' || ui.kind === 'end') && MP.peek) act.replaceChildren(h('button', { class: 'abtn', onclick: () => { MP.peek = false; mjRefresh(); } }, '結果に戻る'));
     else if (ui.kind === 'result' || ui.kind === 'end') root.append(mjResultSheet(g, ui));
     const quit = () => { if (!MP.quitArmed && ui.kind !== 'end') { MP.quitArmed = true; mjRefresh(); setTimeout(() => { MP.quitArmed = false; }, 3000); return; } quitMJ(); };
     const tog = (key, label) => h('button', { class: 'chip tog' + (MP[key] ? ' on' : ''), 'aria-pressed': String(MP[key]), onclick: () => { MP[key] = !MP[key]; mjRefresh(); } }, label);
-    app.append(playTopbar(MP.quitArmed ? 'もう一度押すとやめます' : '麻雀', null, quit, h('span', { class: 'togs' }, tog('hints', 'ヒント'), tog('callPrompt', '鳴き'), tog('reveal', '手牌'))), root);
+    app.append(playTopbar(MP.quitArmed ? 'もう一度押すとやめます' : '麻雀', null, quit, h('span', { class: 'togs' }, tog('hints', 'ヒント'), tog('callPrompt', '鳴き'), tog('reveal', '手牌'), box3d ? h('button', { class: 'chip tog', onclick: () => Mahjong3D.toggleView() }, '視点') : null)), root);
+    if (box3d) {
+      Mahjong3D.mount(box3d); Mahjong3D.update(g, { reveal });
+      if (MP.shout && Date.now() < MP.shout.until) { const pos = Mahjong3D.screenPos(MP.shout.seat, 0, 7); if (pos) box3d.append(h('div', { class: 'shout3d', style: `left:${pos.x}px;top:${pos.y}px` }, MP.shout.text)); }
+    }
   }
   function handWithMelds(hand, melds, owner, winId) {
     const hd = h('div', { class: 'hand small' }); hand.forEach((id) => hd.append(tId(id)));
@@ -622,7 +637,7 @@
   function mjResultSheet(g, ui) {
     const r = ui.r;
     const bg = h('div', { class: 'sheet-bg' }); const sh = h('div', { class: 'sheet', role: 'dialog', 'aria-label': '結果' }); bg.append(sh);
-    const next = (label) => h('button', { class: 'cta', onclick: () => { const res = ui.resolve; MP.ui = { kind: 'idle' }; mjRefresh(); res(); } }, label);
+    const next = (label) => h('button', { class: 'cta', onclick: () => { const res = ui.resolve; MP.ui = { kind: 'idle' }; MP.peek = false; mjRefresh(); res(); } }, label);
     const deltas = (d) => h('div', { class: 'deltas' }, ...[0, 1, 2, 3].map((s) => h('div', {}, h('div', { class: 'dn' }, SEATN[s]), h('div', { class: 'num ' + (d[s] > 0 ? 'plus' : d[s] < 0 ? 'minus' : '') }, d[s] > 0 ? '+' + fmt(d[s]) : d[s] ? fmt(d[s]) : '±0'), h('div', { class: 'num dn' }, fmt(g.scores[s])))));
     if (r.type === 'end') {
       sh.append(h('h3', {}, { single: '対局終了', tonpu: '東風戦 終了', hanchan: '半荘戦 終了' }[g.rules.length]));
@@ -635,8 +650,8 @@
     if (r.type === 'draw') {
       sh.append(h('h3', {}, `${r.abortive ? '途中流局：' : ''}${r.reason}（${r.kyoku}）`));
       if (!r.abortive) sh.append(h('div', { class: 'yrows' }, ...[0, 1, 2, 3].map((s) => h('div', { class: 'yrow' }, h('span', {}, SEATN[s]), h('b', {}, r.nagashi.includes(s) ? '流し満貫' : r.tenpai[s] ? 'テンパイ' : 'ノーテン')))));
-      [0, 1, 2, 3].filter((s) => (r.tenpai[s] || r.abortive) && (s === 0 || MP.reveal)).forEach((s) => sh.append(h('div', { class: 'note' }, SEATN[s]), handWithMelds(r.hands[s], r.melds[s], s)));
-      sh.append(deltas(r.delta), next('次の局へ'));
+      [0, 1, 2, 3].forEach((s) => sh.append(h('div', { class: 'note handlab' }, SEATN[s], r.abortive ? '' : (r.nagashi.includes(s) ? '（流し満貫）' : r.tenpai[s] ? '（テンパイ）' : '（ノーテン）')), handWithMelds(r.hands[s], r.melds[s], s)));
+      sh.append(deltas(r.delta), h('div', { class: 'row2' }, h('button', { class: 'cta alt', onclick: () => { MP.peek = true; mjRefresh(); } }, '卓を見る'), next('次の局へ')));
       return bg;
     }
     sh.append(h('h3', {}, r.wins.length > 1 ? 'ダブロン！' : `${SEATN[r.wins[0].winner]}の${r.type === 'ron' ? 'ロン' : 'ツモ'}！`, r.type === 'ron' ? h('small', { class: 'note' }, `　${SEATN[r.from]}から${r.chankan ? '（槍槓）' : ''}`) : null));
@@ -653,6 +668,6 @@
     }
     const indic = h('div', { class: 'note dora' }, 'ドラ表示', ...r.doraInd.map((d) => tT(d)));
     if (r.wins.some((w) => w.riichi)) indic.append('　裏ドラ表示', ...r.uraInd.map((d) => tT(d)));
-    sh.append(indic, deltas(r.delta), next('次の局へ'));
+    sh.append(indic, deltas(r.delta), h('div', { class: 'row2' }, h('button', { class: 'cta alt', onclick: () => { MP.peek = true; mjRefresh(); } }, '卓を見る'), next('次の局へ')));
     return bg;
   }

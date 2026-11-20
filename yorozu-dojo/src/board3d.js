@@ -4,11 +4,11 @@
 const Chess3D = (() => {
   let T = null, renderer = null, scene, camera, canvas, boardTop, boardTexW, boardTexB, frame;
   let broken = false, flip = false, raf = 0, dirty = true, host = null, ro = null;
-  let az = 0, polar = 0.6; const AZ_LIM = 1.1;
+  let az = 0, polar = 0.4; let viewIdx = 0; const VIEWS = [0.4, 0.78, 0.08]; let selSq = null, lifted = null, drag = null;
   const pieces = []; // {mesh, type, color, sq}
   const anims = [];
   const geo = {}; let matW, matB, markMats, overlays = [], dots = [], rings = [];
-  const api = { onTap: null };
+  const api = { onTap: null, canDrag: null };
   const FILES = 'abcdefgh';
 
   function load() {
@@ -59,11 +59,11 @@ const Chess3D = (() => {
     for (let i = 0; i < 260; i++) { x.strokeStyle = `rgba(0,0,0,${0.03 + Math.random() * 0.05})`; x.lineWidth = 1 + Math.random() * 2; x.beginPath(); const y = Math.random() * N; x.moveTo(0, y); x.bezierCurveTo(N / 3, y + Math.random() * 20 - 10, 2 * N / 3, y + Math.random() * 20 - 10, N, y + Math.random() * 10 - 5); x.stroke(); }
     for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
       const light = (f + r) % 2 === 0; // a8（左上）は明るいマス
-      x.fillStyle = light ? '#ecd6ad' : '#a8754b'; x.fillRect(o + f * cell, o + r * cell, cell, cell);
+      x.fillStyle = light ? '#dcbf8f' : '#93603b'; x.fillRect(o + f * cell, o + r * cell, cell, cell);
       for (let k = 0; k < 7; k++) { x.strokeStyle = light ? 'rgba(150,100,50,.10)' : 'rgba(60,30,10,.16)'; x.lineWidth = 1 + Math.random() * 2; x.beginPath(); const yy = o + r * cell + Math.random() * cell; x.moveTo(o + f * cell, yy); x.quadraticCurveTo(o + f * cell + cell / 2, yy + Math.random() * 10 - 5, o + (f + 1) * cell, yy + Math.random() * 6 - 3); x.stroke(); }
     }
     x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = 4; x.strokeRect(o, o, cell * 8, cell * 8);
-    x.fillStyle = '#e9d6b4'; x.font = `600 ${Math.round(cell * 0.32)}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = '#f1e2c4'; x.font = `800 ${Math.round(cell * 0.42)}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
     const txt = (s, cx, cy) => { x.save(); x.translate(cx, cy); if (flipped) x.rotate(Math.PI); x.fillText(s, 0, 0); x.restore(); };
     for (let f = 0; f < 8; f++) { txt(FILES[f], o + (f + 0.5) * cell, N - o / 2); txt(FILES[f], o + (f + 0.5) * cell, o / 2); }
     for (let r = 0; r < 8; r++) { txt(String(8 - r), o / 2, o + (r + 0.5) * cell); txt(String(8 - r), N - o / 2, o + (r + 0.5) * cell); }
@@ -89,7 +89,8 @@ const Chess3D = (() => {
     sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 30 }); sun.shadow.bias = -0.0008; sun.shadow.radius = 3;
     scene.add(sun);
     const fill = new T.DirectionalLight(0xbfd4ff, 0.25); fill.position.set(6, 5, -6); scene.add(fill);
-    matW = new T.MeshStandardMaterial({ color: 0xe9dcc0, roughness: 0.42, metalness: 0.02 });
+    const rim = new T.DirectionalLight(0xfff0d8, 0.55); rim.position.set(0, 4, -10); scene.add(rim);
+    matW = new T.MeshStandardMaterial({ color: 0xfaf4e6, roughness: 0.32, metalness: 0.02 });
     matB = new T.MeshStandardMaterial({ color: 0x15110f, roughness: 0.26, metalness: 0.18 });
     buildGeometries();
     boardTexW = boardTexture(false); boardTexB = boardTexture(true);
@@ -98,30 +99,53 @@ const Chess3D = (() => {
     boardTop.rotation.x = -Math.PI / 2; boardTop.position.y = 0.001; boardTop.receiveShadow = true; scene.add(boardTop);
     const shadowCatcher = new T.Mesh(new T.PlaneGeometry(40, 40), new T.ShadowMaterial({ opacity: 0.18 })); shadowCatcher.rotation.x = -Math.PI / 2; shadowCatcher.position.y = -0.36; shadowCatcher.receiveShadow = true; scene.add(shadowCatcher);
     markMats = {
-      sel: new T.MeshBasicMaterial({ color: 0x3348c8, transparent: true, opacity: 0.45 }), last: new T.MeshBasicMaterial({ color: 0xf0b400, transparent: true, opacity: 0.38 }),
+      sel: new T.MeshBasicMaterial({ color: 0x2f6fe0, transparent: true, opacity: 0.6 }), last: new T.MeshBasicMaterial({ color: 0xf0c000, transparent: true, opacity: 0.5 }),
       chk: new T.MeshBasicMaterial({ color: 0xe02020, transparent: true, opacity: 0.55 }), hint: new T.MeshBasicMaterial({ color: 0x18a050, transparent: true, opacity: 0.5 }),
       pick: new T.MeshBasicMaterial({ color: 0x3348c8, transparent: true, opacity: 0.5 }), ok: new T.MeshBasicMaterial({ color: 0x18a050, transparent: true, opacity: 0.55 }),
       ng: new T.MeshBasicMaterial({ color: 0xd03030, transparent: true, opacity: 0.6 }), miss: new T.MeshBasicMaterial({ color: 0x18a050, transparent: true, opacity: 0.3 }),
-      from: new T.MeshBasicMaterial({ color: 0xf0b400, transparent: true, opacity: 0.55 }), dot: new T.MeshBasicMaterial({ color: 0x14203c, transparent: true, opacity: 0.35 }),
+      from: new T.MeshBasicMaterial({ color: 0xf0b400, transparent: true, opacity: 0.55 }), dot: new T.MeshBasicMaterial({ color: 0x1b9a50, transparent: true, opacity: 0.8 }), cap: new T.MeshBasicMaterial({ color: 0xd23c3c, transparent: true, opacity: 0.85 }),
     };
     for (let i = 0; i < 64; i++) { const m = new T.Mesh(new T.PlaneGeometry(0.98, 0.98), markMats.sel); m.rotation.x = -Math.PI / 2; m.position.y = 0.006; m.visible = false; scene.add(m); overlays.push(m); }
     for (let i = 0; i < 32; i++) {
-      const d = new T.Mesh(new T.CircleGeometry(0.15, 24), markMats.dot); d.rotation.x = -Math.PI / 2; d.position.y = 0.012; d.visible = false; scene.add(d); dots.push(d);
-      const r = new T.Mesh(new T.RingGeometry(0.36, 0.46, 32), markMats.dot); r.rotation.x = -Math.PI / 2; r.position.y = 0.012; r.visible = false; scene.add(r); rings.push(r);
+      const d = new T.Mesh(new T.CircleGeometry(0.21, 28), markMats.dot); d.rotation.x = -Math.PI / 2; d.position.y = 0.012; d.visible = false; scene.add(d); dots.push(d);
+      const r = new T.Mesh(new T.RingGeometry(0.37, 0.49, 32), markMats.cap); r.rotation.x = -Math.PI / 2; r.position.y = 0.012; r.visible = false; scene.add(r); rings.push(r);
     }
     // 操作：ドラッグで視点、タップでマス選択
-    let down = null;
-    canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, az, polar, moved: false }; canvas.setPointerCapture(e.pointerId); });
-    canvas.addEventListener('pointermove', (e) => {
-      if (!down) return; const dx = e.clientX - down.x, dy = e.clientY - down.y;
-      if (Math.abs(dx) + Math.abs(dy) > 8) down.moved = true;
-      if (down.moved) { az = Math.max(-AZ_LIM, Math.min(AZ_LIM, down.az - dx * 0.008)); polar = Math.max(0.12, Math.min(1.2, down.polar - dy * 0.006)); place(); }
+    canvas.addEventListener('pointerdown', (e) => {
+      const sq = squareAt(e); drag = { x: e.clientX, y: e.clientY, sq, moved: false, piece: null };
+      if (sq && api.canDrag && api.canDrag(sq)) drag.piece = pieces.find((p) => p.sq === sq) || null;
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* 古い環境 */ }
     });
-    canvas.addEventListener('pointerup', (e) => { const d = down; down = null; if (d && !d.moved) tapAt(e); });
-    canvas.addEventListener('pointercancel', () => { down = null; });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drag || !drag.piece) return;
+      if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 7) drag.moved = true;
+      if (drag.moved) { const pt = boardPoint(e); if (pt) { drag.piece.mesh.position.set(Math.max(-4.3, Math.min(4.3, pt.x)), 0.7, Math.max(-4.3, Math.min(4.3, pt.z))); kick(); } }
+    });
+    canvas.addEventListener('pointerup', (e) => {
+      const d = drag; drag = null; if (!d || !api.onTap) return;
+      if (d.piece && d.moved) {
+        const to = squareAt(e, true);
+        if (to && to !== d.sq) { if (selSq !== d.sq) api.onTap(d.sq); api.onTap(to); }
+        setTimeout(relayout, 30);
+      } else if (d.sq) api.onTap(d.sq);
+    });
+    canvas.addEventListener('pointercancel', () => { drag = null; relayout(); });
     return true;
   }
   const ray = () => new T.Raycaster();
+  function ndc(e) { const r = canvas.getBoundingClientRect(); return new T.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); }
+  function boardPoint(e) { const rc = ray(); rc.setFromCamera(ndc(e), camera); const p = new T.Vector3(); return rc.ray.intersectPlane(new T.Plane(new T.Vector3(0, 1, 0), 0), p) ? p : null; }
+  function squareAt(e, boardOnly) {
+    const rc = ray(); rc.setFromCamera(ndc(e), camera);
+    if (!boardOnly) { const hitP = rc.intersectObjects(pieces.map((p) => p.mesh), true)[0]; if (hitP) { let o = hitP.object; while (o.parent && !o.userData.type) o = o.parent; const p = pieces.find((x) => x.mesh === o); if (p) return p.sq; } }
+    const pt = boardPoint(e); if (!pt) return null;
+    const f = Math.floor(pt.x + 4), rr = Math.floor(4 - pt.z);
+    return f >= 0 && f < 8 && rr >= 0 && rr < 8 ? FILES[f] + (rr + 1) : null;
+  }
+  function relayout() {
+    for (const p of pieces) { const t = sqPos(p.sq); const m = p.mesh; const y0 = p.sq === selSq ? 0.32 : 0; if (Math.abs(m.position.x - t.x) + Math.abs(m.position.z - t.z) + Math.abs(m.position.y - y0) > 0.01) { const fx = m.position.x, fz = m.position.z, fy = m.position.y; anims.push({ t0: performance.now(), dur: 180, step: (e) => { m.position.set(fx + (t.x - fx) * e, fy + (y0 - fy) * e, fz + (t.z - fz) * e); } }); } }
+    kick();
+  }
   function tapAt(e) {
     if (!api.onTap) return;
     const r = canvas.getBoundingClientRect();
@@ -194,6 +218,10 @@ const Chess3D = (() => {
     for (; i < 64; i++) overlays[i].visible = false;
     dots.forEach((d) => { d.visible = false; }); rings.forEach((r) => { r.visible = false; });
     dl.slice(0, 32).forEach((d, k) => { const m = d.cap ? rings[k] : dots[k]; const p = sqPos(d.sq); m.position.x = p.x; m.position.z = p.z; m.visible = true; });
+    selSq = Object.keys(marks).find((sq) => marks[sq] === 'sel') || null;
+    const want = selSq ? pieces.find((p) => p.sq === selSq) : null;
+    if (lifted && lifted !== want) { const m = lifted.mesh; const y0 = m.position.y; anims.push({ t0: performance.now(), dur: 150, step: (e) => { m.position.y = y0 * (1 - e); } }); lifted = null; }
+    if (want && lifted !== want) { const m = want.mesh; anims.push({ t0: performance.now(), dur: 150, step: (e) => { m.position.y = 0.32 * e; } }); lifted = want; }
     kick();
   }
   function mount(el) {
@@ -204,7 +232,7 @@ const Chess3D = (() => {
     place();
     return true;
   }
-  function resetView() { az = 0; polar = 0.6; place(); }
-  function topView() { polar = polar < 0.3 ? 0.6 : 0.12; az = 0; place(); }
+  function resetView() { az = 0; viewIdx = 0; polar = VIEWS[0]; place(); }
+  function topView() { viewIdx = (viewIdx + 1) % VIEWS.length; polar = VIEWS[viewIdx]; az = 0; place(); }
   return Object.assign(api, { load, mount, setPosition, setMarks, resetView, topView, ok: () => !!window.THREE && !broken, isBroken: () => broken });
 })();

@@ -501,5 +501,10 @@ details.tip p { margin: 6px 0 2px; font-size: 14px; line-height: 1.7; }
 .board3d { width: 100%; aspect-ratio: 1 / .9; position: relative; }
 .board3d canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: pointer; }
 .board-wrap .board3d { margin: 0 auto; }
+.mj3d { position: relative; width: calc(100% + 24px); margin-inline: -12px; aspect-ratio: 1 / 1.06; }
+.mj3d canvas { width: 100%; height: 100%; display: block; }
+.shout3d { position: absolute; transform: translate(-50%, -50%); font-family: var(--font-display); font-weight: 900; font-size: 34px; color: #fff; letter-spacing: .06em; pointer-events: none;
+  text-shadow: 0 3px 0 #b8322a, 0 0 16px rgba(0, 0, 0, .65); animation: shout 1.2s ease-out both; white-space: nowrap; }
+.handlab { margin-top: 6px; font-weight: 800; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
