@@ -654,10 +654,1942 @@ details.tip p { margin: 6px 0 2px; font-size: 14px; line-height: 1.7; }
 .mres span:nth-child(2) { color: var(--muted); font-size: 13.5px; }
 .tin { font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 2px solid var(--line); border-radius: 10px; padding: 7px 10px; max-width: 150px; }
 .tpage .hero p { opacity: .95; }
+.glist { display: flex; flex-direction: column; gap: 6px; }
+.gles { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+.gles summary { cursor: pointer; display: flex; align-items: center; gap: 8px; list-style: none; }
+.gles summary::-webkit-details-marker { display: none; }
+.gles summary b { flex: 1; font-size: 14.5px; }
+.gles summary .ico { color: var(--good); }
+.gles .glv { flex: none; font-size: 11px; color: var(--cc); border: 1px solid var(--cc); border-radius: 99px; padding: 1px 7px; }
+.gles p { margin: 8px 0 0; font-size: 14px; line-height: 1.7; }
+.gles .gex { margin: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+.gles .gexr { background: var(--surface-2); border-radius: 8px; padding: 6px 10px; }
+.gles .gexr .en { font-weight: 800; }
+.gles .gexr small { color: var(--muted); }
+.gles .cta { margin-top: 4px; font-size: 15px; padding: 11px; }
+.doc .dpre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.choice .ct.cyrs { font-size: 19px; font-family: var(--font-num); }
+.st-wrap { display: flex; flex-direction: column; gap: 12px; padding-block: 12px 24px; }
+.st-scene { position: relative; border-radius: 16px; overflow: hidden; background: var(--surface-2); aspect-ratio: 16 / 9; }
+.st-scene canvas { display: block; width: 100%; height: 100%; }
+.st-place { position: absolute; left: 12px; top: 10px; right: 12px; color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.6); line-height: 1.3; }
+.st-place b { display: block; font-size: 17px; }
+.st-place span { font-size: 13px; opacity: .92; }
+.st-box { display: flex; flex-direction: column; gap: 10px; }
+.st-dlg { position: relative; background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px 26px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; min-height: 132px; text-align: left; }
+.st-dlg.narr { background: var(--surface-2); border-style: dashed; }
+.st-who { display: flex; align-items: center; gap: 10px; }
+.st-who canvas { width: 56px; height: 56px; border-radius: 50%; flex: none; background: var(--surface-2); }
+.st-who b { font-size: 15px; }
+.st-who small { display: block; color: var(--muted); font-size: 12px; line-height: 1.2; }
+.st-mn { font-family: var(--font-num); font-weight: 700; font-size: 21px; line-height: 1.35; color: var(--c-mn); }
+.st-ja { margin: 0; font-size: 15px; line-height: 1.65; }
+.st-next { position: absolute; right: 14px; bottom: 6px; color: var(--muted); font-size: 12.5px; }
+.st-letter { background: #fbf8f1; color: #2a2418; border-radius: 6px; padding: 16px 18px; box-shadow: 0 6px 18px rgba(0,0,0,.18); transform: rotate(-1deg); display: flex; flex-direction: column; gap: 8px; font-family: var(--font-num); font-size: 18px; line-height: 1.6; white-space: pre-line; }
+.st-letter .kana { font-family: var(--font-ui); font-size: 13.5px; color: #6b5d44; }
+.st-letter .ja { font-family: var(--font-ui); font-size: 14.5px; border-top: 1px dashed #cbbd9c; padding-top: 8px; }
+.st-letter .chip { align-self: flex-start; color: #2a2418; background: #fff; }
+.st-card { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.st-card.tip { background: color-mix(in srgb, var(--gold) 12%, var(--surface)); border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
+.st-card p { margin: 0; font-size: 14.5px; line-height: 1.7; }
+.st-card .note { color: var(--muted); font-size: 12px; font-weight: 800; }
+.st-card.reward { flex-direction: row; align-items: center; gap: 12px; }
+.st-card .gift { width: 44px; height: 44px; border-radius: 12px; background: var(--gold); color: #fff; display: grid; place-items: center; flex: none; }
+.st-name { max-width: none; width: 100%; }
+.st-cyr { font-family: var(--font-num); font-weight: 800; font-size: 28px; color: var(--c-mn); text-align: center; min-height: 40px; }
+.sheet .srow .cyr { font-family: var(--font-num); font-weight: 800; color: var(--c-mn); }
+.sx.pre { white-space: pre-line; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
 <div id="app"></div>
+<script>
+const TOEIC_EXTRA = (() => {
+// 単語：英語|品詞|意味|例。品詞 n名 v動 a形 ad副 p前 c接。意味が近い語は「、」区切りの意味を1つ共有させる（誤答候補から外れる）
+const VOCAB = {};
+VOCAB[1] = `
+work|v|働く|work at a bank
+go|v|行く|go to work
+come|v|来る|come to the office
+make|v|作る|make a list
+take|v|取る、（時間が）かかる|take a bus
+get|v|得る、手に入れる|get a ticket
+give|v|与える|give a talk
+have|v|持っている|have a car
+see|v|見る、会う|see a doctor
+know|v|知っている|know the answer
+think|v|思う、考える|think about the plan
+want|v|欲しい、〜したい|want to buy a car
+need|v|必要とする|need more time
+use|v|使う|use a computer
+help|v|手伝う、助ける|help a customer
+call|v|電話する、呼ぶ|call the office
+ask|v|たずねる、頼む|ask a question
+tell|v|伝える、教える|tell him the news
+buy|v|買う|buy a ticket
+sell|v|売る|sell books
+pay|v|支払う|pay the bill
+send|v|送る|send an e-mail
+write|v|書く|write a letter
+read|v|読む|read the newspaper
+open|v|開ける、開く|open the window
+close|v|閉める|close the door
+start|v|始める、始まる|start a business
+finish|v|終える|finish the work
+leave|v|出発する、去る|leave the office
+arrive|v|到着する|arrive at the station
+meet|v|会う、出迎える|meet a client
+wait|v|待つ|wait for a bus
+move|v|動かす、引っ越す|move to Tokyo
+bring|v|持ってくる、連れてくる|bring your lunch
+carry|v|運ぶ|carry a box
+show|v|見せる|show your ticket
+try|v|試す|try a new dish
+look|v|見る、〜に見える|look at the screen
+listen|v|聞く、耳を傾ける|listen to music
+speak|v|話す|speak English
+learn|v|学ぶ、習う|learn a new skill
+teach|v|教える|teach English
+visit|v|訪問する|visit a factory
+stay|v|滞在する|stay at a hotel
+live|v|住む|live in Osaka
+change|v|変える|change the schedule
+check|v|確認する|check the e-mail
+order|v|注文する|order lunch
+book|v|予約する|book a table
+clean|v|掃除する|clean the room
+drive|v|運転する|drive a car
+walk|v|歩く|walk to work
+sit|v|座る|sit at a desk
+stand|v|立つ|stand in line
+put|v|置く|put the box on the table
+keep|v|保つ、とっておく|keep the door open
+join|v|加わる|join a team
+cook|v|料理する|cook dinner
+office|n|事務所、職場|a branch office
+company|n|会社|a large company
+job|n|仕事|a new job
+money|n|お金|save money
+time|n|時間、時刻|on time
+week|n|週|next week
+month|n|月（暦の）|last month
+year|n|年|this year
+morning|n|朝、午前|this morning
+afternoon|n|午後|in the afternoon
+evening|n|夕方、晩|tomorrow evening
+hour|n|1時間|for an hour
+minute|n|分|ten minutes
+station|n|駅|a train station
+store|n|店|a grocery store
+restaurant|n|レストラン|a Japanese restaurant
+hotel|n|ホテル|a hotel room
+room|n|部屋|a meeting room
+desk|n|机|on the desk
+table|n|テーブル|a table for two
+chair|n|いす|sit on a chair
+door|n|ドア|open the door
+window|n|窓|by the window
+floor|n|床、（建物の）階|the third floor
+building|n|建物|an office building
+city|n|都市|a big city
+country|n|国|a foreign country
+car|n|車|a rental car
+train|n|電車|by train
+plane|n|飛行機|by plane
+ticket|n|切符、チケット|a train ticket
+map|n|地図|a city map
+phone|n|電話|answer the phone
+computer|n|コンピューター|a new computer
+paper|n|紙、書類|a sheet of paper
+letter|n|手紙|write a letter
+name|n|名前|your name
+number|n|数、番号|a phone number
+price|n|価格|a low price
+food|n|食べ物|Japanese food
+water|n|水|a glass of water
+lunch|n|昼食|have lunch
+dinner|n|夕食|dinner with clients
+breakfast|n|朝食|Breakfast is included.
+friend|n|友人|a close friend
+family|n|家族|my family
+child|n|子ども|two children
+people|n|人々|many people
+student|n|学生|a college student
+teacher|n|先生|an English teacher
+doctor|n|医者|see a doctor
+customer|n|客、顧客|a regular customer
+boss|n|上司|my boss
+team|n|チーム|a sales team
+school|n|学校|after school
+park|n|公園|a city park
+street|n|通り|on Main Street
+weather|n|天気|nice weather
+question|n|質問|ask a question
+answer|n|答え|the right answer
+idea|n|考え、アイデア|a good idea
+problem|n|問題|solve a problem
+list|n|一覧、リスト|a shopping list
+picture|n|写真、絵|take a picture
+music|n|音楽|listen to music
+new|a|新しい|a new product
+old|a|古い、年を取った|an old building
+big|a|大きい|a big room
+small|a|小さい|a small town
+good|a|良い|good news
+bad|a|悪い|bad weather
+long|a|長い|a long meeting
+short|a|短い|a short break
+early|a|早い|an early flight
+late|a|遅い、遅れた|be late for work
+busy|a|忙しい|a busy week
+free|a|自由な、無料の|free tickets
+easy|a|簡単な|an easy question
+difficult|a|難しい|a difficult job
+important|a|重要な|an important meeting
+ready|a|準備ができた|be ready to go
+happy|a|うれしい、幸せな|be happy to help
+expensive|a|高価な|an expensive hotel
+cheap|a|安い|a cheap ticket
+next|a|次の|the next train
+last|a|最後の、この前の|last year
+same|a|同じ|the same day
+different|a|違う、異なる|a different color
+famous|a|有名な|a famous writer
+hot|a|暑い、熱い|a hot day
+cold|a|寒い、冷たい|cold water
+full|a|いっぱいの|The bus is full.
+right|a|正しい、右の|the right answer
+always|ad|いつも|always on time
+usually|ad|ふだんは|usually take the bus
+often|ad|よく、しばしば|often work late
+sometimes|ad|ときどき|sometimes eat out
+never|ad|一度も〜ない|never late
+again|ad|もう一度|try again
+soon|ad|すぐに、まもなく|see you soon
+today|ad|今日（は）|open today
+tomorrow|ad|明日（は）|tomorrow morning
+yesterday|ad|昨日（は）|yesterday afternoon
+here|ad|ここに|come here
+there|ad|そこに|over there
+near|p|〜の近くに|near the station
+before|p|〜の前に|before lunch
+after|p|〜の後に|after work
+during|p|〜の間に（特定の期間）|during the meeting
+between|p|（2つの）間に|between 3 and 5 p.m.
+because|c|〜なので|because it rained
+but|c|しかし|small but useful
+or|c|または|tea or coffee
+if|c|もし〜なら|if you need help
+when|c|〜するとき|when you arrive
+`;
+VOCAB[2] = `
+attend|v|出席する|attend a meeting
+borrow|v|借りる|borrow a book
+lend|v|貸す|lend him money
+return|v|戻る、返す|return the book
+choose|v|選ぶ|choose a color
+decide|v|決める|decide to go
+explain|v|説明する|explain the rule
+agree|v|同意する|agree with you
+believe|v|信じる|believe the news
+remember|v|覚えている、思い出す|remember the name
+forget|v|忘れる|forget the password
+hope|v|望む|hope to see you
+worry|v|心配する|worry about the cost
+enjoy|v|楽しむ|enjoy the party
+invite|v|招待する|invite a guest
+prepare|v|準備する|prepare a report
+practice|v|練習する|practice English
+repair|v|修理する|repair a car
+fix|v|修理する、固定する|fix the printer
+reserve|v|（席・部屋を）予約する|reserve a room
+deliver|v|配達する|deliver a package
+receive|v|受け取る|receive a letter
+include|v|含む|include tax
+travel|v|旅行する|travel abroad
+improve|v|改善する、向上させる|improve service
+increase|v|増える、増やす|increase sales
+decrease|v|減る、減らす|decrease costs
+produce|v|生産する|produce cars
+offer|v|提供する、申し出る|offer a discount
+provide|v|供給する、提供する|provide information
+contact|v|連絡する|contact the manager
+apply|v|申し込む、応募する|apply for a job
+hire|v|雇う|hire new staff
+manage|v|管理する、経営する|manage a store
+report|v|報告する|report the results
+discuss|v|話し合う|discuss the plan
+complete|v|完成させる、（用紙に）記入し終える|complete a form
+continue|v|続ける|continue working
+cancel|v|取り消す、中止する|cancel an order
+confirm|v|確認する|confirm a reservation
+print|v|印刷する|print a document
+share|v|共有する|share an office
+grow|v|成長する、育てる|grow quickly
+develop|v|開発する、発展させる|develop a product
+sign|v|署名する|sign a contract
+rent|v|賃借りする、賃貸しする|rent a car
+save|v|節約する、保存する|save time
+spend|v|（時間・お金を）使う、過ごす|spend money
+cost|v|（費用が）かかる|It costs ten dollars.
+turn|v|曲がる、回す|turn left
+follow|v|ついて行く、従う|follow the instructions
+fill|v|満たす、記入する|fill out a form
+hold|v|持つ、開催する|hold a meeting
+lead|v|導く、率いる|lead a team
+miss|v|乗り遅れる、逃す|miss the train
+lose|v|失う、負ける|lose a key
+win|v|勝つ、獲得する|win an award
+meeting|n|会議|a staff meeting
+schedule|n|予定、スケジュール|a busy schedule
+client|n|顧客、依頼人|meet a client
+manager|n|部長、管理者|a store manager
+employee|n|従業員|a new employee
+staff|n|職員（全体）|hotel staff
+salary|n|給料|a high salary
+event|n|行事、イベント|a company event
+project|n|計画、事業|a new project
+product|n|製品|a new product
+service|n|サービス、業務|customer service
+sale|n|販売、特売|on sale
+information|n|情報|more information
+document|n|書類、文書|sign a document
+form|n|用紙、形式|an application form
+package|n|小包|send a package
+delivery|n|配達|free delivery
+address|n|住所|an e-mail address
+area|n|地域、区域|a parking area
+airport|n|空港|at the airport
+flight|n|（飛行機の）便|a direct flight
+trip|n|旅行、出張|a business trip
+passenger|n|乗客|airline passengers
+museum|n|美術館、博物館|an art museum
+library|n|図書館|a public library
+hospital|n|病院|go to the hospital
+bank|n|銀行|a bank account
+account|n|口座、アカウント|open an account
+department|n|部署、売り場|the sales department
+factory|n|工場|a car factory
+machine|n|機械|a copy machine
+item|n|品物、項目|an item on the list
+receipt|n|領収書、レシート|keep the receipt
+discount|n|割引|a 10% discount
+advertisement|n|広告|a newspaper advertisement
+interview|n|面接、インタビュー|a job interview
+experience|n|経験|work experience
+skill|n|技能、スキル|computer skills
+result|n|結果|test results
+reason|n|理由|the reason for the delay
+example|n|例|for example
+size|n|大きさ、サイズ|a larger size
+type|n|種類、型|a new type of phone
+part|n|部分、部品|car parts
+corner|n|角|on the corner
+traffic|n|交通（量）|heavy traffic
+vacation|n|休暇|summer vacation
+holiday|n|祝日、休日|a national holiday
+available|a|利用できる、手が空いている|available rooms
+popular|a|人気のある|a popular restaurant
+special|a|特別な|a special offer
+local|a|地元の|a local newspaper
+public|a|公共の|public transportation
+international|a|国際的な|an international company
+online|a|オンラインの|an online store
+heavy|a|重い、（量が）多い|heavy rain
+quiet|a|静かな|a quiet room
+convenient|a|便利な、都合のよい|a convenient time
+comfortable|a|快適な|a comfortable chair
+necessary|a|必要な|necessary documents
+possible|a|可能な|as soon as possible
+several|a|いくつかの|several times
+each|a|それぞれの|each employee
+whole|a|全体の|the whole day
+main|a|主な|the main office
+recent|a|最近の|recent changes
+final|a|最終の|the final decision
+total|a|合計の|the total cost
+extra|a|追加の、余分な|an extra charge
+daily|a|毎日の|daily work
+safe|a|安全な|a safe place
+already|ad|すでに|has already left
+still|ad|まだ、今でも|still working
+almost|ad|ほとんど|almost finished
+only|ad|〜だけ|only one day
+also|ad|〜もまた|also available
+together|ad|一緒に|work together
+abroad|ad|海外へ|study abroad
+recently|ad|最近|recently opened
+until|p|〜まで（ずっと）|until 5 p.m.
+by|p|〜までに、〜によって|by Friday
+since|p|〜以来|since 2020
+across|p|〜を横切って、〜の向こう側に|across the street
+through|p|〜を通って|through the door
+although|c|〜だけれども|although it was late
+while|c|〜する間に|while you wait
+unless|c|〜しない限り|unless it rains
+`;
+VOCAB[3] = `
+require|v|要求する、必要とする|Passengers are required to show ID.
+submit|v|提出する|submit a report
+review|v|見直す、検討する|review the contract
+approve|v|承認する|approve the budget
+announce|v|発表する|announce a new product
+launch|v|（新製品を）発売する、開始する|launch a campaign
+expand|v|拡大する|expand the business
+replace|v|取り替える|replace the battery
+install|v|設置する、インストールする|install new software
+inspect|v|検査する|inspect the equipment
+purchase|v|購入する|purchase tickets online
+ship|v|発送する|ship the order
+arrange|v|手配する、並べる|arrange a meeting
+organize|v|準備する、組織する|organize an event
+postpone|v|延期する|postpone the meeting
+extend|v|延長する|extend the deadline
+reduce|v|減らす|reduce costs
+recommend|v|勧める|recommend a restaurant
+remind|v|思い出させる|remind him of the meeting
+notify|v|知らせる、通知する|notify customers
+register|v|登録する|register for a seminar
+participate|v|参加する|participate in a workshop
+conduct|v|行う、実施する|conduct a survey
+attach|v|添付する|attach a file
+indicate|v|示す|indicate a problem
+estimate|v|見積もる|estimate the cost
+predict|v|予測する、予想する|predict sales
+assist|v|手伝う、補助する|assist customers
+handle|v|扱う、処理する|handle complaints
+update|v|更新する|update the website
+renovate|v|改装する|renovate the lobby
+relocate|v|移転する|relocate the office
+assign|v|割り当てる|assign a task
+promote|v|昇進させる、宣伝する|be promoted to manager
+retire|v|退職する|retire next year
+recruit|v|（人材を）募集する|recruit engineers
+negotiate|v|交渉する|negotiate a contract
+afford|v|〜する余裕がある|can afford a new car
+encourage|v|励ます、促す|encourage staff to attend
+ensure|v|確実にする|ensure safety
+maintain|v|維持する、保守する|maintain equipment
+operate|v|操作する、営業する|operate a machine
+measure|v|測る|measure the room
+compare|v|比べる|compare prices
+describe|v|説明する、描写する|describe the problem
+respond|v|返答する、対応する|respond to an e-mail
+budget|n|予算|a limited budget
+contract|n|契約（書）|sign a contract
+deadline|n|締め切り|meet the deadline
+invoice|n|請求書|send an invoice
+survey|n|調査、アンケート|conduct a survey
+equipment|n|機器、設備|office equipment
+facility|n|施設|a sports facility
+location|n|場所、所在地|a convenient location
+branch|n|支店|open a new branch
+headquarters|n|本社|company headquarters
+colleague|n|同僚|a former colleague
+supervisor|n|上司、監督者|ask your supervisor
+candidate|n|候補者|a job candidate
+applicant|n|応募者|qualified applicants
+position|n|職、地位、位置|apply for a position
+résumé|n|履歴書|submit a résumé
+reference|n|参照、推薦状|a letter of reference
+workshop|n|研修会、講習会|attend a workshop
+conference|n|会議、協議会|an international conference
+seminar|n|セミナー|a free seminar
+presentation|n|発表、プレゼン|give a presentation
+agenda|n|議題（一覧）|the meeting agenda
+minutes|n|議事録|take the minutes
+proposal|n|提案（書）|submit a proposal
+feedback|n|意見、感想|customer feedback
+complaint|n|苦情|handle a complaint
+refund|n|返金、払い戻し|ask for a refund
+warranty|n|保証（書）|under warranty
+shipment|n|発送（品）|a shipment of books
+inventory|n|在庫（一覧）|check the inventory
+supply|n|供給、備品|office supplies
+supplier|n|供給業者、仕入れ先|a reliable supplier
+merchandise|n|商品|return the merchandise
+revenue|n|収益、売上|annual revenue
+profit|n|利益|increase profits
+expense|n|費用、経費|travel expenses
+fee|n|料金、手数料|an entry fee
+payment|n|支払い|make a payment
+loan|n|融資、ローン|a bank loan
+tenant|n|賃借人、テナント|new tenants
+property|n|不動産、物件|rental property
+lease|n|賃貸借契約|sign a lease
+renovation|n|改装|closed for renovation
+construction|n|建設、工事|under construction
+maintenance|n|保守、整備|routine maintenance
+directions|n|道順、指示|give directions
+instructions|n|説明書、使用法|follow the instructions
+permission|n|許可|ask for permission
+policy|n|方針、規定|a refund policy
+regulation|n|規則|safety regulations
+procedure|n|手順|follow the procedure
+requirement|n|必要条件|meet the requirements
+opportunity|n|機会|a job opportunity
+benefit|n|利益、手当|employee benefits
+promotion|n|昇進、販売促進|get a promotion
+award|n|賞|win an award
+reception|n|受付、歓迎会|the reception desk
+appointment|n|（面会の）約束、予約|make an appointment
+reservation|n|予約|make a reservation
+destination|n|目的地|a travel destination
+itinerary|n|旅程表|a travel itinerary
+luggage|n|手荷物|carry-on luggage
+fare|n|運賃|a bus fare
+vehicle|n|乗り物、車両|a delivery vehicle
+commute|n|通勤|a long commute
+employer|n|雇用主|a large employer
+personnel|n|人員、人事部|personnel department
+board|n|取締役会、掲示板|the board of directors
+director|n|取締役、責任者|the sales director
+executive|n|重役、幹部|a senior executive
+representative|n|担当者、代表者|a sales representative
+accountant|n|会計士|a certified accountant
+architect|n|建築家|a famous architect
+annual|a|年1回の、年間の|an annual meeting
+current|a|現在の|current address
+previous|a|以前の|previous experience
+upcoming|a|近く行われる|the upcoming event
+additional|a|追加の|additional charges
+various|a|さまざまな|various products
+reasonable|a|妥当な、（値段が）手ごろな|a reasonable price
+qualified|a|資格のある、適任の|a qualified candidate
+experienced|a|経験豊富な|an experienced engineer
+responsible|a|責任がある|be responsible for sales
+efficient|a|効率的な|an efficient system
+effective|a|効果的な、（法律などが）有効な|an effective method
+successful|a|成功した|a successful event
+valid|a|有効な|a valid ticket
+due|a|（支払・提出の）期限が来て、到着予定で|The report is due Friday.
+temporary|a|一時的な|a temporary worker
+permanent|a|永久の、正規の|a permanent position
+direct|a|直接の、直行の|a direct flight
+domestic|a|国内の|domestic flights
+overseas|a|海外の|overseas markets
+financial|a|財政の、金融の|financial reports
+complimentary|a|無料の|complimentary breakfast
+spacious|a|広々とした|a spacious office
+crowded|a|混雑した|a crowded train
+confidential|a|機密の|confidential information
+accurate|a|正確な|accurate data
+detailed|a|詳細な|a detailed report
+immediately|ad|ただちに|immediately after the meeting
+currently|ad|現在|currently available
+approximately|ad|およそ|approximately 50 people
+frequently|ad|頻繁に|frequently asked questions
+directly|ad|直接|contact me directly
+carefully|ad|注意深く|read carefully
+finally|ad|ついに、最後に|finally finished
+probably|ad|たぶん|probably late
+unfortunately|ad|残念ながら|Unfortunately, it was canceled.
+especially|ad|特に|especially in summer
+nearly|ad|ほとんど、ほぼ|nearly full
+regularly|ad|定期的に|regularly checked
+due to|p|〜のために、〜が原因で|due to bad weather
+according to|p|〜によると|according to the report
+instead of|p|〜の代わりに|instead of Monday
+in addition to|p|〜に加えて|in addition to the salary
+despite|p|〜にもかかわらず|despite the rain
+as soon as|c|〜するとすぐに|as soon as you arrive
+whether|c|〜かどうか|whether or not
+`;
+VOCAB[4] = `
+accommodate|v|収容する、（要望に）応える|accommodate 200 guests
+acquire|v|取得する、買収する|acquire a company
+allocate|v|割り当てる、配分する|allocate funds
+anticipate|v|予期する、予想する|anticipate delays
+assess|v|評価する|assess the damage
+authorize|v|許可する、権限を与える|authorize the payment
+collaborate|v|協力する、共同で取り組む|collaborate with partners
+comply|v|（規則に）従う|comply with regulations
+delegate|v|（権限・仕事を）任せる|delegate tasks
+demonstrate|v|実演する、示す|demonstrate a product
+dispose|v|処分する（of と共に）|dispose of waste
+distribute|v|配布する、流通させる|distribute flyers
+enhance|v|高める、向上させる|enhance quality
+enroll|v|入学する、登録する|enroll in a course
+evaluate|v|評価する|evaluate performance
+exceed|v|超える、上回る|exceed expectations
+facilitate|v|促進する、容易にする|facilitate communication
+forward|v|転送する|forward an e-mail
+implement|v|実行する、導入する|implement a plan
+inquire|v|問い合わせる|inquire about prices
+modify|v|修正する、変更する|modify the design
+nominate|v|推薦する、指名する|be nominated for an award
+oversee|v|監督する|oversee a project
+proceed|v|進む、続行する|proceed to Gate 5
+pursue|v|追求する|pursue a career
+reimburse|v|払い戻す、（経費を）精算する|reimburse travel expenses
+resolve|v|解決する|resolve an issue
+retain|v|保持する、引き留める|retain customers
+subscribe|v|定期購読する、登録する|subscribe to a magazine
+undergo|v|（検査・改修を）受ける|undergo renovation
+verify|v|確かめる、検証する|verify the information
+accompany|v|同行する、添える|accompany a client
+advertise|v|広告する、宣伝する|advertise a job opening
+browse|v|閲覧する、見て回る|browse the website
+cater|v|料理を提供する|cater an event
+convert|v|変換する、改造する|convert a file
+donate|v|寄付する|donate money
+earn|v|稼ぐ、得る|earn a degree
+greet|v|あいさつする、出迎える|greet visitors
+merge|v|合併する|merge with a rival
+obtain|v|手に入れる、取得する|obtain a permit
+outline|v|概要を述べる|outline the plan
+qualify|v|資格を得る|qualify for a discount
+reschedule|v|予定を変更する|reschedule the appointment
+specialize|v|専門にする|specialize in tax law
+supervise|v|監督する|supervise the staff
+acquisition|n|買収、取得|a corporate acquisition
+amenity|n|（ホテルなどの）設備、アメニティ|hotel amenities
+attendance|n|出席（者数）|attendance at the event
+capacity|n|収容能力、容量|seating capacity
+compensation|n|報酬、補償|a compensation package
+consumer|n|消費者|consumer demand
+contractor|n|請負業者|a building contractor
+coverage|n|報道、（保険の）補償範囲|insurance coverage
+credentials|n|資格証明、経歴|professional credentials
+demand|n|需要|high demand
+dimensions|n|寸法|the dimensions of the room
+expertise|n|専門知識|technical expertise
+initiative|n|新たな取り組み、主導権|a new initiative
+installment|n|分割払い（の1回分）|pay in installments
+inspection|n|検査、点検|a safety inspection
+inquiry|n|問い合わせ|customer inquiries
+merger|n|合併|a merger between two firms
+objective|n|目標、目的|the main objective
+outlet|n|販売店、コンセント|retail outlets
+patron|n|常連客、後援者|library patrons
+performance|n|業績、公演、性能|sales performance
+premises|n|敷地、構内|on the premises
+priority|n|優先事項|top priority
+productivity|n|生産性|increase productivity
+quarter|n|四半期、4分の1|the first quarter
+questionnaire|n|アンケート、質問票|fill out a questionnaire
+recipient|n|受取人|the recipient of the award
+reimbursement|n|払い戻し、精算|request reimbursement
+retailer|n|小売業者|an online retailer
+shortage|n|不足|a staff shortage
+subscription|n|定期購読|a magazine subscription
+substitute|n|代わりの人・物|find a substitute
+transaction|n|取引|online transactions
+venue|n|会場|the venue for the conference
+voucher|n|引換券、割引券|a gift voucher
+workload|n|仕事量|a heavy workload
+landlord|n|家主|the landlord of the building
+brochure|n|パンフレット|a travel brochure
+fund|n|資金、基金|raise funds
+asset|n|資産|company assets
+deposit|n|手付金、預金|pay a deposit
+eligible|a|資格のある、対象となる|eligible for a discount
+mandatory|a|義務的な、必須の|mandatory training
+optional|a|任意の、選択できる|optional tours
+preliminary|a|予備の、準備の|preliminary results
+tentative|a|仮の、暫定の|a tentative schedule
+renowned|a|有名な|a renowned chef
+outstanding|a|傑出した、未払いの|an outstanding balance
+prominent|a|目立つ、著名な|a prominent position
+competitive|a|競争力のある、他に負けない|competitive prices
+comprehensive|a|包括的な|a comprehensive guide
+considerable|a|かなりの|a considerable amount
+substantial|a|相当な、かなりの|a substantial increase
+durable|a|耐久性のある、丈夫な|durable materials
+flexible|a|柔軟な|flexible hours
+innovative|a|革新的な|innovative products
+reliable|a|信頼できる|a reliable supplier
+sufficient|a|十分な|sufficient funds
+punctual|a|時間を守る|be punctual
+promising|a|有望な|a promising candidate
+vacant|a|空いている|a vacant room
+defective|a|欠陥のある|a defective product
+exclusive|a|独占的な、高級な|an exclusive offer
+extensive|a|広範囲の|extensive experience
+accordingly|ad|それに応じて|adjust accordingly
+consequently|ad|その結果|Consequently, sales fell.
+previously|ad|以前に|previously worked
+promptly|ad|迅速に、時間どおりに|respond promptly
+temporarily|ad|一時的に|temporarily closed
+primarily|ad|主に|primarily for students
+significantly|ad|大幅に、著しく|increase significantly
+shortly|ad|まもなく|shortly after noon
+otherwise|ad|さもなければ、それ以外は|Otherwise, call me.
+nevertheless|ad|それにもかかわらず|Nevertheless, we continued.
+prior to|p|〜より前に|prior to the meeting
+regarding|p|〜に関して|regarding your order
+throughout|p|〜の間ずっと、〜の至る所に|throughout the year
+as long as|c|〜する限り、〜しさえすれば|as long as you need
+once|c|いったん〜すると|once you arrive
+`;
+VOCAB[5] = `
+adhere|v|（規則に）従う、固執する|adhere to the guidelines
+alleviate|v|和らげる、軽減する|alleviate traffic congestion
+amend|v|修正する|amend the contract
+ascertain|v|確かめる|ascertain the cause
+commence|v|始まる、開始する|Construction will commence in May.
+compile|v|（資料を）まとめる、編集する|compile data
+consolidate|v|統合する、強化する|consolidate operations
+curtail|v|削減する、短縮する|curtail spending
+deem|v|〜とみなす|be deemed necessary
+designate|v|指定する|a designated area
+disclose|v|公開する、明らかにする|disclose information
+endorse|v|支持する、推薦する|endorse a product
+expedite|v|迅速に処理する|expedite the shipment
+fluctuate|v|変動する|Prices fluctuate.
+generate|v|生み出す、生む|generate revenue
+mitigate|v|軽減する|mitigate risks
+procure|v|調達する|procure materials
+reconcile|v|一致させる、調和させる|reconcile the accounts
+remit|v|送金する|remit payment
+resume|v|再開する|resume operations
+revise|v|改訂する、修正する|revise the schedule
+solicit|v|求める、募る|solicit feedback
+stipulate|v|規定する|The contract stipulates the terms.
+streamline|v|合理化する|streamline procedures
+surpass|v|上回る、しのぐ|surpass last year's sales
+terminate|v|終わらせる、解除する|terminate a contract
+waive|v|（料金などを）免除する|waive the fee
+yield|v|生む、産出する|yield good results
+coordinate|v|調整する、取りまとめる|coordinate the schedule
+emphasize|v|強調する|emphasize safety
+envision|v|思い描く|envision the future
+pertain|v|関係する（to と共に）|pertain to the project
+refrain|v|控える（from と共に）|refrain from smoking
+reiterate|v|繰り返し述べる|reiterate the point
+undertake|v|引き受ける、着手する|undertake a project
+withstand|v|耐える|withstand heavy use
+amendment|n|修正、改正|an amendment to the contract
+apprentice|n|見習い|an apprentice chef
+audit|n|監査|a financial audit
+backlog|n|未処理分、たまった仕事|a backlog of orders
+breakthrough|n|飛躍的進歩、突破口|a technological breakthrough
+clearance|n|在庫一掃、許可|a clearance sale
+commission|n|手数料、委託|a sales commission
+commodity|n|商品、産物|commodity prices
+consensus|n|合意、総意|reach a consensus
+correspondence|n|通信、文書のやりとり|business correspondence
+discrepancy|n|食い違い|a discrepancy in the figures
+endorsement|n|推薦、支持|a celebrity endorsement
+enclosure|n|同封物|see the enclosure
+expenditure|n|支出、経費|annual expenditure
+incentive|n|奨励策、報奨金|sales incentives
+liability|n|法的責任、負債|limited liability
+logistics|n|物流|a logistics company
+milestone|n|節目、重要な段階|an important milestone
+outage|n|停電、（サービスの）停止|a power outage
+overhaul|n|全面的な見直し、分解修理|a complete overhaul
+precaution|n|予防措置、用心|safety precautions
+proximity|n|近いこと、近接|proximity to the station
+quota|n|割り当て、ノルマ|a sales quota
+remittance|n|送金|a remittance fee
+stakeholder|n|利害関係者|all stakeholders
+tenure|n|在職期間|during his tenure
+turnover|n|離職率、売上高|high staff turnover
+workforce|n|全従業員、労働力|reduce the workforce
+contingency|n|不測の事態|a contingency plan
+deficit|n|赤字、不足|a trade deficit
+surplus|n|余剰、黒字|a budget surplus
+dividend|n|配当金|pay dividends
+fiscal|a|会計の、財政の|the fiscal year
+imperative|a|必須の、緊急の|It is imperative that we act now.
+lucrative|a|もうかる|a lucrative business
+meticulous|a|細心の、きわめて注意深い|meticulous work
+obsolete|a|時代遅れの|obsolete equipment
+pending|a|未決定の、保留中の|a pending decision
+pertinent|a|関連のある、適切な|pertinent information
+preferred|a|好ましい、優先の|preferred qualifications
+redundant|a|余分な、冗長な|redundant steps
+reputable|a|評判のよい|a reputable firm
+stringent|a|厳しい、厳格な|stringent regulations
+subsequent|a|その後の|subsequent meetings
+viable|a|実行可能な、実現可能な|a viable option
+versatile|a|多用途の、多才な|a versatile tool
+interim|a|暫定の、中間の|an interim report
+unanimous|a|満場一致の|a unanimous decision
+proficient|a|熟達した|proficient in Spanish
+cordial|a|心からの、友好的な|a cordial welcome
+diligent|a|勤勉な|a diligent worker
+impending|a|差し迫った|the impending deadline
+inaugural|a|最初の、就任の|the inaugural issue
+adjacent|a|隣接した|adjacent to the hotel
+concurrently|ad|同時に|run concurrently
+consistently|ad|一貫して、常に|consistently high quality
+exclusively|ad|独占的に、もっぱら|available exclusively online
+inadvertently|ad|うっかり、不注意で|inadvertently deleted
+markedly|ad|著しく|markedly improved
+moderately|ad|適度に、ほどほどに|moderately priced
+predominantly|ad|主に|predominantly young customers
+tentatively|ad|仮に、暫定的に|tentatively scheduled
+thoroughly|ad|徹底的に|thoroughly inspected
+respectively|ad|それぞれ|5 and 7 percent, respectively
+notwithstanding|p|〜にもかかわらず|notwithstanding the delay
+in light of|p|〜を考慮して|in light of the results
+on behalf of|p|〜を代表して、〜の代わりに|on behalf of the company
+in the event that|c|万一〜の場合には|in the event that the flight is canceled
+provided that|c|〜という条件で|provided that it is ready
+whereas|c|〜である一方|whereas sales rose
+`;
+VOCAB[6] = `
+garner|v|（支持・注目を）集める|garner support
+relinquish|v|手放す、譲る|relinquish control
+abide|v|（規則に）従う、守る（by と共に）|abide by the rules
+adjourn|v|（会議を）休会する、延期する|The meeting was adjourned.
+augment|v|増やす、増大させる|augment the budget
+circumvent|v|回避する、迂回する|circumvent the rules
+corroborate|v|裏付ける|corroborate the findings
+delineate|v|詳しく述べる、輪郭を描く|delineate responsibilities
+deter|v|思いとどまらせる、阻止する|deter theft
+elicit|v|引き出す|elicit a response
+encompass|v|包含する、含む|encompass several fields
+exacerbate|v|悪化させる|exacerbate the problem
+forfeit|v|（権利などを）失う、没収される|forfeit the deposit
+hamper|v|妨げる|hamper progress
+impede|v|妨げる、遅らせる|impede growth
+leverage|v|活用する|leverage technology
+mandate|v|義務づける、命じる|mandate safety training
+rectify|v|是正する、正す|rectify the error
+replenish|v|補充する|replenish stock
+scrutinize|v|綿密に調べる|scrutinize the data
+supersede|v|取って代わる|supersede the old version
+underscore|v|強調する|underscore the need
+vacate|v|（部屋などを）明け渡す、立ち退く|vacate the premises
+attrition|n|（退職などによる）自然減|reduce staff through attrition
+inception|n|始まり、創設|since its inception
+discretion|n|裁量、慎重さ|at the manager's discretion
+remuneration|n|報酬|remuneration package
+ramification|n|（予期しない）影響、結果|legal ramifications
+caveat|n|注意書き、但し書き|one important caveat
+accolade|n|称賛、栄誉|receive accolades
+adherence|n|順守|strict adherence to the rules
+benchmark|n|基準、指標|an industry benchmark
+bottleneck|n|障害、ボトルネック|a production bottleneck
+collateral|n|担保|offer collateral
+consortium|n|共同事業体、企業連合|a consortium of banks
+deliberation|n|熟考、審議|after careful deliberation
+foresight|n|先見の明|business foresight
+impetus|n|弾み、勢い|give impetus to growth
+incumbent|n|現職者|the incumbent mayor
+moratorium|n|一時停止|a moratorium on hiring
+oversight|n|見落とし、監督|due to an oversight
+patronage|n|ひいき、愛顧|Thank you for your patronage.
+prerequisite|n|前提条件|a prerequisite for the course
+provision|n|規定、供給|a provision in the contract
+rapport|n|信頼関係|build rapport with clients
+repercussion|n|（悪い）影響|serious repercussions
+stipend|n|手当、奨学金|a monthly stipend
+synergy|n|相乗効果|create synergy
+tally|n|集計、記録|keep a tally
+upheaval|n|大変動、混乱|economic upheaval
+windfall|n|思いがけない利益|a windfall profit
+conducive|a|（〜に）役立つ、助けとなる|conducive to productivity
+inclement|a|（天候が）荒れた|inclement weather
+lenient|a|寛大な、甘い|a lenient policy
+prudent|a|慎重な、賢明な|a prudent decision
+judicious|a|賢明な、思慮深い|judicious use of funds
+contingent|a|（〜を）条件とする、次第である|contingent on approval
+commensurate|a|相応の、釣り合った|salary commensurate with experience
+amenable|a|受け入れる用意がある、従順な|amenable to changes
+ample|a|十分な、たっぷりの|ample parking
+arbitrary|a|任意の、独断的な|an arbitrary decision
+candid|a|率直な|a candid opinion
+cohesive|a|まとまりのある|a cohesive team
+compelling|a|説得力のある、強く引きつける|a compelling argument
+complacent|a|自己満足した|become complacent
+discerning|a|目の肥えた、識別力のある|discerning customers
+exemplary|a|模範的な|exemplary service
+feasible|a|実現可能な|a feasible plan
+formidable|a|手ごわい、恐るべき|a formidable competitor
+imminent|a|差し迫った|an imminent threat
+indispensable|a|不可欠な|an indispensable tool
+intermittent|a|断続的な|intermittent rain
+lucid|a|明快な|a lucid explanation
+negligible|a|ごくわずかな、無視できる|a negligible difference
+nominal|a|名ばかりの、わずかな|a nominal fee
+pivotal|a|極めて重要な、中心的な|a pivotal role
+precarious|a|不安定な、危うい|a precarious situation
+scrupulous|a|良心的な、細心の|scrupulous attention to detail
+stagnant|a|停滞した|stagnant sales
+tangible|a|具体的な、有形の|tangible results
+unprecedented|a|前例のない|unprecedented growth
+vigilant|a|油断のない、警戒している|remain vigilant
+categorically|ad|断固として、きっぱりと|categorically deny
+intermittently|ad|断続的に|work intermittently
+judiciously|ad|賢明に|use resources judiciously
+meticulously|ad|細心の注意を払って|meticulously planned
+provisionally|ad|暫定的に、仮に|provisionally approved
+succinctly|ad|簡潔に|explain succinctly
+unequivocally|ad|明確に、きっぱりと|unequivocally stated
+henceforth|ad|今後は|Henceforth, all reports must be signed.
+pursuant to|p|〜に従って|pursuant to the agreement
+in lieu of|p|〜の代わりに|in lieu of payment
+`;
+
+// 問題データ。すべてオリジナル。tag は文法レッスンと Part 5 をつなぐ
+const LESSONS = [
+  { tag: "品詞", lv: 1, title: "品詞：名詞・動詞・形容詞・副詞", body: [
+    "英語の単語は役割で分かれます。名詞（もの・人・ことの名前）、動詞（動作や状態）、形容詞（名詞を説明する）、副詞（動詞や形容詞を説明する）。",
+    "Part 5 で一番多いのが品詞の問題です。選択肢が kind / kindly / kindness のように同じ語の形違いなら、空所の前後を見て「どの品詞が入るか」だけで解けます。",
+    "目印：a / the / my の後ろは名詞（か形容詞＋名詞）。名詞の前は形容詞。動詞を説明するのは副詞（-ly で終わる語が多い）。",
+    "語尾のヒント：-tion, -ment, -ness は名詞、-ful, -ous, -ive, -al は形容詞、-ly は副詞。"],
+    ex: [["She is a careful driver.", "彼女は注意深い運転手だ。（driver を説明する形容詞）"], ["She drives carefully.", "彼女は注意深く運転する。（drives を説明する副詞）"], ["Thank you for your attention.", "ご清聴ありがとうございます。（your の後ろは名詞）"]] },
+  { tag: "be動詞", lv: 1, title: "be動詞と一般動詞", body: [
+    "英語の文は「主語＋動詞」で始まります。動詞は2種類。be動詞（am / is / are / was / were）は「〜である・〜にいる」、一般動詞（go, work, like など）は動作や気持ちを表します。",
+    "主語が I なら am、you や複数なら are、he / she / it や1人・1つなら is。",
+    "一般動詞は、主語が3人称単数（he, she, Mr. Sato など）で現在のとき、語尾に -s をつけます（goes, works）。",
+    "否定と疑問：be動詞は is not / Are you 〜?、一般動詞は do not / does not / Do you 〜? を使います。be動詞と一般動詞は並べません（× is go）。"],
+    ex: [["I am a sales clerk.", "私は販売員です。"], ["He works at a bank.", "彼は銀行で働いている。"], ["Does she like coffee?", "彼女はコーヒーが好きですか。"]] },
+  { tag: "時制", lv: 1, title: "時制：現在・過去・未来", body: [
+    "動詞の形で「いつのことか」を表します。現在形は習慣や事実（usually, every day）、過去形は終わったこと（yesterday, last week, ago）、未来は will ＋動詞の原形（tomorrow, next week）。",
+    "Part 5 では、文の中の時の言葉（last month, next Friday, since 2020 など）が答えのヒントです。まず時の言葉を探しましょう。",
+    "if や when の後ろでは、未来のことでも現在形を使います（If it rains tomorrow, …）。"],
+    ex: [["I visited the factory last week.", "先週、工場を訪問した。"], ["We will launch the product next month.", "来月その製品を発売する。"], ["When he arrives, please call me.", "彼が着いたら電話してください。"]] },
+  { tag: "代名詞", lv: 1, title: "代名詞：I / my / me / mine", body: [
+    "人や物を指す言葉は、文の中の位置で形が変わります。主語なら I / he / they、名詞の前なら my / his / their（所有格）、動詞や前置詞の後ろなら me / him / them（目的格）。",
+    "mine / hers / theirs は「〜のもの」、myself / himself は「自分自身」。",
+    "空所の直後が名詞なら所有格、と覚えておくと速く解けます。"],
+    ex: [["Our manager called them yesterday.", "私たちの部長は昨日、彼らに電話した。"], ["This seat is mine.", "この席は私のものです。"], ["She fixed the printer herself.", "彼女は自分でプリンターを直した。"]] },
+  { tag: "前置詞", lv: 1, title: "前置詞：時と場所", body: [
+    "前置詞は名詞の前に置いて時や場所を表します。時刻は at（at 10:00）、曜日・日付は on（on Monday）、月・年は in（in May, in 2025）。",
+    "期限の by（〜までに）と継続の until（〜までずっと）、期間の during（〜の間）、以内の within は Part 5 の常連です。",
+    "場所：at（地点）、in（中）、on（接して上）、between A and B（AとBの間）、across from（〜の向かい）。"],
+    ex: [["Please submit it by Friday.", "金曜日までに提出してください。"], ["The store is open until 9 P.M.", "店は午後9時まで開いている。"], ["The bank is across from the station.", "銀行は駅の向かいにある。"]] },
+  { tag: "助動詞", lv: 2, title: "助動詞：can / will / must / should", body: [
+    "助動詞は動詞の前について意味を加えます。can（できる）、will（〜するだろう）、must（〜しなければならない）、should（〜すべきだ）、may（〜してもよい・〜かもしれない）。",
+    "助動詞の後ろは必ず動詞の原形。助動詞そのものに -s はつきません（× cans）。",
+    "have to（〜しなければならない）は must とほぼ同じ意味で、主語に合わせて has to になります。"],
+    ex: [["You must wear a badge.", "バッジを着用しなければならない。"], ["Could you send me the file?", "ファイルを送っていただけますか。"], ["She has to leave early today.", "彼女は今日、早く帰らなければならない。"]] },
+  { tag: "完了形", lv: 2, title: "進行形と完了形", body: [
+    "進行形（be ＋ -ing）は「今〜しているところ」。完了形（have ＋過去分詞）は過去から今につながることを表します。",
+    "現在完了は since（〜以来）、for（〜の間）、already（もう）、yet（まだ）、ever（今までに）と相性がよい言葉です。",
+    "過去のある時点より前は過去完了（had ＋過去分詞）、未来のある時点までに終わることは未来完了（will have ＋過去分詞）。"],
+    ex: [["She is talking on the phone.", "彼女は電話中だ。"], ["I have worked here since 2019.", "2019年からここで働いている。"], ["The train had left before we arrived.", "私たちが着く前に電車は出ていた。"]] },
+  { tag: "受動態", lv: 2, title: "受動態：〜される", body: [
+    "受動態は be ＋過去分詞で「〜される」。主語が動作を受ける側のときに使います。",
+    "見分け方：主語が自分でその動作をするか。報告書（The report）は自分で書かないので The report was written。",
+    "空所の後ろに目的語（名詞）がなければ受動態の可能性が高い、というのが Part 5 の定番の考え方です。"],
+    ex: [["The meeting was canceled.", "会議は中止された。"], ["Lunch will be served at noon.", "昼食は正午に出されます。"], ["The road is being repaired.", "道路は修理中だ。"]] },
+  { tag: "不定詞・動名詞", lv: 2, title: "不定詞と動名詞", body: [
+    "to ＋動詞の原形（不定詞）と動詞の -ing（動名詞）は、どちらも動詞を名詞のように使う形です。",
+    "後ろに to 不定詞をとる動詞：want, decide, plan, hope, agree, expect。後ろに -ing をとる動詞：finish, enjoy, avoid, suggest, consider, mind。",
+    "前置詞の後ろは必ず -ing（for helping, about moving）。look forward to -ing の to も前置詞です。"],
+    ex: [["We decided to hire two more engineers.", "エンジニアをあと2人雇うことにした。"], ["He finished writing the report.", "彼は報告書を書き終えた。"], ["I look forward to working with you.", "一緒に働けるのを楽しみにしています。"]] },
+  { tag: "比較", lv: 2, title: "比較：-er / -est / as 〜 as", body: [
+    "2つを比べるときは比較級（larger, more useful）＋ than。3つ以上の中で一番なら最上級（the largest, the most useful）＋ in / of。",
+    "長い語は more / most をつけます（more expensive）。good → better → best のような不規則な変化もあります。",
+    "比較級を強めるのは much / far / even（much better）。very は使えません。as 〜 as possible（できるだけ〜）は原級のままです。"],
+    ex: [["This printer is faster than the old one.", "このプリンターは古いものより速い。"], ["It is the most popular item in our store.", "当店で一番人気の商品です。"], ["Please arrive as early as possible.", "できるだけ早く到着してください。"]] },
+  { tag: "前置詞・接続詞", lv: 3, title: "前置詞と接続詞の区別", body: [
+    "Part 5 の頻出パターンです。意味が同じでも、後ろに名詞だけが来るなら前置詞、主語＋動詞が来るなら接続詞を選びます。",
+    "〜にもかかわらず：despite / in spite of（前置詞）と although / even though（接続詞）。〜のために：because of / due to（前置詞）と because（接続詞）。〜の間：during（前置詞）と while（接続詞）。",
+    "まず空所の後ろに動詞があるかを見て、次に意味で選ぶと速くて確実です。"],
+    ex: [["Despite the delay, the meeting started on time.", "遅れにもかかわらず、会議は時間どおり始まった。"], ["Although it was late, she kept working.", "遅い時間だったが、彼女は働き続けた。"], ["The road was closed due to the storm.", "嵐のため道路が閉鎖された。"]] },
+  { tag: "分詞", lv: 3, title: "分詞：-ing と過去分詞で名詞を説明する", body: [
+    "動詞の -ing（現在分詞）と過去分詞は、形容詞のように名詞を説明できます。-ing は「〜している・〜させる」、過去分詞は「〜された」。",
+    "感情の語に注意：exciting（わくわくさせる＝物）と excited（わくわくした＝人）、interesting と interested、satisfying と satisfied。",
+    "名詞の後ろに置いて説明することもできます（the man standing there, products made in Japan）。"],
+    ex: [["The results were surprising.", "結果は驚くべきものだった。"], ["We were surprised at the results.", "私たちは結果に驚いた。"], ["Please check the attached file.", "添付ファイルをご確認ください。"]] },
+  { tag: "関係詞", lv: 3, title: "関係代名詞と関係副詞", body: [
+    "関係代名詞は名詞の後ろに文をつなげて、その名詞を詳しく説明します。人なら who、物なら which、どちらにも that が使えます。",
+    "後ろの文で欠けているものを見ます。主語が欠けていれば who / which、目的語が欠けていれば which / that（省略も可）、名詞の前で「その〜の」なら whose。",
+    "後ろの文が欠けずに完全なら関係副詞：場所は where、時は when。what は「〜すること・もの」で先行詞を含みます。"],
+    ex: [["The woman who called you is my boss.", "あなたに電話した女性は私の上司です。"], ["This is the office where I work.", "ここが私の働くオフィスです。"], ["What we need is more time.", "私たちに必要なのはもっと時間だ。"]] },
+  { tag: "語彙", lv: 3, title: "語彙問題の解き方", body: [
+    "選択肢の品詞が同じで意味が違うなら語彙問題です。文全体を読み、意味が通るものを選びます。",
+    "ヒントはセットで使う語（コロケーション）です：meet a deadline（締め切りを守る）、comply with（〜に従う）、be responsible for（〜を担当する）。",
+    "単語の練習で例のフレーズまで音読しておくと、語彙問題が一瞬で解けるようになります。"],
+    ex: [["We must meet the deadline.", "締め切りを守らなければならない。"], ["Please refrain from smoking.", "おたばこはご遠慮ください。"], ["She is responsible for the budget.", "彼女は予算を担当している。"]] },
+  { tag: "一致", lv: 4, title: "主語と動詞の一致", body: [
+    "動詞は主語の数（単数・複数）に合わせます。主語が長いときは中心の名詞を見つけるのがコツです。The list of names is …（中心は list）。",
+    "単数扱い：each, every, either, one of 〜, the number of 〜。複数扱い：a number of 〜（多くの〜）, both A and B。",
+    "either A or B / neither A nor B は、動詞に近い B に合わせます。"],
+    ex: [["Each of the rooms has a balcony.", "どの部屋にもバルコニーがある。"], ["The number of visitors is increasing.", "来訪者の数は増えている。"], ["A number of visitors are waiting.", "多くの来訪者が待っている。"]] },
+  { tag: "仮定法", lv: 5, title: "仮定法と倒置", body: [
+    "事実と違うことを仮定するときは、時制を1つ過去にずらします。今の話なら If I had 〜, I would 〜（仮定法過去）、過去の話なら If I had had 〜, I would have 〜（仮定法過去完了）。",
+    "上級問題では if が省かれて語順が入れかわる形（倒置）が出ます：Should you have any questions（＝If you should have）、Had I known（＝If I had known）。",
+    "It is essential / important that ＋主語＋動詞の原形、や Rarely / Never が文頭に来たときの倒置（Rarely have we seen …）も900点レベルの定番です。"],
+    ex: [["If I were you, I would accept the offer.", "私があなたなら、その申し出を受けるだろう。"], ["Should you need assistance, please call us.", "お手伝いが必要でしたらお電話ください。"], ["Had we known, we would have helped.", "知っていたら手伝ったのに。"]] },
+];
+
+// Part 5：tag|レベル|文（空所は ___）|A|B|C|D|正解(0-3)|解説
+const P5 = `
+品詞|1|Ms. Tanaka is a very ___ teacher.|kind|kindly|kindness|kinds|0|名詞 teacher の前に入るのは形容詞 kind（親切な）。kindly は副詞、kindness は名詞。訳：田中先生はとても親切な先生だ。
+品詞|1|Please speak ___ in the library.|quiet|quietly|quietness|quiets|1|動詞 speak を説明するのは副詞 quietly（静かに）。訳：図書館では静かに話してください。
+品詞|2|The ___ of the new store is next Monday.|open|opened|opening|opens|2|the と of の間には名詞が入る。opening（開店）。訳：新しい店の開店は来週の月曜日だ。
+品詞|2|Our team worked ___ to finish the project on time.|hard|hardly|hardness|hardy|0|work hard で「一生懸命働く」。hard はこの形のまま副詞。hardly は「ほとんど〜ない」で意味が違う。訳：私たちのチームは期限内に終えるため懸命に働いた。
+品詞|3|The manager gave a ___ explanation of the new policy.|clear|clearly|clarity|clearing|0|名詞 explanation の前は形容詞 clear。clearly は副詞、clarity は名詞。訳：部長は新しい方針をわかりやすく説明した。
+品詞|3|Applicants must submit their forms ___ by Friday.|electronic|electronically|electronics|electrician|1|動詞＋目的語（submit their forms）の後ろで動詞を説明するのは副詞。訳：応募者は金曜日までに用紙を電子的に提出しなければならない。
+品詞|3|We are pleased to announce the ___ of our new branch in Osaka.|establish|established|establishment|establishes|2|the と of の間は名詞。establishment（設立）。訳：大阪に新支店を設立したことをお知らせします。
+品詞|4|The new software has ___ reduced the time needed to process orders.|significant|significantly|significance|signify|1|has と過去分詞 reduced の間に入り、動詞を説明するのは副詞。訳：新しいソフトは注文処理にかかる時間を大幅に減らした。
+品詞|4|Ms. Lee is known for her ___ to detail.|attentive|attention|attend|attentively|1|所有格 her の後ろは名詞。attention to detail（細部への注意）。訳：リーさんは細部に気を配ることで知られている。
+品詞|4|All employees are required to attend a ___ safety training session.|mandate|mandatory|mandatorily|mandates|1|冠詞 a と名詞の間に入るのは形容詞 mandatory（必須の）。訳：全従業員は必須の安全研修に出席しなければならない。
+品詞|5|The board was ___ impressed by the proposal's focus on cost control.|favorable|favorably|favor|favored|1|be動詞と過去分詞 impressed の間で impressed を説明するのは副詞 favorably（好意的に）。訳：取締役会は、コスト管理を重視した提案に好印象を持った。
+品詞|5|Due to ___ demand, the exhibition has been extended for two more weeks.|overwhelm|overwhelming|overwhelmingly|overwhelms|1|名詞 demand を説明する形容詞 overwhelming（圧倒的な）。訳：圧倒的な需要のため、展示会はさらに2週間延長された。
+be動詞|1|My brother ___ a doctor.|is|are|am|be|0|主語 My brother は3人称単数なので is。訳：私の兄は医者だ。
+be動詞|1|They ___ in the meeting room now.|is|am|are|be|2|主語 They には are。訳：彼らは今、会議室にいる。
+be動詞|1|Mr. Sato ___ to work by train every day.|go|goes|going|is go|1|主語が3人称単数で現在の習慣なので goes。be動詞と一般動詞は並べない（is go は誤り）。訳：佐藤さんは毎日電車で通勤している。
+be動詞|1|___ you busy this afternoon?|Do|Are|Is|Does|1|busy（形容詞）の文は be動詞で疑問文を作る。主語 you なので Are。訳：今日の午後は忙しいですか。
+be動詞|1|She ___ not like coffee.|is|does|do|are|1|like は一般動詞なので否定は does not。主語 She は3人称単数。訳：彼女はコーヒーが好きではない。
+be動詞|1|The store ___ closed on Sundays.|is|does|do|are|0|closed（閉まっている）は形容詞の働きなので be動詞。主語は単数なので is。訳：その店は日曜日は閉まっている。
+時制|1|I ___ to Kyoto last week.|go|went|will go|goes|1|last week（先週）は過去なので過去形 went。訳：私は先週、京都へ行った。
+時制|1|We ___ a meeting tomorrow morning.|had|have had|will have|has|2|tomorrow（明日）は未来なので will have。訳：明日の朝、会議がある。
+時制|1|She usually ___ lunch at noon.|eat|eats|ate|eating|1|usually（ふだん）は現在の習慣。主語 She は3人称単数なので eats。訳：彼女はふだん正午に昼食をとる。
+時制|2|The train ___ when we arrived at the station.|is leaving|has already left|had already left|leaves|2|「着いた（過去）」ときにはもう出ていた。過去より前のことは過去完了 had left。訳：私たちが駅に着いたとき、電車はすでに出ていた。
+時制|2|Mr. Kim ___ for this company since 2015.|works|worked|has worked|will work|2|since 2015（2015年から今まで）は現在完了 has worked。訳：キムさんは2015年からこの会社で働いている。
+時制|3|By the time the conference begins, we ___ all the materials.|prepare|prepared|will have prepared|have been preparing|2|By the time ＋現在形（未来の時点）までに完了していること → 未来完了。訳：会議が始まるまでに、資料はすべて準備し終えているだろう。
+時制|3|The marketing team ___ the results of the survey next Tuesday.|announced|will announce|has announced|announcing|1|next Tuesday（来週の火曜日）は未来。訳：マーケティングチームは来週火曜日に調査結果を発表する。
+時制|3|If it ___ tomorrow, the outdoor event will be moved indoors.|rains|will rain|rained|raining|0|時・条件を表す if 節では、未来のことでも現在形を使う。訳：明日雨が降ったら、屋外イベントは屋内に移される。
+時制|4|Ms. Rivera ___ the sales department for three years before she was promoted.|has managed|had managed|manages|will manage|1|昇進した（過去）より前の3年間 → 過去完了 had managed。訳：リベラさんは昇進する前、3年間営業部を管理していた。
+代名詞|1|This is ___ new office.|we|our|us|ours|1|名詞 office の前は所有格 our。訳：ここが私たちの新しいオフィスだ。
+代名詞|1|Please call ___ tomorrow.|I|my|me|mine|2|動詞 call の目的語は目的格 me。訳：明日、私に電話してください。
+代名詞|1|That bag is not mine. It is ___.|her|hers|she|herself|1|「彼女のもの」は所有代名詞 hers。訳：あのかばんは私のではない。彼女のものだ。
+代名詞|2|Mr. Brown repaired the printer ___.|him|his|himself|he|2|「自分で」は再帰代名詞 himself。訳：ブラウンさんは自分でプリンターを修理した。
+代名詞|3|Employees who wish to attend the seminar should register ___ names by Friday.|they|their|them|theirs|1|名詞 names の前は所有格 their。訳：セミナーに出たい従業員は金曜日までに名前を登録すること。
+代名詞|3|The two companies agreed to share ___ research data.|its|their|them|theirs|1|主語 The two companies は複数なので their。訳：2社は研究データを共有することで合意した。
+代名詞|4|Ms. Park prefers to review the contracts ___ rather than ask her assistant.|her|hers|herself|she|2|「自分自身で」は herself。訳：パクさんは助手に頼むより、自分で契約書を確認するほうを好む。
+前置詞|1|The meeting starts ___ 10 o'clock.|at|on|in|for|0|時刻の前は at。訳：会議は10時に始まる。
+前置詞|1|The store is closed ___ Sunday.|in|at|on|by|2|曜日の前は on。訳：その店は日曜日が休みだ。
+前置詞|1|I was born ___ 1995.|on|in|at|to|1|年の前は in。訳：私は1995年に生まれた。
+前置詞|2|Please submit the report ___ Friday.|by|until|since|during|0|「〜までに」（期限）は by。until は「〜までずっと」。訳：金曜日までに報告書を提出してください。
+前置詞|2|The office will be closed ___ the holidays.|while|during|between|since|1|名詞 the holidays の前で「〜の間」は前置詞 during。while は接続詞で、後ろに主語と動詞が来る。訳：休暇中、事務所は閉まる。
+前置詞|2|Our store is located ___ the bank and the post office.|among|between|through|across|1|「AとBの間」は between A and B。訳：当店は銀行と郵便局の間にある。
+前置詞|3|The museum is open daily ___ 9 A.M. to 5 P.M.|from|since|at|between|0|from A to B（AからBまで）。between なら and を使う。訳：美術館は毎日午前9時から午後5時まで開いている。
+前置詞|3|Customers can return items ___ 30 days of purchase.|within|during|by|until|0|「〜以内に」は within。訳：お客様は購入から30日以内なら返品できる。
+助動詞|2|You ___ wear a helmet in the factory.|must|can't|would|may not|0|安全のための決まりなので must（〜しなければならない）。訳：工場ではヘルメットを着用しなければならない。
+助動詞|2|___ I use your phone?|May|Must|Have|Will|0|許可を求めるのは May I 〜?（〜してもいいですか）。訳：電話をお借りしてもいいですか。
+助動詞|2|Mr. Lopez ___ speak three languages.|can|cans|can to|is can|0|助動詞の後ろは動詞の原形。助動詞の形は変わらない（cans, can to は誤り）。訳：ロペスさんは3か国語を話せる。
+助動詞|2|You ___ to bring your ID card tomorrow.|must|have|should|can|1|have to ＋動詞の原形で「〜しなければならない」。must や should の後ろに to は来ない。訳：明日は身分証を持ってくる必要がある。
+助動詞|3|Visitors ___ not park in the spaces reserved for staff.|should|have|has|are|0|後ろが not park（原形）なので助動詞 should。訳：来客は職員用の駐車スペースにとめないでください。
+完了形|2|I have ___ finished my report.|already|yet|ever|since|0|現在完了の肯定文で「もう〜した」は already。yet は否定文・疑問文で使う。訳：私はもう報告書を書き終えた。
+完了形|2|Have you ___ been to Canada?|ever|already|yet|never|0|経験をたずねるのは Have you ever 〜?。訳：カナダに行ったことはありますか。
+完了形|2|She is ___ a presentation right now.|give|giving|gave|given|1|is ＋ -ing で「今〜している」（進行形）。訳：彼女はちょうど今、発表をしているところだ。
+完了形|3|The company has ___ its profits every year since 2020.|increase|increased|increasing|increases|1|has ＋過去分詞で現在完了。訳：その会社は2020年から毎年利益を伸ばしてきた。
+完了形|3|We ___ the new system for six months, and it works well.|use|are used|have been using|had used|2|6か月前から今までずっと使っている → 現在完了進行形。訳：新システムを6か月使っていて、うまく動いている。
+受動態|2|This bridge ___ in 1990.|built|was built|is building|builds|1|橋は「建てられた」→ 受動態 was built。訳：この橋は1990年に建てられた。
+受動態|2|English ___ in many countries.|speaks|is spoken|is speaking|spoke|1|英語は「話される」→ is spoken。訳：英語は多くの国で話されている。
+受動態|3|All visitors are ___ to sign in at the front desk.|require|required|requiring|requirement|1|be required to 〜（〜するよう求められる）。訳：来訪者は全員、受付で記帳する必要がある。
+受動態|3|The package will ___ to your home within three days.|deliver|be delivered|delivering|be delivering|1|荷物は「配達される」→ will be delivered。訳：荷物は3日以内にご自宅に届けられる。
+受動態|4|The annual report ___ by the accounting department at the moment.|is reviewing|is being reviewed|reviews|has reviewed|1|「今まさに確認されているところ」→ 進行形の受動態 is being reviewed。訳：年次報告書は今、経理部が確認しているところだ。
+受動態|4|Ms. Chen ___ the employee of the year award last month for her excellent work.|was given|gave|was giving|has given|0|彼女は賞を「与えられた」→ 受動態 was given。目的語（award）が残る形の受動態。訳：チェンさんは優れた働きにより、先月年間最優秀社員賞を贈られた。
+不定詞・動名詞|2|I want ___ a new car.|buy|to buy|buying|bought|1|want の後ろは to 不定詞。want to 〜（〜したい）。訳：新しい車を買いたい。
+不定詞・動名詞|2|Thank you for ___ me.|help|to help|helping|helped|2|前置詞 for の後ろは動名詞（-ing）。訳：手伝ってくれてありがとう。
+不定詞・動名詞|3|Mr. Hall finished ___ the documents before lunch.|check|to check|checking|checked|2|finish の後ろは動名詞。finish -ing（〜し終える）。訳：ホールさんは昼食前に書類の確認を終えた。
+不定詞・動名詞|3|The company decided ___ a new factory in Vietnam.|to open|opening|open|opened|0|decide の後ろは to 不定詞。訳：その会社はベトナムに新工場を開くことに決めた。
+不定詞・動名詞|4|We look forward to ___ you at the conference.|see|seeing|seen|be seen|1|look forward to の to は前置詞なので後ろは動名詞。訳：会議でお会いできるのを楽しみにしています。
+不定詞・動名詞|4|Ms. Ito suggested ___ the meeting until next week.|postpone|to postpone|postponing|postponed|2|suggest の後ろは動名詞（to 不定詞は不可）。訳：伊藤さんは会議を来週まで延期することを提案した。
+不定詞・動名詞|5|The new policy is designed ___ costs without reducing quality.|to lower|lowering|lowered|lowers|0|be designed to 〜（〜するために作られている）。訳：新方針は、質を落とさずにコストを下げるためのものだ。
+比較|2|This room is ___ than that one.|large|larger|largest|more large|1|than があるので比較級 larger。訳：この部屋はあの部屋より広い。
+比較|2|Mt. Fuji is the ___ mountain in Japan.|high|higher|highest|more high|2|the ＋最上級＋ in 〜（〜で一番…）。訳：富士山は日本で一番高い山だ。
+比較|3|The new model is ___ more efficient than the old one.|very|much|many|so|1|比較級を強めるのは much（ずっと）。very は比較級を強められない。訳：新モデルは旧モデルよりずっと効率がよい。
+比較|3|Please reply as ___ as possible.|soon|sooner|soonest|more soon|0|as 〜 as possible（できるだけ〜）は原級。訳：できるだけ早く返信してください。
+比較|4|This year's sales were ___ than expected.|high|higher|highest|highly|1|than があるので比較級 higher。訳：今年の売上は予想より多かった。
+比較|4|Of the three proposals, Mr. Grant's was the ___ detailed.|more|most|much|very|1|3つの中で一番 → 最上級 the most。訳：3つの提案のうち、グラントさんのものが最も詳しかった。
+前置詞・接続詞|3|___ the bad weather, the event was held as planned.|Although|Despite|Because|Even if|1|後ろが名詞（the bad weather）だけなので前置詞 Despite。Although は接続詞で、主語＋動詞が続く。訳：悪天候にもかかわらず、イベントは予定どおり行われた。
+前置詞・接続詞|3|___ it was raining, the event was held as planned.|Despite|Although|Because of|In spite of|1|後ろに主語＋動詞（it was raining）があるので接続詞 Although。訳：雨が降っていたが、イベントは予定どおり行われた。
+前置詞・接続詞|3|The flight was delayed ___ heavy snow.|because|because of|so|although|1|後ろが名詞なので前置詞句 because of。訳：大雪のため飛行機が遅れた。
+前置詞・接続詞|4|Please wait in the lobby ___ your name is called.|until|by|during|for|0|後ろが主語＋動詞なので接続詞 until（〜するまで）。by と during は前置詞。訳：名前が呼ばれるまでロビーでお待ちください。
+前置詞・接続詞|4|___ you have any questions, please contact our support team.|If|Unless|Despite|During|0|「もし質問があれば」→ If。Unless だと「質問がない限り」となり意味が合わない。訳：ご質問があればサポートチームにご連絡ください。
+前置詞・接続詞|4|___ his lack of experience, Mr. Ford was hired because of his strong skills.|Although|Despite|Unless|Whereas|1|後ろが名詞句なので前置詞 Despite。訳：経験不足にもかかわらず、フォードさんは高い技能を評価されて採用された。
+前置詞・接続詞|5|___ the renovation is complete, the lobby will remain closed.|Until|Once|During|Despite|0|「改装が終わるまで閉鎖されたまま」→ Until。Once（〜したら）では意味が合わず、During と Despite は前置詞。訳：改装が終わるまで、ロビーは閉鎖される。
+前置詞・接続詞|5|The seminar was canceled ___ a lack of registrations.|owing to|so that|even though|as if|0|後ろが名詞句なので前置詞句 owing to（〜のために）。ほかは接続詞。訳：申込者不足のため、セミナーは中止になった。
+前置詞・接続詞|5|Employees may work from home ___ they complete their tasks on time.|as long as|in case of|regardless of|due to|0|後ろに主語＋動詞があるので接続詞 as long as（〜する限り）。ほかは前置詞句。訳：期限どおりに仕事を終える限り、在宅勤務をしてよい。
+前置詞・接続詞|6|___ having limited funding, the research team made remarkable progress.|Although|Despite|Even though|Whereas|1|動名詞 having の前に置けるのは前置詞 Despite。ほかは接続詞で主語＋動詞が必要。訳：資金が限られていたにもかかわらず、研究チームはめざましい進歩を遂げた。
+分詞|3|The movie was very ___.|excite|exciting|excited|excitement|1|映画が人を「わくわくさせる」→ exciting。excited は人が「わくわくした」。訳：その映画はとてもわくわくするものだった。
+分詞|3|We were ___ with the hotel's service.|satisfy|satisfying|satisfied|satisfaction|2|人が「満足させられた」→ satisfied。訳：私たちはホテルのサービスに満足した。
+分詞|4|The man ___ next to Ms. Wong is our new director.|stand|standing|stood|stands|1|「ウォンさんの隣に立っている男性」→ 現在分詞 standing が後ろから名詞を説明。訳：ウォンさんの隣に立っている男性が新しい部長だ。
+分詞|4|Please read the ___ document before the meeting.|attach|attaching|attached|attachment|2|書類は「添付された」→ 過去分詞 attached。訳：会議の前に添付の書類を読んでください。
+分詞|5|___ in 1920, the hotel is one of the oldest buildings in the city.|Build|Building|Built|To build|2|ホテルは「建てられた」→ 受け身の意味の分詞構文は過去分詞 Built。訳：1920年に建てられたそのホテルは、市内で最も古い建物の1つだ。
+分詞|5|Products ___ during the sale cannot be exchanged.|purchase|purchasing|purchased|purchases|2|製品は「購入される」側 → 過去分詞 purchased が後ろから説明。訳：セール中に購入された商品は交換できない。
+関係詞|3|I have a friend ___ lives in London.|who|which|whose|where|0|先行詞が人（a friend）で、後ろに主語がない → 主格の who。訳：ロンドンに住んでいる友人がいる。
+関係詞|3|This is the book ___ I bought yesterday.|who|which|where|whose|1|先行詞が物で、bought の目的語が欠けている → which。訳：これは昨日買った本だ。
+関係詞|4|The hotel ___ we stayed was near the beach.|which|where|who|what|1|stayed の後ろで欠けているのは場所。文としては完全なので関係副詞 where。訳：私たちが泊まったホテルは海辺の近くだった。
+関係詞|4|We are looking for a candidate ___ experience includes project management.|who|whose|which|whom|1|名詞 experience の前で「その人の」→ 所有格 whose。訳：プロジェクト管理の経験がある候補者を探している。
+関係詞|5|___ wins the contest will receive a free trip to Hawaii.|Whoever|Whatever|Whichever|However|0|「〜する人は誰でも」で文の主語になる → Whoever。訳：コンテストで優勝した人はハワイ旅行を無料でもらえる。
+関係詞|5|The report clearly shows ___ the company needs to fix first.|what|which|who|that|0|shows の目的語で、fix の目的語も欠けている → 先行詞を含む what（〜こと）。訳：報告書は、会社がまず直すべきことをはっきり示している。
+語彙|3|Please ___ the attached form and return it by Friday.|complete|attend|arrive|happen|0|form を目的語にとって「用紙に記入する」は complete。訳：添付の用紙に記入し、金曜日までに返送してください。
+語彙|3|The hotel offers ___ breakfast to all guests.|complimentary|punctual|confident|frequent|0|「無料の朝食」は complimentary breakfast。訳：ホテルは全宿泊客に無料の朝食を出している。
+語彙|3|We need to ___ a meeting room for Thursday.|reserve|deserve|preserve|observe|0|会議室を「予約する」は reserve。形の似た語に注意。訳：木曜日の会議室を予約する必要がある。
+語彙|3|Our new product will be ___ next month.|launched|lunched|landed|lent|0|新製品を「発売する」は launch。訳：新製品は来月発売される。
+語彙|4|The deadline for the project has been ___ to May 30.|extended|expanded|exceeded|expected|0|締め切りを「延長する」は extend。expand は規模を広げること。訳：プロジェクトの締め切りは5月30日まで延長された。
+語彙|4|Ms. Ortiz is ___ for training new employees.|responsible|reliable|reasonable|respective|0|be responsible for 〜（〜を担当している）。訳：オルティスさんは新入社員の研修を担当している。
+語彙|4|All employees must ___ with the new safety regulations.|comply|obey|follow|observe|0|後ろに with があるのは comply（comply with 〜に従う）。obey, follow, observe は with をとらない。訳：全従業員は新しい安全規則に従わなければならない。
+語彙|4|The store will offer a 20 percent ___ on all items this weekend.|discount|account|amount|count|0|「20%引き」は a 20 percent discount。訳：その店は今週末、全商品を20%引きにする。
+語彙|5|The company plans to ___ its operations into two new markets next year.|expand|explain|exceed|expire|0|事業を新しい市場へ「拡大する」は expand A into B。訳：その会社は来年、事業を2つの新市場に広げる予定だ。
+語彙|5|The new manager quickly established a good ___ with her team.|rapport|report|support|resort|0|「〜とよい信頼関係を築く」は establish a good rapport with 〜。訳：新しい部長はすぐにチームとよい信頼関係を築いた。
+語彙|5|Due to ___ weather, the outdoor concert has been postponed.|inclement|incumbent|inaugural|indispensable|0|「荒天」は inclement weather。訳：悪天候のため、野外コンサートは延期された。
+語彙|6|Salary will be ___ with experience and qualifications.|commensurate|competent|complacent|compulsory|0|be commensurate with 〜（〜に見合った）。訳：給与は経験と資格に見合った額となる。
+語彙|6|The CEO's speech ___ the importance of customer satisfaction.|underscored|undertook|underwent|underpaid|0|「重要性を強調した」→ underscore。undertake は引き受ける、undergo は経験する。訳：CEOの演説は顧客満足の重要性を強調した。
+語彙|6|Please ___ from using mobile phones during the performance.|refrain|restrain|prevent|avoid|0|後ろに from が続き「〜を控える」は refrain from。avoid なら avoid using で from は不要。訳：公演中は携帯電話のご使用をお控えください。
+一致|4|The list of participants ___ been sent to all managers.|has|have|having|are|0|主語の中心は The list（単数）なので has。of participants にまどわされない。訳：参加者名簿は全部長に送られた。
+一致|4|Each of the rooms ___ a view of the ocean.|have|has|having|are having|1|Each of 〜 は単数扱いなので has。訳：どの部屋からも海が見える。
+一致|5|Neither the manager nor the employees ___ aware of the change.|was|were|is|has been|1|neither A nor B は B（the employees＝複数）に合わせて were。訳：部長も従業員もその変更を知らなかった。
+一致|5|A number of customers ___ complained about the delay.|has|have|is|was|1|a number of 〜（多くの〜）は複数扱いなので have。訳：多くの客が遅延について苦情を言った。
+仮定法|5|If I ___ more time, I would travel around the world.|have|had|will have|would have|1|今の事実と違う仮定は過去形（仮定法過去）。訳：もっと時間があれば世界中を旅するのに。
+仮定法|5|If we had left earlier, we ___ the train.|would catch|would have caught|will catch|caught|1|過去の事実と違う仮定（had left）には would have ＋過去分詞（仮定法過去完了）。訳：もっと早く出ていれば電車に間に合ったのに。
+仮定法|6|___ you have any questions, please do not hesitate to contact us.|Should|Would|Had|Were|0|If you should have 〜 の if を省いた倒置 Should you have 〜。訳：ご質問があれば、ご遠慮なくお問い合わせください。
+仮定法|6|___ the weather been better, the event would have attracted more visitors.|If|Had|Were|Should|1|If the weather had been 〜 の倒置 Had the weather been 〜。訳：天気がもっとよければ、イベントにはもっと人が集まっただろう。
+仮定法|6|It is essential that every employee ___ the training by June 30.|complete|completes|completed|completing|0|essential / important that 〜 の that 節では動詞の原形（仮定法現在）。訳：全従業員が6月30日までに研修を修了することが不可欠だ。
+仮定法|6|Rarely ___ such strong demand for a new product.|we have seen|have we seen|we saw|seen we have|1|否定の副詞 Rarely が文頭に来ると倒置（have we seen）になる。訳：新製品にこれほど強い需要があるのはめったに見たことがない。
+`;
+
+// Part 2：レベル|質問|応答1|応答2|応答3|正解(0-2)|訳と解き方（選択肢の順番は出題時に入れかわる）
+const P2 = `
+1|Where is the station?|It's next to the bank.|At three o'clock.|Yes, it is.|0|駅はどこですか。→ 銀行の隣です。Where には場所で答える。
+1|What time does the store open?|At nine o'clock.|In the shopping mall.|I bought some milk.|0|店は何時に開きますか。→ 9時です。
+1|Who is your teacher?|Ms. Brown is.|In Room 5.|Every Monday.|0|あなたの先生は誰ですか。→ ブラウン先生です。Who には人で答える。
+1|How are you today?|I'm fine, thank you.|By bus.|It's ten dollars.|0|今日の調子はどうですか。→ 元気です、ありがとう。
+1|Is this your bag?|Yes, it's mine.|It's on the table.|I'd like a new one.|0|これはあなたのかばんですか。→ はい、私のものです。
+1|When is the meeting?|On Friday afternoon.|In the conference room.|Mr. Lee will.|0|会議はいつですか。→ 金曜日の午後です。When には時で答える。
+1|How much is this shirt?|It's twenty dollars.|It's blue.|Size medium.|0|このシャツはいくらですか。→ 20ドルです。
+1|Do you like coffee?|Yes, very much.|At the cafe.|Two sugars.|0|コーヒーは好きですか。→ はい、とても。
+2|Why was the train late?|Because of the heavy snow.|At platform 4.|It leaves at six.|0|なぜ電車は遅れたのですか。→ 大雪のためです。
+2|Could you help me carry these boxes?|Sure, where do they go?|Yes, they're heavy boxes.|I bought them yesterday.|0|この箱を運ぶのを手伝ってもらえますか。→ いいですよ、どこに運びますか。質問の語（boxes）をくり返す選択肢はひっかけが多い。
+2|Would you like some tea?|Yes, please.|I'd like to go.|No, it's Tuesday.|0|お茶はいかがですか。→ はい、お願いします。
+2|Which bus goes to the airport?|The number 15.|About thirty minutes.|At the airport.|0|どのバスが空港に行きますか。→ 15番です。同じ語（airport）を使った選択肢に注意。
+2|Who's in charge of the new project?|Mr. Tanaka is.|It's a new project.|Next month.|0|新しいプロジェクトの担当は誰ですか。→ 田中さんです。
+2|How long does it take to get there?|About twenty minutes by car.|It's very long.|Turn left at the corner.|0|そこへ行くのにどれくらいかかりますか。→ 車で約20分です。
+2|Have you finished the report?|Almost. I'll send it soon.|Yes, a long report.|He reported it.|0|報告書は終わりましたか。→ もうすぐです。すぐ送ります。
+2|Where should I put these files?|On my desk, please.|They're important files.|Yesterday morning.|0|これらのファイルはどこに置けばいいですか。→ 私の机の上にお願いします。
+3|When will the new manager start?|Not until next month.|At the main office.|She's very experienced.|0|新しい部長はいつから来ますか。→ 来月になってからです。
+3|Why don't we take a break?|Good idea. I'm tired.|Because it's broken.|I didn't take it.|0|休憩しませんか。→ いいですね、疲れました。Why don't we 〜? は理由ではなく提案。
+3|Do you know where the meeting room is?|It's on the third floor.|Yes, I know the meeting.|At two o'clock.|0|会議室がどこか知っていますか。→ 3階です。Do you know where 〜? には場所で答えるのが自然。
+3|Should I call the client now or later?|Now would be better.|She called yesterday.|Yes, you should.|0|今、顧客に電話すべきですか、後にすべきですか。→ 今のほうがいいでしょう。A or B の質問に Yes/No では答えない。
+3|The printer isn't working again.|I'll call the repair service.|I printed it this morning.|It works for a company.|0|プリンターがまた動きません。→ 修理業者に電話します。質問でない文には対応を答える。
+3|How did the presentation go?|Very well, thanks.|It goes to Room B.|By train.|0|発表はどうでしたか。→ とてもうまくいきました。
+3|Isn't the store open on Sundays?|Only in the afternoon.|I didn't buy anything.|It's next to the bank.|0|その店は日曜日は開いていないのですか。→ 午後だけ開いています。
+3|Who should I give this invoice to?|The accounting department handles that.|I gave it a try.|By next Friday.|0|この請求書は誰に渡せばいいですか。→ 経理部が担当しています。人名でなく部署で答える型。
+3|Can I park my car here?|Only for fifteen minutes.|It's a new car.|The park is near here.|0|ここに車をとめてもいいですか。→ 15分だけなら。似た音（park）のひっかけに注意。
+3|What did you think of the new design?|I liked the colors.|I'll design it.|About an hour ago.|0|新しいデザインをどう思いましたか。→ 色が気に入りました。
+4|When is the shipment expected to arrive?|It should be here by Thursday.|To the warehouse.|We shipped it ourselves.|0|荷物はいつ届く予定ですか。→ 木曜日までには届くはずです。
+4|Why hasn't the budget been approved yet?|The director is still reviewing it.|About fifty thousand dollars.|Yes, I approve.|0|なぜ予算はまだ承認されていないのですか。→ 部長がまだ検討中です。
+4|Would you mind closing the window?|Not at all.|Yes, it's closed on Mondays.|I don't mind the rain.|0|窓を閉めていただけますか。→ いいですよ。Would you mind 〜? に「かまわない」と答えるのは Not at all。
+4|Where can I find the instruction manual?|It's in the top drawer.|Follow the instructions.|I found it interesting.|0|取扱説明書はどこにありますか。→ 一番上の引き出しです。
+4|Has the conference room been reserved?|I'll check the schedule.|It's a large room.|Yes, the conference was great.|0|会議室は予約されていますか。→ 予定表を確認します。「確認します」「わかりません」も正解になる。
+4|Are you going to the trade show or staying here?|I haven't decided yet.|Yes, it was a great show.|At the convention center.|0|見本市に行きますか、ここに残りますか。→ まだ決めていません。
+4|How often is the equipment inspected?|Every three months.|For about an hour.|By a technician.|0|機器はどのくらいの頻度で点検されますか。→ 3か月ごとです。How often は頻度。
+4|We're running out of paper.|I placed an order this morning.|It's on the paper.|He runs every day.|0|紙がなくなりそうです。→ 今朝、注文しておきました。
+4|Who will be leading the training session?|It hasn't been decided yet.|In the training room.|For new employees.|0|研修は誰が担当しますか。→ まだ決まっていません。
+4|Didn't you receive my e-mail?|Sorry, I haven't checked my inbox.|Yes, I sent it.|The mail carrier comes at noon.|0|私のメールを受け取っていませんか。→ すみません、受信箱を見ていません。
+5|Do you want me to forward the report to the client?|Let's wait until it's been revised.|It's a quarterly report.|I'll go forward.|0|報告書を顧客に転送しましょうか。→ 修正されるまで待ちましょう。
+5|Why don't you ask Ms. Kim for help with the spreadsheet?|She's out of the office this week.|Because it's a spreadsheet.|Yes, she asked me.|0|表計算のことでキムさんに助けてもらっては。→ 彼女は今週不在です。できない理由を答える間接的な応答。
+5|The quarterly figures look better than expected.|The new marketing campaign must have helped.|It's a quarter past ten.|I expected you earlier.|0|四半期の数字は予想よりよいですね。→ 新しい販促キャンペーンが効いたのでしょう。
+5|How soon can you get the estimate to us?|By the end of the day.|It's an accurate estimate.|We got it from the supplier.|0|見積もりはいつまでにもらえますか。→ 今日中に。How soon は「どのくらい早く」。
+5|Isn't Mr. Patel supposed to be leading this meeting?|His flight was delayed.|Yes, the meeting room is ready.|He's a good leader.|0|パテルさんがこの会議を進行するはずでは。→ 彼の便が遅れたのです。
+5|Should we hire a temporary worker or ask the current staff to work overtime?|The budget won't cover overtime.|She works temporarily.|We hired him last year.|0|臨時職員を雇うか、今の職員に残業を頼むか。→ 残業代は予算でまかなえません（だから臨時職員を）。
+6|I can't believe the merger was called off.|The terms just weren't favorable.|We merged onto the highway.|Please call me back.|0|合併が中止になったなんて信じられません。→ 条件がよくなかったんですよ。
+6|Whose turn is it to update the client database?|Check the rotation chart on the wall.|It turns left here.|The data is updated.|0|顧客データベースの更新は誰の番ですか。→ 壁の当番表を見てください。
+6|Will the renovation be finished before the inspection?|That depends on the contractor.|The inspector was satisfied.|It's a big renovation.|0|改装は検査の前に終わりますか。→ 業者次第です。
+`;
+
+// Part 3・4：W は女性、M は男性の声で読む。kind: conv 会話 / talk 説明文。a は c の正解番号
+const P34 = [
+  { lv: 1, kind: "conv", lines: [["W", "Hi. I'd like a coffee, please."], ["M", "Sure. Small or large?"], ["W", "Large, please. How much is it?"], ["M", "It's three dollars. Would you like anything else?"], ["W", "No, thank you."]],
+    ja: "女性がコーヒーのLサイズを注文し、店員が3ドルだと伝える会話。",
+    qs: [{ q: "Where are the speakers?", c: ["At a coffee shop", "At a bank", "At a hotel", "At a train station"], a: 0, ex: "コーヒーを注文しているので、コーヒー店。" },
+      { q: "What size does the woman want?", c: ["Small", "Medium", "Large", "Extra large"], a: 2, ex: "Large, please. と言っている。" },
+      { q: "How much is the coffee?", c: ["Two dollars", "Three dollars", "Four dollars", "Thirteen dollars"], a: 1, ex: "It's three dollars. と言っている。three と thirteen の聞き分けに注意。" }] },
+  { lv: 2, kind: "conv", lines: [["M", "Hi, Lisa. Is the sales meeting still at two o'clock?"], ["W", "No, it was moved to four. Mr. Green has a client visit this afternoon."], ["M", "I see. Is it still in Room B?"], ["W", "Yes, same room. Can you bring the sales report?"], ["M", "Sure, I'll print it now."]],
+    ja: "営業会議はグリーンさんの顧客訪問のため4時に変更。場所はB室のまま。男性が報告書を印刷する。",
+    qs: [{ q: "What time is the meeting now?", c: ["At two o'clock", "At three o'clock", "At four o'clock", "At five o'clock"], a: 2, ex: "it was moved to four（4時に変更された）。" },
+      { q: "Why was the meeting moved?", c: ["Room B is not available.", "Mr. Green has a client visit.", "The report is not ready.", "The woman is sick."], a: 1, ex: "Mr. Green has a client visit this afternoon. が理由。" },
+      { q: "What will the man do next?", c: ["Call Mr. Green", "Visit a client", "Print a report", "Reserve a room"], a: 2, ex: "I'll print it now.（今、印刷します）。最後のせりふは「次に何をするか」のヒント。" }] },
+  { lv: 2, kind: "talk", lines: [["M", "Attention, shoppers."], ["M", "Today only, all shoes on the second floor are thirty percent off."], ["M", "Please note that our store will close at eight o'clock tonight, one hour earlier than usual."], ["M", "Thank you for shopping with us."]],
+    ja: "本日限り、2階の靴が全品30%引き。今夜はいつもより1時間早い8時に閉店する。",
+    qs: [{ q: "Where is the announcement being made?", c: ["In a store", "At an airport", "In a library", "On a train"], a: 0, ex: "Attention, shoppers.（お買い物中のみなさま）から店内放送とわかる。" },
+      { q: "What is on sale?", c: ["Bags", "Shoes", "Coats", "Watches"], a: 1, ex: "all shoes on the second floor are thirty percent off" },
+      { q: "What is different about today?", c: ["The store will open late.", "The store will close early.", "The second floor is closed.", "Parking is free."], a: 1, ex: "one hour earlier than usual（いつもより1時間早く）閉店する。" }] },
+  { lv: 3, kind: "conv", lines: [["W", "Hello, this is Karen Diaz from Lakeside Dental. We ordered printer ink from you last week, but it hasn't arrived yet."], ["M", "I'm sorry about that, Ms. Diaz. Let me check. It looks like the shipment was delayed because of the snowstorm."], ["W", "We really need it by Friday. We're printing forms for our patients."], ["M", "I can send a new box by express delivery at no extra charge. It'll arrive tomorrow."], ["W", "That would be great. Thank you."]],
+    ja: "歯科医院のディアスさんが、届かないインクについて電話。雪嵐で遅れていたため、男性が追加料金なしの速達で翌日届けると申し出る。",
+    qs: [{ q: "Why is the woman calling?", c: ["To place a new order", "To report a late delivery", "To cancel an appointment", "To ask about prices"], a: 1, ex: "注文したインクがまだ届かない、と連絡している。" },
+      { q: "What caused the delay?", c: ["A wrong address", "A snowstorm", "A computer problem", "A holiday"], a: 1, ex: "because of the snowstorm（雪嵐のため）。" },
+      { q: "What does the man offer to do?", c: ["Give a refund", "Send an item by express delivery for free", "Call the delivery company", "Visit the dental office"], a: 1, ex: "at no extra charge（追加料金なしで）→ for free の言い換え。" }] },
+  { lv: 3, kind: "talk", lines: [["W", "Hi, Mr. Wilson. This is Amy from Parkview Apartments."], ["W", "I'm calling about the apartment you visited on Saturday."], ["W", "The owner has agreed to lower the rent to twelve hundred dollars a month."], ["W", "If you're still interested, please call me back by Wednesday so I can prepare the lease."], ["W", "My number is 555-0182."]],
+    ja: "不動産のエイミーからの留守電。オーナーが家賃を月1,200ドルに下げることに同意した。興味があれば、契約書を準備するので水曜日までに折り返し電話がほしい。",
+    qs: [{ q: "Who most likely is the speaker?", c: ["A real estate agent", "A bank clerk", "A building inspector", "A moving company worker"], a: 0, ex: "内見したアパートや賃貸契約（lease）の話なので不動産業者。" },
+      { q: "What has changed?", c: ["The move-in date", "The rent", "The size of the apartment", "The parking fee"], a: 1, ex: "lower the rent（家賃を下げる）。" },
+      { q: "What is the listener asked to do by Wednesday?", c: ["Sign the lease", "Visit the apartment again", "Return the call", "Pay a deposit"], a: 2, ex: "call me back → return the call の言い換え。" }] },
+  { lv: 4, kind: "conv", lines: [["M", "Jenna, have you had a chance to look at the résumés for the marketing position?"], ["W", "Yes. I think two of the candidates are very strong. Both have experience with social media campaigns."], ["M", "Great. Can you set up interviews with them for next week?"], ["W", "Sure. But I'm out of the office on Monday and Tuesday for the trade show in Chicago."], ["M", "Then let's do them on Thursday. I'll ask Robert to join us, since the new hire will be on his team."]],
+    ja: "マーケティング職の有力候補2人の面接を木曜日に設定。女性は月・火にシカゴの見本市で不在。採用者はロバートのチームに入るので彼も同席する。",
+    qs: [{ q: "What are the speakers discussing?", c: ["Filling a job opening", "Planning a trade show", "Launching a product", "Changing an office layout"], a: 0, ex: "マーケティング職の履歴書と面接の話 → 求人を埋めること。" },
+      { q: "What does the woman say about Monday and Tuesday?", c: ["She will be at a trade show.", "She will interview candidates.", "She has a medical appointment.", "She will be training staff."], a: 0, ex: "I'm out of the office ... for the trade show in Chicago." },
+      { q: "Why will Robert join the interviews?", c: ["He is the department head.", "The new employee will work on his team.", "He has social media experience.", "He wrote the job posting."], a: 1, ex: "the new hire will be on his team（新しく雇う人が彼のチームに入る）。" }] },
+  { lv: 4, kind: "talk", lines: [["M", "Welcome to the Greenfield Chocolate factory tour. My name is Paul, and I'll be your guide today."], ["M", "The tour takes about forty-five minutes."], ["M", "First, we'll see how cocoa beans are roasted. After that, you'll visit our tasting room, where you can try three of our newest flavors."], ["M", "Please note that photography is not allowed inside the production area."], ["M", "At the end of the tour, everyone will receive a coupon for our gift shop."]],
+    ja: "チョコレート工場の見学ツアー。所要約45分。焙煎を見たあと試食室で新作3種。製造エリアは撮影禁止。最後にギフトショップのクーポンがもらえる。",
+    qs: [{ q: "How long is the tour?", c: ["About fifteen minutes", "About thirty minutes", "About forty-five minutes", "About one hour"], a: 2, ex: "The tour takes about forty-five minutes." },
+      { q: "What are listeners asked not to do?", c: ["Eat in the factory", "Take pictures in the production area", "Touch the machines", "Leave the group"], a: 1, ex: "photography is not allowed → take pictures の言い換え。" },
+      { q: "What will listeners receive at the end of the tour?", c: ["A box of chocolates", "A free drink", "A discount coupon", "A souvenir photo"], a: 2, ex: "a coupon for our gift shop（ギフトショップのクーポン）。" }] },
+  { lv: 5, kind: "conv", lines: [["W", "Hiroshi, the board approved the budget for the new inventory software."], ["M", "That's good news. When are we supposed to have it up and running?"], ["W", "By the start of the next quarter. But the vendor says installation will take two weeks, and the warehouse staff will need training."], ["M", "Hmm, our busiest season starts in October."], ["W", "Right. That's why I'd like to schedule the training for early September."], ["M", "I'll talk to the warehouse supervisor about rearranging shifts."]],
+    ja: "取締役会が在庫管理ソフトの予算を承認。次の四半期の初めまでに稼働させたいが、導入に2週間かかり研修も必要。10月は繁忙期なので研修は9月初めに。男性は倉庫の責任者とシフト調整を話す。",
+    qs: [{ q: "What did the board approve?", c: ["A new warehouse", "Funding for software", "Extra staff", "A delivery schedule"], a: 1, ex: "the budget for the new inventory software → funding for software の言い換え。" },
+      { q: "Why does the man say, \"our busiest season starts in October\"?", c: ["To suggest canceling the project", "To express concern about the timing", "To ask for a raise", "To complain about the vendor"], a: 1, ex: "導入・研修の時期が繁忙期と重なる心配。女性が That's why（だから9月に）と受けているのがヒント。" },
+      { q: "What will the man most likely do next?", c: ["Contact the vendor", "Speak with a supervisor", "Install the software", "Prepare a budget"], a: 1, ex: "I'll talk to the warehouse supervisor（倉庫の責任者と話す）。" }] },
+  { lv: 5, kind: "talk", lines: [["W", "In business news, Northgate Motors announced today that it will open a new assembly plant in Riverton next spring."], ["W", "The plant is expected to create around eight hundred jobs."], ["W", "Company officials said the location was chosen because of its proximity to the port, which will reduce shipping costs."], ["W", "Local leaders welcomed the decision, although some residents have raised concerns about increased traffic."], ["W", "Northgate will hold a public meeting at City Hall on March 3 to answer questions."]],
+    ja: "ノースゲート自動車が来春リバートンに組立工場を開設、約800人の雇用。港に近く輸送費を削減できるため。交通量の増加を心配する住民もいる。3月3日に市役所で説明会。",
+    qs: [{ q: "What is the news report mainly about?", c: ["A company's new factory", "A change in shipping laws", "A city election", "A car recall"], a: 0, ex: "assembly plant（組立工場）→ factory の言い換え。" },
+      { q: "Why was Riverton chosen?", c: ["It has many skilled workers.", "It is close to a port.", "Land is inexpensive there.", "The city offered tax breaks."], a: 1, ex: "proximity to the port（港に近いこと）。" },
+      { q: "What will happen on March 3?", c: ["Construction will begin.", "A public meeting will be held.", "Hiring will start.", "The plant will open."], a: 1, ex: "hold a public meeting at City Hall on March 3" }] },
+  { lv: 6, kind: "conv", lines: [["M", "Ms. Alvarez, I've finished going over the contract from Brightline Logistics."], ["W", "Anything we should be concerned about?"], ["M", "Mostly it's what we discussed, but there's a clause that lets them raise their rates by up to eight percent if fuel prices go up."], ["W", "That wasn't in the draft we saw. And with our margins as thin as they are..."], ["M", "Exactly. I'd suggest we ask them to cap any increase at three percent, or at least require sixty days' notice."], ["W", "Let's propose both. Could you draft a reply before tomorrow's call with their account manager?"]],
+    ja: "物流会社の契約書に、燃料費が上がれば最大8%値上げできる条項があった。利益が薄いので、上限3%か60日前の通知を求めることに。両方を提案し、男性が返信の下書きを作る。",
+    qs: [{ q: "What has the man been doing?", c: ["Reviewing a contract", "Negotiating fuel prices", "Preparing a budget", "Interviewing an account manager"], a: 0, ex: "going over the contract → reviewing a contract の言い換え。" },
+      { q: "What does the woman imply when she says, \"with our margins as thin as they are\"?", c: ["The company cannot easily absorb higher costs.", "The company should hire more staff.", "The contract is too long.", "Fuel prices will go down."], a: 0, ex: "利益が薄いので値上げを吸収できない、という含み。" },
+      { q: "What does the woman ask the man to do?", c: ["Call the account manager", "Write a response", "Cancel the contract", "Calculate fuel costs"], a: 1, ex: "draft a reply → write a response の言い換え。" }] },
+];
+
+// Part 7：本文（\n で改行）と設問
+const P7 = [
+  { lv: 1, title: "Notice（お知らせ）", text: "City Library\nNew Opening Hours\n\nStarting May 1, the City Library will be open from 9 A.M. to 8 P.M., Monday to Saturday. The library will be closed on Sundays.\n\nChildren's story time is every Saturday at 10 A.M. For more information, please ask at the front desk.",
+    qs: [{ q: "When will the new hours start?", c: ["April 1", "May 1", "Saturday", "Sunday"], a: 1, ex: "Starting May 1 とある。" },
+      { q: "When is the library closed?", c: ["On Mondays", "On Saturdays", "On Sundays", "Every evening"], a: 2, ex: "The library will be closed on Sundays." },
+      { q: "What happens on Saturday mornings?", c: ["A book sale", "Story time for children", "A computer class", "A staff meeting"], a: 1, ex: "Children's story time is every Saturday at 10 A.M." }] },
+  { lv: 2, title: "E-mail（メール）", text: "To: All staff\nFrom: Mia Chen, Office Manager\nSubject: Kitchen cleaning\n\nHello everyone,\n\nThe office kitchen will be cleaned this Friday afternoon. Please take your food out of the refrigerator by 1 P.M. on Friday. Anything left inside will be thrown away. The kitchen will be open again on Monday morning.\n\nThank you,\nMia",
+    qs: [{ q: "Why did Ms. Chen send the e-mail?", c: ["To announce a cleaning", "To invite staff to lunch", "To order a new refrigerator", "To change office hours"], a: 0, ex: "件名と1文目から、台所の掃除のお知らせ。" },
+      { q: "What are staff asked to do?", c: ["Clean the kitchen", "Remove their food", "Bring lunch on Friday", "Buy a new refrigerator"], a: 1, ex: "take your food out → remove their food の言い換え。" },
+      { q: "When can staff use the kitchen again?", c: ["Friday at 1 P.M.", "Friday evening", "Saturday", "Monday morning"], a: 3, ex: "open again on Monday morning" }] },
+  { lv: 3, title: "Advertisement（広告）", text: "Sunrise Fitness Center: Grand Opening!\n\nJoin us at our new location at 250 Oak Street, just across from Central Station. To celebrate our opening, we are offering a special membership rate of $30 per month for anyone who signs up before June 15. That is $15 less than our regular price.\n\nMembers enjoy:\n- Access to the gym from 6 A.M. to 11 P.M.\n- Free yoga classes on weekends\n- Free parking for up to two hours\n\nVisit www.sunrisefitness.com to sign up online.",
+    qs: [{ q: "What is being advertised?", c: ["A new gym", "A train service", "A parking garage", "A yoga teacher"], a: 0, ex: "フィットネスセンターの開店広告。" },
+      { q: "What is the regular monthly price?", c: ["$15", "$30", "$45", "$60"], a: 2, ex: "$30 は通常より$15安い → 通常は$45。計算が必要な設問。" },
+      { q: "What is NOT mentioned as a benefit for members?", c: ["Free yoga classes", "Free parking", "Free personal training", "Access until 11 P.M."], a: 2, ex: "パーソナルトレーニングは書かれていない。NOT 問題は選択肢を本文と1つずつ照らし合わせる。" }] },
+  { lv: 3, title: "Text messages（チャット）", text: "Kenji Mori [9:12 A.M.]\nHi, Laura. I'm stuck in traffic on Route 9. I don't think I'll make it to the 9:30 meeting with Mr. Hart.\n\nLaura Benson [9:14 A.M.]\nNo problem. I can start the meeting and go over the sales figures first.\n\nKenji Mori [9:15 A.M.]\nThanks. The slides are in the shared folder.\n\nLaura Benson [9:16 A.M.]\nGot it. I'll ask him to wait for you before we discuss the contract.",
+    qs: [{ q: "Why does Mr. Mori send the first message?", c: ["He will be late.", "He lost his slides.", "He wants to cancel the meeting.", "He forgot the address."], a: 0, ex: "渋滞で9時半の会議に間に合わない。" },
+      { q: "At 9:16 A.M., what does Ms. Benson most likely mean when she writes, \"Got it\"?", c: ["She knows where the slides are.", "She received a package.", "She found Mr. Hart.", "She finished the contract."], a: 0, ex: "スライドが共有フォルダにある、という直前のメッセージを了解した。" },
+      { q: "What will be discussed after Mr. Mori arrives?", c: ["The sales figures", "The contract", "The traffic", "The shared folder"], a: 1, ex: "wait for you before we discuss the contract → 契約の話は森さんの到着後。" }] },
+  { lv: 4, title: "Article（記事）", text: "HARBOR CITY: Bayside Books, a family-owned bookstore that has served Harbor City for over forty years, will move to a larger location on Market Street next month. Owner Diane Cole said the store had simply outgrown its current space. \"Our customers have been asking for more seating and a bigger children's section,\" she explained.\n\nThe new store will include a small cafe and an event space for author readings and book club meetings. The current shop on Elm Avenue will close on August 20, and the new location is scheduled to open on September 1. To thank its loyal customers, Bayside Books will offer a 20 percent discount on all purchases during the opening week.",
+    qs: [{ q: "Why is Bayside Books moving?", c: ["Its rent increased.", "It needs more space.", "It was sold to a new owner.", "Its building will be renovated."], a: 1, ex: "outgrown its current space（今の店が手狭になった）。" },
+      { q: "What will the new store have that the current one does not?", c: ["A children's section", "A cafe", "Used books", "Longer hours"], a: 1, ex: "The new store will include a small cafe. 児童書コーナーは「より大きく」なるだけ。" },
+      { q: "When will customers be able to get a discount?", c: ["Before August 20", "On August 20", "During the first week of September", "All of September"], a: 2, ex: "新店は9月1日開店で、オープン週が割引 → 9月の第1週。" }] },
+  { lv: 4, title: "Invoice（請求書）", text: "Lumen Office Supply\nInvoice #4471 / Date: October 3\nBill to: Ridgeway Accounting, 18 Pine Road\n\nPrinter paper (box) x 5 ........ $120.00\nBlack ink cartridges x 4 ...... $96.00\nDesk lamps x 2 ................ $70.00\nSubtotal ...................... $286.00\nDelivery ...................... $0.00\nTotal ......................... $286.00\n\nPayment is due within 30 days. Orders over $250 qualify for free delivery. Questions about this invoice? Call our billing office at 555-0140.",
+    qs: [{ q: "Why was there no delivery charge?", c: ["The customer picked up the items.", "The order was over $250.", "It was a first order.", "A coupon was used."], a: 1, ex: "Orders over $250 qualify for free delivery. 合計は$286。" },
+      { q: "By when should Ridgeway Accounting pay?", c: ["By October 3", "Within 30 days", "Within 7 days", "At the time of delivery"], a: 1, ex: "Payment is due within 30 days." },
+      { q: "Which item was ordered in the largest quantity?", c: ["Printer paper", "Ink cartridges", "Desk lamps", "Envelopes"], a: 0, ex: "数量は紙が5、インクが4、ランプが2。" }] },
+  { lv: 5, title: "Letter（手紙）", text: "Dear Mr. Okafor,\n\nThank you for your interest in the Senior Analyst position at Veltrix Consulting. After reviewing your application, our hiring committee would like to invite you to a second interview on Tuesday, April 12, at 10:00 A.M. at our downtown office.\n\nThis interview will consist of a 30-minute case study exercise followed by a conversation with two of our partners. Please bring a copy of your portfolio and a valid photo ID, which is required to enter the building.\n\nIf the proposed time is inconvenient, kindly contact me by April 5 so that we can arrange an alternative. We look forward to meeting you again.\n\nSincerely,\nGrace Lindqvist\nHuman Resources Manager",
+    qs: [{ q: "What is the purpose of the letter?", c: ["To offer Mr. Okafor a job", "To schedule a follow-up interview", "To request references", "To reject an application"], a: 1, ex: "second interview（二次面接）への招待 → follow-up interview の言い換え。" },
+      { q: "What is suggested about Mr. Okafor?", c: ["He has already met with the company.", "He works for Veltrix Consulting.", "He is a partner at the firm.", "He lives downtown."], a: 0, ex: "second interview や meeting you again から、すでに一度面接を受けているとわかる。" },
+      { q: "Why must Mr. Okafor bring a photo ID?", c: ["To complete a case study", "To get into the building", "To receive payment", "To register for parking"], a: 1, ex: "which is required to enter the building（入館に必要）。" }] },
+  { lv: 6, title: "Schedule and e-mail（予定表とメール）", text: "[Schedule] Westbrook Regional Trade Expo, Day 2\n9:00 A.M.   Keynote: The Future of Retail (Hall A)\n10:30 A.M.  Panel: Sustainable Packaging (Room 204)\n1:00 P.M.   Workshop: Pricing Strategies (Room 110)\n3:00 P.M.   Networking Reception (Atrium)\n\n[E-mail]\nTo: Daniel Ruiz\nFrom: Priya Nair\nSubject: Day 2 plans\n\nDaniel,\nI've been asked to fill in for one of the panelists whose flight was canceled, so I'll be in Room 204 preparing for most of the morning. Could you attend the keynote in my place and take notes? I'll meet you at the workshop afterward, since I'm particularly keen on that topic. Also, the organizers mentioned that the reception has been moved to the rooftop terrace due to the expected crowd size.\nPriya",
+    qs: [{ q: "Why will Ms. Nair miss the keynote?", c: ["Her flight was canceled.", "She will be taking part in a panel.", "She has to meet a client.", "She is organizing the expo."], a: 1, ex: "fill in for one of the panelists（パネリストの代役）→ 午前は Room 204 で準備。欠航したのは別のパネリスト。" },
+      { q: "At what time will Ms. Nair meet Mr. Ruiz?", c: ["9:00 A.M.", "10:30 A.M.", "1:00 P.M.", "3:00 P.M."], a: 2, ex: "I'll meet you at the workshop → 予定表で Workshop は午後1時。2つの文書を組み合わせる設問。" },
+      { q: "What has changed about the event?", c: ["The keynote speaker", "The location of the reception", "The time of the workshop", "The topic of the panel"], a: 1, ex: "reception has been moved to the rooftop terrace → 懇親会の場所が Atrium から変更。" }] },
+];
+
+return { VOCAB, LESSONS, P5, P2, P34, P7 };
+})();
+</script>
+<script>
+const MN_STORY = (() => {
+// 教材データ。DOM に触れない（selftest.mjs から node でも読み込む）
+// {name}=プレイヤー名（かな） {cyr}=プレイヤー名（キリル文字）
+
+// 文字: [文字, ローマ字, カナ, 説明, 読み上げる音, 例語, 例語ローマ字, 例語の意味]
+const L = (mn, rom, kana, note, say, ex, exRom, exJa) => ({ kind: "letter", mn, rom, kana, note, say, ex, exRom, exJa });
+// 単語・文: [モンゴル語, 意味, カナ, ローマ字, メモ]
+const W = (mn, ja, kana, rom, note = "") => ({ kind: "word", mn, ja, kana, rom, note });
+
+const PEOPLE = {
+  me: { name: "{name}" },
+  narr: { name: "" },
+  bolor: { name: "ボロルマー", mn: "Болормаа", role: "空港の案内係",
+    look: { skin: "#f0c8a4", hair: "#2a1c15", style: "bun", hat: "pillbox", hatC: "#1d3d78", deel: "#1d3d78", trim: "#e7b43c", bg: "#cfe0f6" } },
+  ganbat: { name: "ガンバト", mn: "Ганбат", role: "タクシー運転手",
+    look: { skin: "#d9a57c", hair: "#1e1611", style: "buzz", hat: "cap", hatC: "#2f7d55", deel: "#4b5563", trim: "#9aa3b2", bg: "#f6e3c4", mustache: true } },
+  tuyaa: { name: "トヤー", mn: "Туяа", role: "市場のおばさん",
+    look: { skin: "#e3b48d", hair: "#3a2a20", style: "short", hat: "scarf", hatC: "#c2410c", deel: "#7c3aed", trim: "#f2c94c", bg: "#fde2c8" } },
+  saraa: { name: "サラー", mn: "Сараа", role: "国立図書館の司書",
+    look: { skin: "#f2cdb0", hair: "#2d201a", style: "bob", hat: "none", deel: "#0f766e", trim: "#e5e7eb", bg: "#dbe7e4", glasses: true } },
+  dorj: { name: "ドルジ", mn: "Дорж", role: "草原のガイド",
+    look: { skin: "#c98f63", hair: "#1b1410", style: "short", hat: "brim", hatC: "#8b5e34", deel: "#2563eb", trim: "#f59e0b", bg: "#d8ecc9" } },
+  tsetseg: { name: "ツェツェグ", mn: "Цэцэг", role: "ノミンのお母さん",
+    look: { skin: "#e2ad85", hair: "#22170f", style: "bun", hat: "scarf", hatC: "#1e5aa8", deel: "#b91c1c", trim: "#f4c542", bg: "#f8dcd2" } },
+  nomin: { name: "ノミン", mn: "Номин", role: "文通相手",
+    look: { skin: "#f0c39c", hair: "#1f1612", style: "braid", hat: "none", deel: "#2f6fd0", trim: "#f4c542", bg: "#d6e6fb" } },
+  temuulen: { name: "テムーレン", mn: "Тэмүүлэн", role: "ノミンの弟・騎手",
+    look: { skin: "#e3ae84", hair: "#1c140f", style: "buzz", hat: "jockey", hatC: "#e11d48", deel: "#f59e0b", trim: "#e11d48", bg: "#fbe7b5" } },
+  bat: { name: "バト", mn: "Бат", role: "ノミンのお父さん",
+    look: { skin: "#c88e62", hair: "#1a120d", style: "buzz", hat: "loovuuz", hatC: "#7a4a24", deel: "#1e3a5f", trim: "#d4a017", bg: "#e5dccb", mustache: true } },
+};
+
+const LETTER = {
+  mn: "Сайн уу, {cyr}!\nНаадамд ирээрэй.\nМанай гэрт хүлээж байна.\nНомин",
+  kana: "サイノー、{name}！\nナーダムド イレーレイ。\nマナイ ゲルト フレージ バイナ。\nノミン",
+  ja: "こんにちは、{name}！\nナーダムに来てね。\nうちのゲルで待っています。\nノミン",
+};
+
+const CHAPTERS = [
+  {
+    id: "airport", title: "母音", place: "チンギス・ハーン国際空港", placeMn: "Чингис хаан олон улсын нисэх буудал",
+    scene: "airport", npc: "bolor", kind: "letter",
+    intro: [
+      ["narr", "", "チンギス・ハーン国際空港。ゲートを出ると、大きな看板が目に入った。"],
+      ["bolor", "Тавтай морилно уу!", "ようこそ、モンゴルへ！ あの看板にもそう書いてあるのよ。"],
+      ["me", "", "（ノミンの手紙を見せる）この手紙が読めなくて……。"],
+      ["bolor", "", "モンゴル語は「キリル文字」で書くの。ロシア語と同じ文字だけど、Ө と Ү はモンゴル語だけの文字よ。"],
+      ["bolor", "", "まずは母音の7文字から。日本語の「アイウエオ」より2つ多いだけ。"],
+    ],
+    tip: ["母音は7つ", "А Э И О У Ө Ү の7つ。О は口を縦に大きく開けた「オ」、У は「オ」に近い「ウ」。だから ус（水）は「オス」と聞こえます。Ө と Ү は唇を丸めて出す音です。"],
+    culture: "モンゴル国では1940年代からキリル文字を使っています。縦書きの伝統的なモンゴル文字も、学校で教えられています。",
+    items: [
+      L("А а", "a", "ア", "日本語の「ア」とほぼ同じ。", "а", "аав", "aav", "お父さん"),
+      L("Э э", "e", "エ", "日本語の「エ」に近い。", "э", "ээж", "eej", "お母さん"),
+      L("И и", "i", "イ", "日本語の「イ」。", "и", "их", "ikh", "大きい・たくさん"),
+      L("О о", "o", "オ", "口を縦に大きく開けた「オ」。", "о", "ой", "oi", "森"),
+      L("У у", "u", "オに近いウ", "唇を丸めすぎない、「オ」に近い「ウ」。", "у", "ус", "us", "水"),
+      L("Ө ө", "ö", "オとウの間", "唇を丸めて、「オ」と「ウ」の間の音。", "ө", "өдөр", "ödör", "日・昼"),
+      L("Ү ү", "ü", "唇を丸めたウ", "唇を前に突き出した「ウ」。", "ү", "үг", "üg", "ことば"),
+    ],
+    clear: [
+      ["bolor", "Сайн байна!", "上出来！ これで看板の母音は読めるわね。"],
+      ["bolor", "Сайн яваарай!", "よい旅を！ 市内へはタクシーが便利よ。"],
+    ],
+    reward: ["母音カード", "7つの母音が描かれたカード。"],
+  },
+  {
+    id: "city", title: "子音 1", place: "ウランバートルの大通り", placeMn: "Улаанбаатар хот",
+    scene: "city", npc: "ganbat", kind: "letter",
+    intro: [
+      ["narr", "", "タクシーでウランバートル市内へ。窓の外には看板がずらりと並んでいる。"],
+      ["ganbat", "Хаашаа явах вэ?", "どこへ行くんだい？"],
+      ["me", "", "ええと……（手紙の住所が読めない）"],
+      ["ganbat", "", "住所が読めないって？ じゃあ走ってる間に、よく使う子音を10個教えてやろう。"],
+      ["ganbat", "", "Х はのどの奥でこする「ハ」。Л は舌先を上につけて、横から息を出すんだ。"],
+    ],
+    tip: ["子音と母音をつなげる", "Н＋А で「ナ」、Р は巻き舌の r。だから нар は「ナル」＝太陽。子音を覚えると、もう単語が読めます。モンゴル語本来の単語は Р で始まりません（радио などは外来語）。"],
+    culture: "ウランバートルは「赤い英雄」という意味。国民のおよそ半分がこの首都に暮らしています。",
+    items: [
+      L("Б б", "b", "ブ", "「バ行」に近い音。", "ба", "бал", "bal", "はちみつ"),
+      L("Г г", "g", "グ", "「ガ行」。а・о・у の前では少し奥で出す。", "га", "гэр", "ger", "ゲル・家"),
+      L("Д д", "d", "ド", "「ダ行」に近い音。", "да", "дуу", "duu", "歌"),
+      L("Л л", "l", "ル・息", "舌先を上の歯ぐきにつけ、舌の横から息を出す。", "ла", "луу", "luu", "竜"),
+      L("М м", "m", "ム", "「マ行」。", "ма", "мах", "makh", "肉"),
+      L("Н н", "n", "ヌ／ン", "「ナ行」。語末では「ン」。", "на", "нар", "nar", "太陽"),
+      L("Р р", "r", "巻き舌のル", "舌先をふるわせる r。", "ра", "хар", "khar", "黒い"),
+      L("С с", "s", "ス", "「サ行」。", "са", "сар", "sar", "月"),
+      L("Т т", "t", "ト", "「タ行」。息を強く出す。", "та", "тал", "tal", "草原"),
+      L("Х х", "kh", "のどのハ", "のどの奥をこする「ハ」。ドイツ語の ch に近い。", "ха", "хот", "khot", "町・都市"),
+    ],
+    clear: [
+      ["ganbat", "Гоё!", "いいね！ もう看板が読めるじゃないか。"],
+      ["ganbat", "", "手みやげを買うなら市場がいい。そこで降ろしてやるよ。"],
+    ],
+    reward: ["市内地図", "ガンバトさんが印をつけてくれた地図。"],
+  },
+  {
+    id: "market", title: "子音 2", place: "ナラントール市場", placeMn: "Нарантуул зах",
+    scene: "market", npc: "tuyaa", kind: "letter",
+    intro: [
+      ["narr", "", "ナラントール市場。食べ物、服、馬具……なんでもそろう巨大な市場だ。"],
+      ["tuyaa", "Юу авах вэ?", "何を買うの？"],
+      ["me", "", "ノミンの家族への手みやげを……。"],
+      ["tuyaa", "", "それならお菓子がいいね。値札は外来語も多いから、残りの子音も覚えておきな。"],
+      ["tuyaa", "", "モンゴル語は息を強く出すかどうかで音が分かれるの。Ц と З、Ч と Ж はペアだよ。"],
+    ],
+    tip: ["息の強さで区別する", "Т／Д、Ц／З、Ч／Ж、П／Б は、声が出るかどうかより「息を強く出すか」の違い。Т・Ц・Ч・П は息を強く出します。К・П・Ф はおもに外来語に出てきます。"],
+    culture: "お金の単位は「トゥグルグ（төгрөг）」。市場では値段の交渉も楽しみのひとつです。",
+    items: [
+      L("В в", "w", "ワ／ヴ", "上下の唇を近づけて出す、w に近い音。", "ва", "тав", "tav", "5"),
+      L("Ж ж", "j", "ジ", "「ジャ・ジュ・ジョ」の子音。", "жа", "жимс", "jims", "果物"),
+      L("З з", "z", "ヅ", "「ヅ」の子音。", "за", "зам", "zam", "道"),
+      L("Й й", "i", "短いイ", "母音のあとにつく短い「イ」。ай・ой など。", "ай", "цай", "tsai", "お茶"),
+      L("П п", "p", "プ", "息を強く出す p。外来語に多い。", "па", "паспорт", "pasport", "パスポート"),
+      L("Ц ц", "ts", "ツ", "息を強く出す「ツ」。", "ца", "цас", "tsas", "雪"),
+      L("Ч ч", "ch", "チ", "息を強く出す「チ」。", "ча", "чихэр", "chikher", "お菓子・あめ"),
+      L("Ш ш", "sh", "シ", "「シャ・シュ・ショ」の子音。", "ша", "шар", "shar", "黄色"),
+      L("Ф ф", "f", "フ", "外来語だけに出てくる。", "фа", "кофе", "kofe", "コーヒー"),
+      L("К к", "k", "ク", "外来語だけに出てくる。", "ка", "кино", "kino", "映画"),
+    ],
+    clear: [
+      ["tuyaa", "Баярлалаа!", "まいどあり！ はい、チヒル（お菓子）の包みだよ。"],
+      ["tuyaa", "", "手紙を全部読みたいなら、国立図書館の司書さんに聞いてごらん。"],
+    ],
+    reward: ["お菓子の包み", "ノミンの家族への手みやげ。"],
+  },
+  {
+    id: "library", title: "特別な文字", place: "国立図書館", placeMn: "Үндэсний номын сан",
+    scene: "library", npc: "saraa", kind: "letter",
+    intro: [
+      ["narr", "", "国立図書館。高い柱の並ぶ、立派な建物だ。"],
+      ["saraa", "Сайн байна уу.", "こんにちは。図書館では小さな声でね。"],
+      ["saraa", "", "その手紙、もう少しで読めそうね。残っているのは Е Ё Ю Я などの特別な文字だけよ。"],
+      ["saraa", "", "それから大事なルール。同じ母音が2つ並んだら、長くのばすの。аа は「アー」よ。"],
+    ],
+    tip: ["長い母音", "аа・ээ・оо・уу・өө・үү は長くのばします。ий と ы は長い「イー」。ул（くつの底）と уул（山）は別の言葉です。Ъ と Ь は音を持たない記号です。"],
+    culture: "モンゴル国立図書館には、縦書きのモンゴル文字やチベット文字で書かれた古い経典や書物が数多く収められています。",
+    items: [
+      L("Е е", "ye", "イェ／ヨ", "単語によって「イェ」か「ヨ」。", "е", "ес", "yes", "9"),
+      L("Ё ё", "yo", "ヨ", "「ヨ」。", "ё", "ёс", "yos", "しきたり・礼儀"),
+      L("Ю ю", "yu", "ユ", "「ユ」。", "ю", "юу", "yuu", "なに"),
+      L("Я я", "ya", "ヤ", "「ヤ」。", "я", "ямаа", "yamaa", "ヤギ"),
+      L("Ы ы", "ii", "長いイー", "長い「イー」。а・о・у の単語で使う。", "номын", "номын сан", "nomyn san", "図書館"),
+      L("Ъ ъ", "—", "硬音記号（音なし）", "音はない。前の子音と後ろの母音を区切る。", "авъя", "авъя", "avya", "（これを）もらいます"),
+      L("Ь ь", "—", "軟音記号（音なし）", "音はない。前の子音を「イ」っぽく柔らかくする。", "морь", "морь", "mor'", "馬"),
+      L("Щ щ", "shch", "シシ", "ロシア語からの外来語だけ。", "борщ", "борщ", "borshch", "ボルシチ"),
+    ],
+    clear: [
+      ["saraa", "Баяр хүргэе!", "おめでとう！ これで35文字ぜんぶ読めるわ。さあ、手紙を読んでごらんなさい。"],
+      ["letter", "", ""],
+      ["saraa", "", "ノミンさんの家は草原のゲルね。道しるべを頼りに行きなさい。"],
+    ],
+    reward: ["小さな辞書", "サラーさんがくれた、ポケットサイズの辞書。"],
+  },
+  {
+    id: "road", title: "草原のことば", place: "草原へ続く道", placeMn: "Талын зам",
+    scene: "road", npc: "dorj", kind: "word",
+    intro: [
+      ["narr", "", "町を出ると、どこまでも続く草原。ガイドのドルジさんの車で、ノミンの家をめざす。"],
+      ["dorj", "Сайн уу, найз аа!", "やあ、友よ！ ここからは道しるべが頼りだ。"],
+      ["dorj", "", "あの石の山はオボー（овоо）。旅の無事を祈って、時計回りに3周してから先へ進むんだ。"],
+      ["dorj", "", "せっかくだから、草原の景色をモンゴル語で覚えよう。文字はもう読めるだろう？"],
+    ],
+    tip: ["母音調和", "モンゴル語の単語は「а・о・у の組」か「э・ө・ү の組」のどちらかの母音でできています（и はどちらにも入れる）。уул（山）は а の組、тэнгэр（空）は э の組。語尾も組に合わせて変わります：хот → хотоос（町から）、гэр → гэрээс（家から）。"],
+    culture: "オボーには石や青い布（ハダグ）が供えられています。青は、永遠の空「フフ・テンゲル（Хөх тэнгэр）」の色です。",
+    items: [
+      W("тал", "草原", "タル", "tal", "平らに広がる草原。"),
+      W("уул", "山", "オール", "uul", "уу は長い「オー」。"),
+      W("гол", "川", "ゴル", "gol", "「中心・主な」という意味もある。"),
+      W("тэнгэр", "空", "テンゲル", "tenger", "天の神という意味もある。"),
+      W("нар", "太陽", "ナル", "nar"),
+      W("сар", "月", "サル", "sar", "暦の「月」の意味もある。"),
+      W("од", "星", "オド", "od"),
+      W("салхи", "風", "サルヒ", "salkhi"),
+      W("зам", "道", "ザム", "zam"),
+      W("овоо", "オボー", "オボー", "ovoo", "石を積んだ道の守り神。時計回りに3周する。"),
+    ],
+    clear: [
+      ["dorj", "Гоё!", "すばらしい！ ほら、あの丘の向こうに白いゲルが見えるぞ。"],
+      ["dorj", "", "ゲルを訪ねるときは、少し離れたところで「Нохой хорио!（犬を押さえて！）」と声をかけるのがならわしだ。"],
+    ],
+    reward: ["オボーの小石", "旅の無事を祈った小石。"],
+  },
+  {
+    id: "ger", title: "あいさつ", place: "遊牧民のゲル", placeMn: "Малчны гэр",
+    scene: "ger", npc: "tsetseg", kind: "phrase",
+    intro: [
+      ["me", "Нохой хорио!", "（ゲルの前で）犬を押さえてくださーい！"],
+      ["tsetseg", "Сайн байна уу! Тавтай морил.", "こんにちは！ いらっしゃい。"],
+      ["tsetseg", "", "あなたがノミンのお友だちね。ノミンは馬を連れに出ているの。中で待っていて。"],
+      ["tsetseg", "", "入るときは敷居を踏まないでね。中では時計回りに歩くのよ。さあ、あいさつを覚えましょう。"],
+    ],
+    tip: ["質問の уу／үү", "はい・いいえで答える質問は、最後に уу（または үү）をつけます。Сайн байна уу? は「元気ですか？」。「だれ」「なに」などの疑問詞がある質問は бэ／вэ で終わります：Таны нэр хэн бэ?（お名前は？）"],
+    culture: "ゲルの入口は南向き。敷居を踏むのは失礼とされ、中では時計回りに動きます。",
+    items: [
+      W("Сайн байна уу?", "こんにちは（お元気ですか）", "サイン バイノー", "sain baina uu", "いちばん基本のあいさつ。時間を問わず使える。"),
+      W("Сайн, сайн байна уу?", "元気です。あなたは？", "サイン、サイン バイノー", "sain, sain baina uu", "「元気？」と聞かれたら、こう答えて聞き返す。"),
+      W("Сайн уу?", "やあ（親しい人に）", "サイノー", "sain uu", "友だちや年下の人に。"),
+      W("Өглөөний мэнд.", "おはようございます", "ウグルーニー メンド", "öglöönii mend", "「朝のごあいさつ」という意味。"),
+      W("Баярлалаа.", "ありがとう", "バヤルララー", "bayarlalaa"),
+      W("Зүгээр ээ.", "どういたしまして", "ズゲール エー", "zügeer ee", "「大丈夫です」の意味でも使う。"),
+      W("Уучлаарай.", "すみません", "オーチラーライ", "uuchlaarai", "あやまるときにも、呼びかけにも。"),
+      W("Тийм.", "はい", "ティーム", "tiim"),
+      W("Үгүй.", "いいえ", "ウグイ", "ügüi"),
+      W("Сайхан амраарай.", "おやすみなさい", "サイハン アムラーライ", "saikhan amraarai", "直訳は「よく休んでね」。"),
+    ],
+    replies: [
+      ["Сайн байна уу?", "こんにちは（お元気ですか）", "Сайн, сайн байна уу?", "元気です。あなたは？", ["Баяртай.", "Уучлаарай.", "Үгүй."]],
+      ["Баярлалаа.", "ありがとう", "Зүгээр ээ.", "どういたしまして", ["Өглөөний мэнд.", "Сайн уу?", "Тийм."]],
+      ["Цай уух уу?", "お茶を飲む？", "Тийм, баярлалаа.", "はい、ありがとう", ["Сайхан амраарай.", "Өглөөний мэнд.", "Баяртай."]],
+      ["Монгол хэл мэдэх үү?", "モンゴル語わかる？", "Бага зэрэг.", "少しだけ", ["Зүгээр ээ.", "Сайн уу?", "Баяртай."]],
+    ],
+    clear: [
+      ["tsetseg", "Цайгаа уугаарай.", "お茶をどうぞ。上手なあいさつだったわ。"],
+      ["narr", "", "塩味のミルクティー「スーテーツァイ（сүүтэй цай）」をいただいた。"],
+      ["nomin", "Сайн уу! Ирсэнд баярлалаа!", "やあ！ 来てくれてありがとう！"],
+    ],
+    reward: ["スーテーツァイ", "塩味のミルクティー。モンゴルのおもてなしの味。"],
+  },
+  {
+    id: "pasture", title: "家畜と家族", place: "放牧地の朝", placeMn: "Бэлчээр",
+    scene: "pasture", npc: "nomin", kind: "word",
+    intro: [
+      ["nomin", "Өглөөний мэнд!", "おはよう！ よく眠れた？"],
+      ["nomin", "", "明日はナーダム。その前に、家畜の世話を手伝ってくれる？"],
+      ["nomin", "", "遊牧民は、馬・牛・ラクダ・羊・ヤギの「五畜（таван хошуу мал）」を飼っているの。"],
+      ["nomin", "", "ついでに、わたしの家族も紹介するね。"],
+    ],
+    tip: ["家族の呼び方", "ах は兄、эгч は姉。年下のきょうだいは、男女どちらも дүү（弟・妹）です。таван хошуу мал は直訳すると「5つの鼻の家畜」。"],
+    culture: "五畜は、食べ物・服・ゲルのフェルト・移動手段のすべてを支える、遊牧のくらしの中心です。",
+    items: [
+      W("морь", "馬", "モリ", "mor'", "モンゴルの人にとって特別な家畜。"),
+      W("үхэр", "牛", "ウヘル", "ükher"),
+      W("тэмээ", "ラクダ", "テメー", "temee", "モンゴルのラクダはこぶが2つ。"),
+      W("хонь", "羊", "ホニ", "khon'"),
+      W("ямаа", "ヤギ", "ヤマー", "yamaa", "カシミヤはヤギの毛からつくる。"),
+      W("ээж", "お母さん", "エージ", "eej"),
+      W("аав", "お父さん", "アーウ", "aav"),
+      W("ах", "兄", "アハ", "akh"),
+      W("эгч", "姉", "エグチ", "egch"),
+      W("дүү", "弟・妹", "ドゥー", "düü", "年下のきょうだいは男女とも дүү。"),
+    ],
+    clear: [
+      ["nomin", "Маш сайн!", "すごく上手！ 家畜たちもすっかりなついたね。"],
+      ["nomin", "", "明日はいよいよナーダム！ 弟のテムーレンが競馬に出るの。"],
+    ],
+    reward: ["五畜のスケッチ", "ノミンと描いた、馬・牛・ラクダ・羊・ヤギの絵。"],
+  },
+  {
+    id: "naadam", title: "数字", place: "ナーダムの競馬場", placeMn: "Наадмын морин уралдаан",
+    scene: "naadam", npc: "temuulen", kind: "number",
+    intro: [
+      ["narr", "", "夏のナーダム祭り。モンゴル相撲・競馬・弓の3つの競技が行われる、国いちばんのお祭りだ。"],
+      ["temuulen", "Наадам эхэллээ!", "ナーダムが始まったよ！ ぼくは競馬に出るんだ。"],
+      ["temuulen", "", "ナーダムの競馬は子どもが乗るんだよ。草原を何十キロも走るんだ。"],
+      ["temuulen", "", "ゴールに入ってくる馬を、モンゴル語でいっしょに数えてね！"],
+    ],
+    tip: ["数字の形", "名詞の前では形が少し変わります：гурав（3）→ гурван морь（3頭の馬）、тав（5）→ таван хошуу（5つの鼻＝五畜）。нэг（1）と хоёр（2）はそのまま使えます。"],
+    culture: "ナーダムは毎年7月11日から13日に開かれる国の祭典。競馬の騎手は子どもたちです。",
+    items: [
+      W("нэг", "1", "ネグ", "neg"),
+      W("хоёр", "2", "ホヨル", "khoyor"),
+      W("гурав", "3", "ゴロウ", "gurav"),
+      W("дөрөв", "4", "ドゥルウ", "döröv"),
+      W("тав", "5", "タウ", "tav"),
+      W("зургаа", "6", "ゾルガー", "zurgaa"),
+      W("долоо", "7", "ドロー", "doloo"),
+      W("найм", "8", "ナイム", "naim"),
+      W("ес", "9", "ユス", "yes"),
+      W("арав", "10", "アラウ", "arav"),
+    ],
+    clear: [
+      ["temuulen", "Би түрүүллээ!", "やった、1着だ！ 数えてくれてありがとう！"],
+      ["narr", "", "優勝した馬には馬乳酒「アイラグ（айраг）」がかけられ、みんなに祝福される。"],
+      ["temuulen", "", "今夜はお祝いだよ。星空の下でごちそうを食べよう！"],
+    ],
+    reward: ["ホーショール", "ナーダム名物、肉入りの揚げパイ（хуушуур）。"],
+  },
+  {
+    id: "night", title: "自己紹介", place: "星空の宴", placeMn: "Одтой шөнө",
+    scene: "night", npc: "bat", kind: "sentence",
+    intro: [
+      ["narr", "", "夜。満天の星の下、たき火を囲んで家族が集まった。"],
+      ["bat", "Сайн байна уу.", "ようこそ。ノミンの父のバトだ。"],
+      ["bat", "Одоо өөрийгөө танилцуулаарай.", "さあ、自己紹介をしてごらん。"],
+      ["nomin", "", "大丈夫！ モンゴル語の文は日本語と同じ順番なの。Би цай ууна は「私は・お茶を・飲む」の順だよ。"],
+    ],
+    tip: ["語順は日本語と同じ", "Би（私は）цай（お茶を）ууна（飲む）。動詞は最後に来ます。「〜です」にあたる言葉はいりません：Би япон хүн（私・日本人）＝私は日本人です。"],
+    culture: "モンゴルの草原は明かりが少なく空気が澄んでいるので、天の川がはっきり見えます。",
+    items: [
+      W("Миний нэр {cyr}.", "私の名前は{name}です。", "ミニー ネル {name}", "minii ner …", "名前の前に Миний нэр（私の名前）。"),
+      W("Би япон хүн.", "私は日本人です。", "ビ ヤポン フン", "bi yapon khün", "хүн は「人」。"),
+      W("Би Японоос ирсэн.", "日本から来ました。", "ビ ヤポノース イルセン", "bi yaponoos irsen", "Япон＋оос で「日本から」。"),
+      W("Би монгол хэл сурч байна.", "モンゴル語を勉強しています。", "ビ モンゴル ヘル ソルチ バイナ", "bi mongol khel surch baina", "хэл は「ことば」。"),
+      W("Танилцсандаа баяртай байна.", "お会いできてうれしいです。", "タニルツサンダー バヤルタイ バイナ", "taniltssandaa bayartai baina"),
+      W("Би цай ууна.", "私はお茶を飲みます。", "ビ ツァイ オーナ", "bi tsai uuna", "私は・お茶を・飲む。日本語と同じ順番。"),
+      W("Энэ миний найз.", "これは私の友だちです。", "エネ ミニー ナイズ", "ene minii naiz", "энэ は「これ」、найз は「友だち」。"),
+      W("Монгол сайхан орон.", "モンゴルはすばらしい国です。", "モンゴル サイハン オロン", "mongol saikhan oron", "сайхан は「すばらしい・美しい」。"),
+    ],
+    replies: [
+      ["Таны нэр хэн бэ?", "お名前は？", "Миний нэр {cyr}.", "私の名前は{name}です。", ["Би Японоос ирсэн.", "Энэ миний найз.", "Би цай ууна."]],
+      ["Та хаанаас ирсэн бэ?", "どこから来ましたか？", "Би Японоос ирсэн.", "日本から来ました。", ["Миний нэр {cyr}.", "Би цай ууна.", "Монгол сайхан орон."]],
+    ],
+    clear: [
+      ["bat", "Сайхан байна!", "すばらしい！ もう立派にモンゴル語が話せるね。"],
+      ["nomin", "", "みんな、あなたのことが大好きになったって！"],
+    ],
+    reward: ["星空の思い出", "たき火を囲んで自己紹介した夜。"],
+  },
+  {
+    id: "farewell", title: "旅立ち", place: "旅立ちの空港", placeMn: "Баяртай, Монгол",
+    scene: "farewell", npc: "nomin", kind: "phrase", mix: 8,
+    intro: [
+      ["narr", "", "旅の最終日。ノミンが空港まで見送りに来てくれた。"],
+      ["nomin", "", "さみしいな……。最後に、また会うためのことばと、困ったときのひとことを教えるね。"],
+      ["nomin", "", "それから、この旅で覚えたことばのふり返りテストもあるよ！"],
+    ],
+    tip: ["困ったときのひとこと", "わからないときは Ойлгохгүй байна.（わかりません）、もう一度聞きたいときは Дахиад хэлээрэй.（もう一度言ってください）。これだけで会話がぐっと楽になります。"],
+    culture: "モンゴルでは、旅立つ人を「Сайн яваарай（よい旅を）」と見送ります。",
+    items: [
+      W("Баяртай.", "さようなら", "バヤルタイ", "bayartai"),
+      W("Дахин уулзъя.", "また会いましょう", "ダヒン オールズィ", "dakhin uulzya"),
+      W("Дахиад ирээрэй.", "また来てね", "ダヒアド イレーレイ", "dakhiad ireerei"),
+      W("Сайн яваарай.", "よい旅を（気をつけて）", "サイン ヤワーライ", "sain yavaarai"),
+      W("Ойлгохгүй байна.", "わかりません", "オイルゴホグイ バイナ", "oilgokhgüi baina"),
+      W("Дахиад хэлээрэй.", "もう一度言ってください", "ダヒアド ヘレーレイ", "dakhiad kheleerei"),
+      W("Бага зэрэг.", "少しだけ", "バガ ゼレグ", "baga zereg", "「モンゴル語わかる？」への返事にも。"),
+      W("Энэ юу вэ?", "これは何ですか？", "エネ ユー ウェ", "ene yuu ve", "юу は「なに」。"),
+    ],
+    replies: [
+      ["Баяртай!", "さようなら！", "Баяртай! Дахин уулзъя.", "さようなら！ また会おうね。", ["Сайн байна уу?", "Өглөөний мэнд.", "Тийм."]],
+      ["Дахиад ирээрэй!", "また来てね！", "Заавал ирнэ!", "必ず来るよ！", ["Сайн уу?", "Уучлаарай.", "Өглөөний мэнд."]],
+    ],
+    clear: [
+      ["nomin", "Сайн яваарай!", "気をつけてね！ また必ず来てね。"],
+      ["me", "Баярлалаа! Дахин уулзъя!", "ありがとう！ また会おうね！"],
+      ["narr", "", "こうして、ことばの旅は終わった。でも、モンゴル語の旅はまだ始まったばかり——"],
+    ],
+    reward: ["修了証", "モンゴル語の旅をやりとげたあかし。"],
+  },
+];
+
+const PROLOGUE = [
+  ["narr", "", "ある日、モンゴルに住む文通相手のノミンから手紙が届いた。"],
+  ["letter", "", ""],
+  ["narr", "", "……読めない。でも、ノミンに会いたい。"],
+  ["narr", "", "こうして、モンゴル語ゼロのまま、草原をめざす旅が始まった。"],
+];
+
+// 正解したときのひとこと
+const PRAISE = [["Зөв!", "正解！"], ["Гоё!", "いいね！"], ["Сайн байна!", "その調子！"], ["Маш сайн!", "すばらしい！"]];
+
+return { PEOPLE, LETTER, CHAPTERS, PROLOGUE, PRAISE };
+})();
+const MN_ART = (() => {
+// 絵：すべて canvas にコードで描く（画像ファイルなし＝権利の心配なし）
+// 景色 drawScene(ctx, W, H, id, t) / 人物 drawBust(ctx, S, look, t, talking) / 数える馬 drawCount(ctx, W, H, n)
+
+const TAU = Math.PI * 2;
+const rnd = seed => () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const R = v => Math.max(0.1, v); // 半径は必ず正（負だと ellipse が例外を投げる）
+
+function ell(c, x, y, rx, ry, rot = 0) { c.beginPath(); c.ellipse(x, y, R(rx), R(ry), rot, 0, TAU); c.fill(); }
+function circ(c, x, y, r) { c.beginPath(); c.arc(x, y, R(r), 0, TAU); c.fill(); }
+function poly(c, pts) { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill(); }
+function vgrad(c, y0, y1, a, b) { const g = c.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
+
+// なだらかな丘
+function ridge(c, W, H, base, amp, seed, color, freq = 1) {
+  const r = rnd(seed * 97 + 13), p = [r() * 9, r() * 9, r() * 9];
+  c.fillStyle = color; c.beginPath(); c.moveTo(0, H);
+  for (let x = 0; x <= W; x += W / 60) {
+    const u = x / W * freq;
+    c.lineTo(x, H * (base - amp * (.6 * Math.sin(u * 5 + p[0]) + .3 * Math.sin(u * 11 + p[1]) + .15 * Math.sin(u * 23 + p[2]))));
+  }
+  c.lineTo(W, H); c.closePath(); c.fill();
+}
+function cloud(c, x, y, s, a = .9) {
+  c.fillStyle = `rgba(255,255,255,${a})`;
+  ell(c, x, y, s * .5, s * .16); circ(c, x - s * .18, y - s * .08, s * .16); circ(c, x + s * .08, y - s * .14, s * .2);
+}
+function clouds(c, W, H, t, n, seed, top = .3) {
+  const r = rnd(seed);
+  for (let i = 0; i < n; i++) {
+    const s = W * (.12 + r() * .12), sp = 4 + r() * 6;
+    cloud(c, ((r() * W + t * sp) % (W + s * 2)) - s, H * (.06 + r() * top), s, .75 + r() * .2);
+  }
+}
+function sunDisc(c, x, y, r, col) {
+  const g = c.createRadialGradient(x, y, r * .2, x, y, r * 3);
+  g.addColorStop(0, col); g.addColorStop(.3, col + "88"); g.addColorStop(1, col + "00");
+  c.fillStyle = g; circ(c, x, y, r * 3); c.fillStyle = col; circ(c, x, y, r);
+}
+
+// ゲル（x, y は地面の中心）
+function ger(c, x, y, s, door = "#d9480f", t = 0, smoke = false) {
+  const h = s * .4, top = y - h;
+  c.fillStyle = "#f3efe6"; c.fillRect(x - s / 2, top, s, h);
+  c.fillStyle = "rgba(90,70,40,.12)"; c.fillRect(x + s * .15, top, s * .35, h);
+  c.fillStyle = "#b9a789"; c.fillRect(x - s / 2, top + h * .3, s, s * .02); c.fillRect(x - s / 2, top + h * .72, s, s * .02);
+  c.fillStyle = "#ebe5d8"; c.beginPath(); c.moveTo(x - s * .54, top + s * .02);
+  c.quadraticCurveTo(x - s * .3, top - s * .2, x - s * .06, top - s * .24); c.lineTo(x + s * .06, top - s * .24);
+  c.quadraticCurveTo(x + s * .3, top - s * .2, x + s * .54, top + s * .02); c.closePath(); c.fill();
+  c.fillStyle = "#8a7558"; ell(c, x, top - s * .235, s * .07, s * .025);
+  c.fillStyle = "#f1c24b"; c.fillRect(x - s * .1, y - h * .7, s * .2, h * .7);
+  c.fillStyle = door; c.fillRect(x - s * .075, y - h * .62, s * .15, h * .62);
+  if (smoke) {
+    c.fillStyle = "#6b6b6b"; c.fillRect(x + s * .14, top - s * .3, s * .025, s * .14);
+    for (let i = 0; i < 4; i++) {
+      const k = (t * .25 + i / 4) % 1;
+      c.fillStyle = `rgba(240,240,240,${.55 * (1 - k)})`;
+      circ(c, x + s * .15 + Math.sin(k * 6 + i) * s * .04 + k * s * .2, top - s * .32 - k * s * .5, s * (.03 + k * .06));
+    }
+  }
+}
+
+// 動物（x, y は足元、s は体の長さ、dir=1 で右向き）
+function horse(c, x, y, s, col, t = 0, run = false, rider = null, dir = 1) {
+  c.save(); c.translate(x, y); c.scale(dir, 1);
+  const g = run ? Math.sin(t * 14) : 0;
+  c.strokeStyle = col; c.lineCap = "round"; c.lineWidth = s * .07;
+  [[-.3, g], [-.2, -g], [.25, -g], [.35, g]].forEach(([lx, sw]) => {
+    c.beginPath(); c.moveTo(s * lx, -s * .5); c.lineTo(s * (lx + sw * .12), -s * .02); c.stroke();
+  });
+  c.fillStyle = col; ell(c, 0, -s * .58, s * .42, s * .17);
+  poly(c, [[s * .25, -s * .7], [s * .42, -s * .66], [s * .62, -s * 1.02], [s * .48, -s * 1.08]]);
+  ell(c, s * .62, -s * 1.02, s * .15, s * .07, .55);
+  c.strokeStyle = "rgba(20,10,5,.75)"; c.lineWidth = s * .05;
+  c.beginPath(); c.moveTo(s * .3, -s * .74); c.lineTo(s * .5, -s * 1.1); c.stroke();
+  c.beginPath(); c.moveTo(-s * .4, -s * .64); c.quadraticCurveTo(-s * .62, -s * .5 + g * s * .05, -s * .56, -s * .22); c.stroke();
+  if (rider) {
+    c.fillStyle = rider; c.fillRect(-s * .05, -s * 1.08, s * .2, s * .32);
+    c.fillStyle = "#e3ae84"; circ(c, s * .07, -s * 1.18, s * .09);
+    c.fillStyle = rider; ell(c, s * .07, -s * 1.25, s * .1, s * .05);
+  }
+  c.restore();
+}
+function sheep(c, x, y, s, dir = 1) {
+  c.save(); c.translate(x, y); c.scale(dir, 1);
+  c.strokeStyle = "#3b3b3b"; c.lineWidth = s * .08;
+  [-.2, .2].forEach(lx => { c.beginPath(); c.moveTo(s * lx, -s * .3); c.lineTo(s * lx, 0); c.stroke(); });
+  c.fillStyle = "#f6f3ec"; ell(c, 0, -s * .42, s * .42, s * .25); circ(c, -s * .2, -s * .55, s * .18); circ(c, s * .15, -s * .58, s * .18);
+  c.fillStyle = "#2f2f2f"; ell(c, s * .45, -s * .5, s * .14, s * .1, .3);
+  c.restore();
+}
+function goat(c, x, y, s, dir = 1) {
+  c.save(); c.translate(x, y); c.scale(dir, 1);
+  c.strokeStyle = "#6d4c35"; c.lineWidth = s * .07;
+  [-.2, .22].forEach(lx => { c.beginPath(); c.moveTo(s * lx, -s * .3); c.lineTo(s * lx, 0); c.stroke(); });
+  c.fillStyle = "#8b6a4f"; ell(c, 0, -s * .42, s * .38, s * .18); ell(c, s * .42, -s * .62, s * .12, s * .09, -.4);
+  c.strokeStyle = "#3a2a1e"; c.lineWidth = s * .04; c.beginPath(); c.moveTo(s * .38, -s * .7); c.quadraticCurveTo(s * .3, -s * .9, s * .2, -s * .86); c.stroke();
+  c.restore();
+}
+function cow(c, x, y, s, dir = 1) {
+  c.save(); c.translate(x, y); c.scale(dir, 1);
+  c.strokeStyle = "#4a2f20"; c.lineWidth = s * .09;
+  [-.28, -.12, .2, .32].forEach(lx => { c.beginPath(); c.moveTo(s * lx, -s * .35); c.lineTo(s * lx, 0); c.stroke(); });
+  c.fillStyle = "#5b3a29"; ell(c, 0, -s * .48, s * .45, s * .2); ell(c, s * .5, -s * .52, s * .14, s * .11);
+  c.fillStyle = "#f2efe8"; ell(c, -s * .1, -s * .5, s * .12, s * .08);
+  c.restore();
+}
+function camel(c, x, y, s, dir = 1) {
+  c.save(); c.translate(x, y); c.scale(dir, 1);
+  c.strokeStyle = "#a57c52"; c.lineWidth = s * .07;
+  [-.25, -.12, .15, .28].forEach(lx => { c.beginPath(); c.moveTo(s * lx, -s * .5); c.lineTo(s * lx, 0); c.stroke(); });
+  c.fillStyle = "#c39a6b"; ell(c, 0, -s * .6, s * .4, s * .16);
+  circ(c, -s * .14, -s * .74, s * .13); circ(c, s * .14, -s * .74, s * .13);
+  c.lineWidth = s * .09; c.strokeStyle = "#c39a6b"; c.beginPath(); c.moveTo(s * .32, -s * .62); c.quadraticCurveTo(s * .55, -s * .6, s * .5, -s * .95); c.stroke();
+  ell(c, s * .58, -s * .98, s * .12, s * .06);
+  c.restore();
+}
+function person(c, x, y, s, deel, hat = "#333") {
+  c.fillStyle = deel; poly(c, [[x - s * .18, y], [x + s * .18, y], [x + s * .12, y - s * .6], [x - s * .12, y - s * .6]]);
+  c.fillStyle = "#f4c542"; c.fillRect(x - s * .13, y - s * .38, s * .26, s * .06);
+  c.fillStyle = "#e3ae84"; circ(c, x, y - s * .72, s * .12);
+  c.fillStyle = hat; ell(c, x, y - s * .8, s * .13, s * .06);
+}
+function plane(c, x, y, s, a = 0) {
+  c.save(); c.translate(x, y); c.rotate(a);
+  c.fillStyle = "#e9eef5"; ell(c, 0, 0, s * .5, s * .07);
+  poly(c, [[-s * .38, -s * .02], [-s * .5, -s * .22], [-s * .42, -s * .22], [-s * .26, -s * .03]]);
+  c.fillStyle = "#c8d3e2"; poly(c, [[-s * .05, 0], [s * .1, 0], [-s * .12, s * .26], [-s * .22, s * .26]]);
+  c.fillStyle = "#2f6fd0"; c.fillRect(-s * .4, -s * .005, s * .86, s * .025);
+  c.fillStyle = "#24324f"; for (let i = 0; i < 9; i++) circ(c, -s * .25 + i * s * .07, -s * .025, s * .011);
+  c.restore();
+}
+function ovoo(c, x, y, s, t) {
+  c.fillStyle = "#8b8f97"; ell(c, x, y - s * .15, s * .5, s * .18);
+  c.fillStyle = "#a3a7ae"; ell(c, x, y - s * .32, s * .36, s * .15);
+  c.fillStyle = "#b9bcc2"; ell(c, x, y - s * .47, s * .22, s * .12);
+  c.fillStyle = "#6b4f2a"; c.fillRect(x - s * .025, y - s * 1.3, s * .05, s * .9);
+  ["#2f6fd0", "#5aa3f0", "#f4f1e8", "#2f6fd0"].forEach((col, i) => {
+    c.strokeStyle = col; c.lineWidth = s * .05; c.beginPath();
+    const yy = y - s * (1.25 - i * .12); c.moveTo(x, yy);
+    c.quadraticCurveTo(x + s * .25, yy + Math.sin(t * 3 + i) * s * .08, x + s * .45, yy + s * .1 + Math.sin(t * 3 + i + 1) * s * .1); c.stroke();
+  });
+}
+function fire(c, x, y, s, t) {
+  const g = c.createRadialGradient(x, y - s * .3, 1, x, y - s * .3, s * 3);
+  g.addColorStop(0, "rgba(255,170,60,.45)"); g.addColorStop(1, "rgba(255,120,30,0)");
+  c.fillStyle = g; circ(c, x, y - s * .3, s * 3);
+  c.fillStyle = "#5a3a22"; c.fillRect(x - s * .5, y - s * .08, s, s * .1);
+  [["#ff7a1a", 1], ["#ffb02e", .7], ["#fff1a8", .4]].forEach(([col, k], i) => {
+    const f = 1 + .12 * Math.sin(t * 9 + i * 2);
+    c.fillStyle = col; c.beginPath(); c.moveTo(x - s * .32 * k, y - s * .05);
+    c.quadraticCurveTo(x - s * .3 * k, y - s * .6 * k * f, x + Math.sin(t * 5 + i) * s * .05, y - s * k * f);
+    c.quadraticCurveTo(x + s * .3 * k, y - s * .6 * k * f, x + s * .32 * k, y - s * .05); c.fill();
+  });
+  for (let i = 0; i < 6; i++) { const k = (t * .6 + i / 6) % 1; c.fillStyle = `rgba(255,200,90,${1 - k})`; circ(c, x + Math.sin(i * 7 + k * 5) * s * .4, y - s - k * s * 2, s * .03); }
+}
+function building(c, x, y, w, h, col, lit, seed) {
+  const r = rnd(seed);
+  c.fillStyle = col; c.fillRect(x, y - h, w, h);
+  for (let yy = y - h + h * .08; yy < y - h * .1; yy += h * .12)
+    for (let xx = x + w * .12; xx < x + w * .85; xx += w * .22) { c.fillStyle = r() < lit ? "#ffd977" : "rgba(255,255,255,.35)"; c.fillRect(xx, yy, w * .12, h * .06); }
+}
+function stars(c, W, H, t, seed, n) {
+  const r = rnd(seed);
+  for (let i = 0; i < n; i++) {
+    const x = r() * W, y = r() * H * .62, s = r() * 1.6 + .4, ph = r() * 9;
+    c.fillStyle = `rgba(255,255,240,${.45 + .55 * Math.abs(Math.sin(t * .8 + ph))})`; circ(c, x, y, s * W / 900);
+  }
+}
+
+const SCENES = {
+  title(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .7, "#f29e5f", "#fde3bf"); c.fillRect(0, 0, W, H);
+    sunDisc(c, W * .74, H * .48, H * .08, "#fff2c2"); clouds(c, W, H, t, 3, 4, .2);
+    ridge(c, W, H, .6, .06, 1, "#b69a8a"); ridge(c, W, H, .68, .05, 2, "#7f8f62"); ridge(c, W, H, .78, .04, 3, "#55703f");
+    ger(c, W * .22, H * .86, W * .14, "#d9480f", t, true); ger(c, W * .36, H * .84, W * .1, "#2f6fd0");
+    horse(c, W * .7, H * .7, W * .06, "#3d2a1e", t, false, "#2f6fd0");
+    c.strokeStyle = "#5a4636"; c.lineWidth = W * .002;
+    for (let i = 0; i < 3; i++) { const bx = (W * (.5 + i * .05) + t * 8) % W, by = H * (.2 + i * .04); c.beginPath(); c.moveTo(bx - 6, by - 3); c.lineTo(bx, by); c.lineTo(bx + 6, by - 3); c.stroke(); }
+  },
+  airport(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .6, "#5d97e0", "#cfe4f7"); c.fillRect(0, 0, W, H);
+    clouds(c, W, H, t, 4, 7); ridge(c, W, H, .55, .07, 4, "#93a8b8");
+    c.fillStyle = "#8c96a3"; c.fillRect(0, H * .62, W, H * .38);
+    c.fillStyle = "#e9edf2"; c.fillRect(W * .05, H * .38, W * .62, H * .25);
+    c.fillStyle = "#2f4f7a"; for (let i = 0; i < 12; i++) c.fillRect(W * (.07 + i * .05), H * .45, W * .04, H * .14);
+    c.fillStyle = "#1d3d78"; c.fillRect(W * .12, H * .31, W * .48, H * .07);
+    c.fillStyle = "#fff"; c.font = `700 ${H * .045}px Rubik, sans-serif`; c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText("Тавтай морилно уу!", W * .36, H * .345);
+    c.fillStyle = "#dfe5ec"; c.fillRect(W * .78, H * .24, W * .035, H * .38); c.fillStyle = "#2f4f7a"; c.fillRect(W * .765, H * .2, W * .065, H * .06);
+    c.fillStyle = "#f2f2f2"; for (let i = 0; i < 8; i++) c.fillRect(W * (i * .14 - .02), H * .86, W * .07, H * .012);
+    plane(c, W * .62, H * .74, W * .36);
+  },
+  city(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .6, "#4f86d6", "#c4dbf3"); c.fillRect(0, 0, W, H);
+    clouds(c, W, H, t, 3, 9); ridge(c, W, H, .5, .1, 5, "#6f9161");
+    for (let i = 0; i < 9; i++) ger(c, W * (.04 + i * .1), H * (.5 + (i % 3) * .02), W * .035, "#c2410c");
+    const cols = ["#d7d2c8", "#9fb3c8", "#c9a27a", "#e6e1d7", "#7f95ad", "#b8c4d2", "#d9c6a5"];
+    for (let i = 0; i < 9; i++) building(c, W * (i * .11 - .01), H * .8, W * .1, H * (.22 + ((i * 37) % 5) * .06), cols[i % 7], .25, i + 3);
+    c.fillStyle = "#555b63"; c.fillRect(0, H * .8, W, H * .2); c.fillStyle = "#e9e0b8";
+    for (let i = 0; i < 10; i++) c.fillRect(((i * W * .14 - t * 30) % (W * 1.4) + W * 1.4) % (W * 1.4) - W * .1, H * .9, W * .06, H * .01);
+    const cx = W * .3 + Math.sin(t * .5) * W * .02;
+    c.fillStyle = "#2f7d55"; c.fillRect(cx, H * .83, W * .13, H * .045); c.fillRect(cx + W * .025, H * .8, W * .07, H * .035);
+    c.fillStyle = "#1c1c1c"; circ(c, cx + W * .03, H * .875, H * .02); circ(c, cx + W * .1, H * .875, H * .02);
+  },
+  market(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .55, "#e8935a", "#f8d9ad"); c.fillRect(0, 0, W, H);
+    sunDisc(c, W * .85, H * .2, H * .06, "#ffe7a8");
+    c.fillStyle = "#b08b67"; c.fillRect(0, H * .66, W, H * .34);
+    const aw = [["#c2410c", "#fff3e0"], ["#1d4ed8", "#e0ecff"], ["#15803d", "#ecfdf3"], ["#b91c1c", "#fff7d6"]];
+    for (let i = 0; i < 4; i++) {
+      const x = W * (.03 + i * .245), w = W * .21, [a, b] = aw[i];
+      c.fillStyle = "#6b4f3a"; c.fillRect(x, H * .38, W * .008, H * .32); c.fillRect(x + w - W * .008, H * .38, W * .008, H * .32);
+      for (let k = 0; k < 6; k++) { c.fillStyle = k % 2 ? b : a; c.fillRect(x + k * w / 6, H * .34, w / 6, H * .08); }
+      c.fillStyle = "#8a6a4e"; c.fillRect(x, H * .58, w, H * .1);
+      const goods = ["#f59e0b", "#ef4444", "#84cc16", "#f97316", "#eab308"];
+      for (let k = 0; k < 7; k++) { c.fillStyle = goods[(k + i) % 5]; circ(c, x + w * (.1 + k * .13), H * .565, H * .025); }
+    }
+    for (let i = 0; i < 6; i++) person(c, W * (.1 + i * .16) + Math.sin(t * .7 + i) * W * .01, H * .95, H * .3, ["#7c3aed", "#2563eb", "#b91c1c", "#0f766e", "#c2410c", "#334155"][i]);
+    c.strokeStyle = "#5b4636"; c.lineWidth = 1; c.beginPath(); c.moveTo(0, H * .12); c.quadraticCurveTo(W / 2, H * .24, W, H * .12); c.stroke();
+    for (let i = 0; i < 14; i++) { const x = W * i / 13, y = H * .12 + Math.sin(Math.PI * i / 13) * H * .1; c.fillStyle = `rgba(255,214,120,${.6 + .4 * Math.sin(t * 2 + i)})`; circ(c, x, y + 4, H * .012); }
+  },
+  library(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .6, "#7d93c0", "#d6deee"); c.fillRect(0, 0, W, H);
+    clouds(c, W, H, t, 3, 11, .15);
+    c.fillStyle = "#7c9a6a"; c.fillRect(0, H * .78, W, H * .22);
+    c.fillStyle = "#e8dcc4"; c.fillRect(W * .18, H * .4, W * .64, H * .38);
+    c.fillStyle = "#d9cbb0"; poly(c, [[W * .14, H * .4], [W * .86, H * .4], [W * .5, H * .2]]);
+    c.fillStyle = "#c9b896"; c.fillRect(W * .14, H * .38, W * .72, H * .03);
+    for (let i = 0; i < 8; i++) { c.fillStyle = "#f4ecdc"; c.fillRect(W * (.21 + i * .08), H * .42, W * .035, H * .34); c.fillStyle = "rgba(80,60,30,.15)"; c.fillRect(W * (.235 + i * .08), H * .42, W * .01, H * .34); }
+    c.fillStyle = "#3d4a5c"; c.fillRect(W * .46, H * .6, W * .08, H * .18);
+    for (let i = 0; i < 3; i++) { c.fillStyle = ["#cfc3aa", "#c4b799", "#b9ab8c"][i]; c.fillRect(W * (.16 - i * .02), H * (.78 + i * .03), W * (.68 + i * .04), H * .03); }
+    [[.07, .74], [.93, .74]].forEach(([x, y]) => { c.fillStyle = "#4f6f3f"; circ(c, W * x, H * y - H * .12, H * .12); c.fillStyle = "#5a3f2a"; c.fillRect(W * x - 3, H * y - H * .04, 6, H * .08); });
+  },
+  road(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .55, "#3f8ae6", "#c4e2fb"); c.fillRect(0, 0, W, H);
+    clouds(c, W, H, t, 5, 13, .25); ridge(c, W, H, .52, .06, 6, "#8fae86"); ridge(c, W, H, .6, .03, 7, "#7eb356");
+    c.fillStyle = "#6ea544"; c.fillRect(0, H * .62, W, H * .38);
+    c.fillStyle = "#b9a27e"; poly(c, [[W * .44, H * .6], [W * .47, H * .6], [W * .62, H], [W * .2, H]]);
+    c.fillStyle = "#e6dcc2"; for (let i = 0; i < 5; i++) { const k = ((i / 5 + t * .08) % 1), y0 = H * (.6 + k * k * .4); c.fillRect(W * (.455 - k * .03) , y0, W * (.004 + k * .012), H * .015 * (1 + k * 3)); }
+    ovoo(c, W * .78, H * .72, H * .3, t);
+  },
+  ger(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .55, "#3d8be0", "#b9ddfa"); c.fillRect(0, 0, W, H);
+    clouds(c, W, H, t, 4, 17); ridge(c, W, H, .5, .08, 8, "#8aa7a0"); ridge(c, W, H, .6, .04, 9, "#86b956");
+    c.fillStyle = "#79ac48"; c.fillRect(0, H * .66, W, H * .34);
+    ger(c, W * .3, H * .8, W * .22, "#d9480f", t, true); ger(c, W * .55, H * .74, W * .14, "#1e5aa8", t, true);
+    c.strokeStyle = "#5a3f2a"; c.lineWidth = 2; c.beginPath(); c.moveTo(W * .72, H * .78); c.lineTo(W * .92, H * .78); c.stroke();
+    c.fillStyle = "#5a3f2a"; c.fillRect(W * .72, H * .74, 3, H * .1); c.fillRect(W * .92 - 3, H * .74, 3, H * .1);
+    horse(c, W * .78, H * .88, W * .07, "#7a4a2a", t); horse(c, W * .88, H * .88, W * .065, "#2b2b2b", t, false, null, -1);
+    for (let i = 0; i < 7; i++) sheep(c, W * (.08 + i * .05 + Math.sin(t * .2 + i) * .01), H * (.93 + (i % 2) * .03), W * .035, i % 2 ? 1 : -1);
+  },
+  pasture(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .55, "#7cb6ec", "#e9f3fb"); c.fillRect(0, 0, W, H);
+    sunDisc(c, W * .15, H * .2, H * .06, "#fff6d0"); clouds(c, W, H, t, 3, 19, .2);
+    ridge(c, W, H, .5, .06, 10, "#9db59a"); c.fillStyle = "#8fbf5a"; c.fillRect(0, H * .6, W, H * .4);
+    ger(c, W * .12, H * .66, W * .08, "#d9480f", t, true);
+    horse(c, W * .32, H * .75, W * .07, "#7a4a2a", t); horse(c, W * .42, H * .76, W * .065, "#e8e0d0", t, false, null, -1);
+    cow(c, W * .58, H * .78, W * .08); camel(c, W * .8, H * .76, W * .1, -1);
+    for (let i = 0; i < 5; i++) sheep(c, W * (.25 + i * .06), H * (.9 + (i % 2) * .04), W * .04, i % 2 ? 1 : -1);
+    for (let i = 0; i < 3; i++) goat(c, W * (.62 + i * .07), H * (.92 + (i % 2) * .03), W * .04, i % 2 ? -1 : 1);
+  },
+  naadam(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .5, "#4a90e2", "#d4e9fa"); c.fillRect(0, 0, W, H);
+    clouds(c, W, H, t, 3, 23, .15); ridge(c, W, H, .45, .05, 11, "#9bb08f");
+    c.fillStyle = "#a9b86a"; c.fillRect(0, H * .5, W, H * .5);
+    for (let i = 0; i < 6; i++) {
+      const x = W * (.05 + i * .17); c.fillStyle = "#f8f6f0"; poly(c, [[x, H * .55], [x + W * .12, H * .55], [x + W * .06, H * .42]]);
+      c.fillStyle = i % 2 ? "#2f6fd0" : "#c8102e"; c.fillRect(x, H * .53, W * .12, H * .02);
+      c.fillStyle = "#6b4f2a"; c.fillRect(x + W * .06, H * .32, 2, H * .1);
+      c.fillStyle = ["#c8102e", "#2f6fd0", "#f4c542"][i % 3]; poly(c, [[x + W * .06, H * .32], [x + W * .06 + W * .04 + Math.sin(t * 4 + i) * W * .005, H * .34], [x + W * .06, H * .36]]);
+    }
+    const crowd = ["#c8102e", "#2f6fd0", "#f4c542", "#15803d", "#7c3aed", "#f97316"];
+    for (let i = 0; i < 40; i++) { c.fillStyle = crowd[i % 6]; circ(c, W * (i / 40) + 4, H * .6 + (i % 2) * 5, H * .018); c.fillStyle = "#e3ae84"; circ(c, W * (i / 40) + 4, H * .57 + (i % 2) * 5, H * .011); }
+    c.fillStyle = "#c9b98a"; c.fillRect(0, H * .66, W, H * .12);
+    for (let i = 0; i < 5; i++) {
+      const x = ((t * 60 + i * W * .22) % (W * 1.3)) - W * .15;
+      c.fillStyle = "rgba(200,180,140,.5)"; ell(c, x - W * .06, H * .76, W * .05, H * .025);
+      horse(c, x, H * (.78 + (i % 2) * .02), W * .07, ["#7a4a2a", "#2b2b2b", "#a0522d", "#e8e0d0", "#5a3a22"][i], t + i, true, crowd[i]);
+    }
+    c.fillStyle = "#93a35c"; c.fillRect(0, H * .82, W, H * .18);
+  },
+  night(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .7, "#070c1f", "#24335f"); c.fillRect(0, 0, W, H);
+    c.save(); c.translate(W * .5, H * .3); c.rotate(-.35);
+    const mw = c.createLinearGradient(0, -H * .12, 0, H * .12); mw.addColorStop(0, "rgba(180,190,255,0)"); mw.addColorStop(.5, "rgba(200,205,255,.16)"); mw.addColorStop(1, "rgba(180,190,255,0)");
+    c.fillStyle = mw; c.fillRect(-W, -H * .12, W * 2, H * .24); c.restore();
+    stars(c, W, H, t, 31, 160); c.fillStyle = "#f4f1dc"; circ(c, W * .85, H * .15, H * .04);
+    ridge(c, W, H, .62, .05, 12, "#121c2e"); c.fillStyle = "#0f1a14"; c.fillRect(0, H * .72, W, H * .28);
+    ger(c, W * .2, H * .8, W * .17, "#ffb347", t, true);
+    fire(c, W * .62, H * .88, H * .12, t);
+    [[.5, -1], [.56, -1], [.7, 1], [.75, 1]].forEach(([x], i) => person(c, W * x, H * .93, H * .22, "#1a2238", "#11182b"));
+  },
+  farewell(c, W, H, t) {
+    c.fillStyle = vgrad(c, 0, H * .7, "#5b4a8f", "#f6a96b"); c.fillRect(0, 0, W, H);
+    sunDisc(c, W * .3, H * .6, H * .09, "#ffd59a");
+    ridge(c, W, H, .66, .04, 14, "#4c3f6b"); c.fillStyle = "#3a3152"; c.fillRect(0, H * .74, W, H * .26);
+    c.fillStyle = "#2b2440"; c.fillRect(W * .55, H * .62, W * .4, H * .12); c.fillRect(W * .88, H * .48, W * .03, H * .26);
+    const k = (t * .06) % 1;
+    c.strokeStyle = "rgba(255,255,255,.5)"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(W * .1, H * .7); c.lineTo(W * (.1 + k * .8), H * (.7 - k * .55)); c.stroke();
+    plane(c, W * (.1 + k * .8), H * (.7 - k * .55), W * .16, -.55);
+  },
+};
+
+function drawScene(c, W, H, id, t) { c.save(); (SCENES[id] || SCENES.title)(c, W, H, t); c.restore(); }
+
+// 胸から上の人物。talking 中は口が動く
+function drawBust(c, S, L, t = 0, talking = false) {
+  c.clearRect(0, 0, S, S);
+  c.save(); c.beginPath(); c.arc(S / 2, S / 2, S / 2, 0, TAU); c.clip();
+  c.fillStyle = L.bg; c.fillRect(0, 0, S, S);
+  const b = Math.sin(t * 2) * S * .006, hx = S / 2, hy = S * .44 + b, hr = S * .2;
+  if (L.style === "braid") { c.fillStyle = L.hair; ell(c, hx - hr * .9, hy + hr * 1.2, hr * .22, hr * .9); }
+  if (L.style === "bun" && L.hat !== "scarf") { c.fillStyle = L.hair; circ(c, hx, hy - hr * 1.05, hr * .38); }
+  c.fillStyle = L.deel; ell(c, hx, S * 1.04, S * .42, S * .32);
+  c.fillStyle = L.skin; c.fillRect(hx - S * .055, hy + hr * .6, S * .11, S * .14);
+  c.fillStyle = L.trim; ell(c, hx, S * .76 + b, S * .12, S * .035);
+  c.strokeStyle = L.trim; c.lineWidth = S * .025; c.beginPath(); c.moveTo(hx, S * .78); c.quadraticCurveTo(hx + S * .14, S * .8, hx + S * .2, S * .95); c.stroke();
+  c.fillStyle = "#f4c542"; [[.08, .8], [.15, .86]].forEach(([dx, dy]) => circ(c, hx + S * dx, S * dy, S * .012));
+  c.fillStyle = L.skin; circ(c, hx - hr * .98, hy + hr * .1, hr * .17); circ(c, hx + hr * .98, hy + hr * .1, hr * .17); circ(c, hx, hy, hr);
+  c.fillStyle = L.hair;
+  if (L.hat !== "scarf") {
+    c.beginPath(); c.arc(hx, hy, hr * 1.04, Math.PI * 1.02, Math.PI * 1.98); c.closePath(); c.fill();
+    if (L.style === "bob") { c.fillRect(hx - hr * 1.08, hy - hr * .2, hr * .3, hr * 1.1); c.fillRect(hx + hr * .78, hy - hr * .2, hr * .3, hr * 1.1); }
+    if (L.style === "short" || L.style === "braid" || L.style === "bun") ell(c, hx - hr * .35, hy - hr * .55, hr * .55, hr * .3, -.3);
+  }
+  const blink = (t % 4.3) < .12;
+  c.fillStyle = "#1d1714";
+  [-1, 1].forEach(s => blink ? c.fillRect(hx + s * hr * .38 - hr * .1, hy + hr * .08, hr * .2, hr * .04) : ell(c, hx + s * hr * .38, hy + hr * .1, hr * .085, hr * .11));
+  c.fillStyle = "rgba(235,110,110,.28)"; circ(c, hx - hr * .6, hy + hr * .42, hr * .16); circ(c, hx + hr * .6, hy + hr * .42, hr * .16);
+  if (L.mustache) { c.fillStyle = L.hair; ell(c, hx, hy + hr * .5, hr * .3, hr * .07); }
+  if (talking) { c.fillStyle = "#7a2e2e"; ell(c, hx, hy + hr * .66, hr * .14, hr * (.05 + .07 * Math.abs(Math.sin(t * 16)))); }
+  else { c.strokeStyle = "#7a2e2e"; c.lineWidth = hr * .07; c.beginPath(); c.arc(hx, hy + hr * .5, hr * .2, .25 * Math.PI, .75 * Math.PI); c.stroke(); }
+  if (L.glasses) { c.strokeStyle = "#2b2b2b"; c.lineWidth = hr * .06; [-1, 1].forEach(s => { c.beginPath(); c.arc(hx + s * hr * .38, hy + hr * .1, hr * .22, 0, TAU); c.stroke(); }); c.beginPath(); c.moveTo(hx - hr * .16, hy + hr * .08); c.lineTo(hx + hr * .16, hy + hr * .08); c.stroke(); }
+  c.fillStyle = L.hatC;
+  switch (L.hat) {
+    case "pillbox": c.fillRect(hx - hr * .7, hy - hr * 1.3, hr * 1.4, hr * .45); c.fillStyle = "#e7b43c"; c.fillRect(hx - hr * .7, hy - hr * .95, hr * 1.4, hr * .1); break;
+    case "cap": c.beginPath(); c.arc(hx, hy - hr * .35, hr * .95, Math.PI, 0); c.fill(); ell(c, hx + hr * .7, hy - hr * .38, hr * .6, hr * .12); break;
+    case "brim": ell(c, hx, hy - hr * .55, hr * 1.5, hr * .22); c.beginPath(); c.arc(hx, hy - hr * .55, hr * .8, Math.PI, 0); c.fill(); break;
+    case "jockey": c.beginPath(); c.arc(hx, hy - hr * .3, hr, Math.PI, 0); c.fill(); c.fillStyle = "#fde047"; circ(c, hx, hy - hr * 1.32, hr * .16); c.fillStyle = L.hatC; ell(c, hx + hr * .55, hy - hr * .3, hr * .55, hr * .1); break;
+    case "scarf": c.beginPath(); c.arc(hx, hy, hr * 1.12, Math.PI * .92, Math.PI * 2.08); c.fill(); poly(c, [[hx - hr * 1.1, hy + hr * .1], [hx - hr * .95, hy + hr * .9], [hx - hr * .6, hy + hr * .2]]); c.fillStyle = "rgba(255,255,255,.25)"; for (let i = 0; i < 4; i++) circ(c, hx - hr * .5 + i * hr * .35, hy - hr * .7, hr * .07); break;
+    case "loovuuz": c.fillStyle = "#c9a26b"; ell(c, hx, hy - hr * .7, hr * 1.15, hr * .32); c.fillStyle = L.hatC; poly(c, [[hx - hr * .75, hy - hr * .8], [hx + hr * .75, hy - hr * .8], [hx, hy - hr * 1.75]]); c.fillStyle = "#c8102e"; circ(c, hx, hy - hr * 1.75, hr * .12); break;
+  }
+  c.restore();
+}
+
+// 「何頭いる？」の馬の絵
+function drawCount(c, W, H, n) {
+  c.fillStyle = "#e8f1dc"; c.fillRect(0, 0, W, H);
+  c.fillStyle = "#c9dcae"; c.fillRect(0, H * .55, W, H * .45);
+  const cols = n > 5 ? 5 : n, rows = Math.ceil(n / 5), s = Math.min(W / (cols + 1) * .8, H / (rows + .4) * .5);
+  const horseCols = ["#7a4a2a", "#2b2b2b", "#a0522d", "#5a3a22", "#8b6a4f"];
+  for (let i = 0; i < n; i++) {
+    const r = i / 5 | 0, k = i % 5, inRow = Math.min(5, n - r * 5);
+    horse(c, W / 2 + (k - (inRow - 1) / 2) * s * 1.25, H * (.42 + r * .42) + s * .1, s, horseCols[i % 5]);
+  }
+}
+
+return { drawScene, drawBust, drawCount };
+})();
+</script>
 <script>
 /* よろず道場 — 教材データ
  * 言語コース: items = [学習語, 日本語, (読み), (カナ)]
@@ -2499,7 +4431,41 @@ notwithstanding|前|〜にもかかわらず|*Notwithstanding* the delay, the pr
   const p2 = P2.trim().split('\n').map((line, i) => { const [lv, q, a, w1, w2, ...ex] = line.split('|'); return { id: 'p2.' + i, lv: +lv, q, choices: [a, w1, w2], ex: ex.join('|') }; });
   const p34 = P34.map((s) => Object.assign({}, s, { id: 'p34.' + s.id, qs: s.qs.map((q) => ({ q: q[0], choices: q.slice(1) })) }));
   const p7 = P7.map((s) => Object.assign({}, s, { id: 'p7.' + s.id, qs: s.qs.map((q) => ({ q: q[0], choices: q.slice(1) })) }));
-  return { words, p5, p2, p34, p7 };
+
+  // ---- 「900点ロード」の教材を合流する（src/toeic-extra。同じ単語は先に入っている方を残す） ----
+  const X = typeof TOEIC_EXTRA !== 'undefined' ? TOEIC_EXTRA : (typeof require === 'function' ? require('./toeic-extra/load.js') : null);
+  let grammar = [];
+  if (X) {
+    const POS = { n: '名', v: '動', a: '形', ad: '副', p: '前', c: '接' };
+    const BAND = { 1: 300, 2: 450, 3: 600, 4: 730, 5: 860, 6: 990 };
+    const lv3 = (lv) => (lv <= 2 ? 1 : lv <= 4 ? 2 : 3);
+    const TAGCAT = { 品詞: 'pos', 代名詞: 'pron', 前置詞: 'prep', '前置詞・接続詞': 'prep', 関係詞: 'rel', 語彙: 'vocab', 比較: 'comp' };
+    const rows = (t) => t.trim().split('\n').map((x) => x.trim()).filter((x) => x && !x.startsWith('#'));
+    const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const have = new Set(words.map((w) => w.id.toLowerCase()));
+    for (const [lv, txt] of Object.entries(X.VOCAB)) for (const line of rows(txt)) {
+      const [en, pos, ja, ex = ''] = line.split('|').map((x) => x.trim());
+      if (!en || have.has(en.toLowerCase())) continue; have.add(en.toLowerCase());
+      const m = ex.match(new RegExp('\\b' + esc(en) + '\\b', 'i'));
+      words.push({ id: en, w: en, pos: POS[pos] || '名', ja: ja.replace(/、/g, '・'), ex, form: m ? m[0] : null, exJa: '', band: BAND[lv] || 600, src: 'x' });
+    }
+    words.sort((a, b) => a.band - b.band); // 帯の順（同じ帯の中は元の順）
+    const firstOf = (c, a) => [c[a], ...c.filter((_, k) => k !== a)];
+    rows(X.P5).forEach((line, i) => {
+      const [tag, lv, q, c1, c2, c3, c4, a, ...ex] = line.split('|').map((x) => x.trim());
+      p5.push({ id: 'x5.' + i, lv: lv3(+lv), cat: TAGCAT[tag] || 'verb', tag, q: q.replace(/_{3,}/, '-------'), choices: firstOf([c1, c2, c3, c4], +a), ex: ex.join('|') });
+    });
+    rows(X.P2).forEach((line, i) => {
+      const [lv, q, c1, c2, c3, a, ...ja] = line.split('|').map((x) => x.trim());
+      p2.push({ id: 'x2.' + i, lv: lv3(+lv), q, choices: firstOf([c1, c2, c3], +a), ex: ja.join('|') });
+    });
+    const exOf = (qs) => qs.map((q, k) => `${k + 1}. ${q.ex}`).join('\n');
+    X.P34.forEach((o, i) => p34.push({ id: 'p34.x' + i, lv: lv3(o.lv), kind: o.kind, title: '', lines: o.lines, ja: o.ja, qs: o.qs.map((q) => ({ q: q.q, choices: firstOf(q.c, q.a) })), ex: exOf(o.qs) }));
+    const kindOf = (t) => (/mail/i.test(t) ? 'email' : /advert/i.test(t) ? 'ad' : /article/i.test(t) ? 'article' : 'notice');
+    X.P7.forEach((o, i) => p7.push({ id: 'p7.x' + i, lv: lv3(o.lv), label: o.title, docs: [{ kind: kindOf(o.title), title: '', body: o.text, pre: true }], ja: '', qs: o.qs.map((q) => ({ q: q.q, choices: firstOf(q.c, q.a) })), ex: exOf(o.qs) }));
+    grammar = X.LESSONS.map((g) => Object.assign({}, g, { cat: TAGCAT[g.tag] || null }));
+  }
+  return { words, p5, p2, p34, p7, grammar };
 })();
 if (typeof module !== 'undefined') module.exports = TOEIC_DATA;
 </script>
@@ -4743,7 +6709,8 @@ const Mahjong3D = (() => {
   const tokens = (s) => s.split(/\s+/).map((w) => w.replace(/^[¿¡"“]+|[.,!?;:"”]+$/g, '')).filter(Boolean);
 
   function langItems(course, unit) {
-    return unit.items.map((it, i) => ({ id: unit.id + '.' + i, t: it[0], ja: it[1], rom: it[2] || '', kana: it[3] || '' }));
+    const f = unit.tpl ? fillName : (x) => x; // 物語の章は {name}・{cyr} を名前に置きかえる
+    return unit.items.map((it, i) => ({ id: unit.id + '.' + i, t: f(it[0]), ja: f(it[1]), rom: it[2] || '', kana: f(it[3] || ''), note: it[4] || '' }));
   }
   function readingOf(o) { return o.rom ? (o.kana ? `${o.rom} ／ ${o.kana}` : o.rom) : ''; }
 
@@ -4753,8 +6720,9 @@ const Mahjong3D = (() => {
     const target = (x) => ({ text: x.t, cls: tcls });
     const ja = (x) => ({ text: x.ja });
     if (unit.letters) {
-      if (type === 's2l') return mcFrom({ q: 'この音の文字は？', main: o.ja }, { text: o.t, cls: 'cyr big' }, distract(all, o, 't').map((x) => ({ text: x.t, cls: 'cyr big' })));
-      return mcFrom({ q: 'この文字の音は？', main: o.t, mainCls: 'big', ex: o.t + ' ＝ ' + o.ja }, ja(o), distract(all, o, 'ja').map(ja));
+      const lex = o.t + ' ＝ ' + o.ja + (o.note ? '。' + o.note : '');
+      if (type === 's2l') return mcFrom({ q: 'この音の文字は？', main: o.ja, ex: lex }, { text: o.t, cls: 'cyr big' }, distract(all, o, 't').map((x) => ({ text: x.t, cls: 'cyr big' })));
+      return mcFrom({ q: 'この文字の音は？', main: o.t, mainCls: 'big', ex: lex }, ja(o), distract(all, o, 'ja').map(ja));
     }
     if (type === 'spell' && !isEn && !/\s/.test(o.t) && [...o.t].length <= 9) {
       const chars = [...o.t]; const pool = 'абвгдеёжзийклмноөпрстуүфхцчшыьэюя'.split('').filter((c) => !chars.includes(c.toLowerCase()) && !chars.includes(c));
@@ -4769,7 +6737,7 @@ const Mahjong3D = (() => {
     if (type === 'order' && words.length < 3) type = 'j2t';
     if (type === 'type' && (!isEn || words.length > 6)) type = 'j2t';
     if (type === 'listen' && !isEn) type = 't2j';
-    const exText = readingOf(o) ? `${o.t}（${readingOf(o)}）＝ ${o.ja}` : `${o.t} ＝ ${o.ja}`;
+    const exText = (readingOf(o) ? `${o.t}（${readingOf(o)}）＝ ${o.ja}` : `${o.t} ＝ ${o.ja}`) + (o.note ? `。${o.note}` : '');
     const lang = isEn ? 'en' : 'mn'; const voice = canSpeak(lang) ? o.t : null;
     if (type === 'speak' && isEn && words.length <= 10) return { t: 'speak', q: '声に出して読んでみよう', main: o.t, ja: o.ja, a: o.t, ex: exText, lang };
     if (type === 'speak') type = 'j2t';
@@ -4943,6 +6911,7 @@ const Mahjong3D = (() => {
     return exs.filter(Boolean);
   }
   function buildLesson(course, unit, lesson) {
+    if (lesson.replies) return repliesLesson(unit);
     if (lesson.drill) return drillLesson(course, lesson);
     if (lesson.ex) return lesson.ex.map(normCurated);
     if (lesson.cur) return shuffle(unit.curated.slice(lesson.cur[0], lesson.cur[1]).map((e, i) => curatedEx(course, unit, e, lesson.cur[0] + i)));
@@ -4964,7 +6933,7 @@ const Mahjong3D = (() => {
 
   // ---------- 画面 ----------
   let view = { name: 'home' };
-  const HASH = (v) => ({ home: 'home', course: 'course-' + v.cid, lesson: 'lesson', result: 'result', chess: 'chess', mjplay: 'mahjong', mjreview: 'mjreview', toeic: 'toeic' })[v.name] || 'home';
+  const HASH = (v) => ({ home: 'home', course: 'course-' + v.cid, lesson: 'lesson', result: 'result', chess: 'chess', mjplay: 'mahjong', mjreview: 'mjreview', toeic: 'toeic', story: 'story' })[v.name] || 'home';
   let expectHash = null;
   function go(v, nav) {
     view = v; render(); window.scrollTo(0, 0);
@@ -4979,6 +6948,7 @@ const Mahjong3D = (() => {
     if (name === 'mahjong') return go({ name: 'mjplay' }, 'pop');
     if (name === 'mjreview' && MP.review) return go({ name: 'mjreview' }, 'pop');
     if (name === 'toeic') return go({ name: 'toeic' }, 'pop');
+    if (name === 'story') return go(ST ? { name: 'story' } : { name: 'course', cid: 'mn' }, 'pop');
     if ((name === 'lesson' || name === 'result') && L) return go(L.back || { name: 'course', cid: L.cid }, 'pop');
     return go({ name: 'home' }, 'pop');
   }
@@ -4994,6 +6964,7 @@ const Mahjong3D = (() => {
     else if (view.name === 'mjplay') mjView();
     else if (view.name === 'mjreview') mjReview();
     else if (view.name === 'toeic') toeicView();
+    else if (view.name === 'story') storyView();
   }
 
   function courseIcon(c) {
@@ -5088,6 +7059,7 @@ const Mahjong3D = (() => {
   // ---------- レッスン進行 ----------
   let L = null;
   function startLesson(course, unit, lesson) {
+    if (lesson.story) { openStory(course, unit, lesson); return; }
     const exs = buildLesson(course, unit, lesson);
     L = { cid: course.id, key: keyOf(course, unit, lesson), title: lesson.name, unit, lesson, queue: exs.map((e, i) => Object.assign(e, { _uid: i, _tries: 0 })), total: exs.length, cleared: 0, wrong: new Set(), combo: 0, maxCombo: 0, t0: Date.now(), review: false, srsSeen: new Set() };
     go({ name: 'lesson' });
@@ -5638,6 +7610,7 @@ const Mahjong3D = (() => {
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '効果音'), h('small', {}, '正解・不正解の音')), sw('sound')),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '英語の自動読み上げ'), h('small', {}, canSpeak() ? '問題が出たら発音を流す' : 'この環境では音声が使えません')), sw('autoplay')),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'モンゴル語の読みを表示'), h('small', {}, 'ローマ字とカナ（目安）')), sw('reading')),
+      (() => { const pv = h('small', { class: 'cyr' }, P.mnCyr || '物語と自己紹介で使う'); const inp = h('input', { class: 'tin', type: 'text', value: P.mnName || '', placeholder: 'ひらがな', 'aria-label': 'モンゴル語での名前（ひらがな）' }); inp.addEventListener('input', () => { pv.textContent = kana2cyr(inp.value) || 'ひらがなかカタカナで'; }); inp.addEventListener('change', () => { if (inp.value.trim() && setMnName(inp.value)) pv.textContent = P.mnCyr; }); return h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'モンゴル語での名前'), pv), inp); })(),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '麻雀の卓を3Dで表示'), h('small', {}, '牌・山・河を立体で。重い端末ではオフに')), (() => { const b = h('button', { class: 'switch' + (P.mj3d !== false ? ' on' : ''), role: 'switch', 'aria-checked': String(P.mj3d !== false) }); b.onclick = () => { P.mj3d = P.mj3d === false; b.classList.toggle('on', P.mj3d !== false); b.setAttribute('aria-checked', String(P.mj3d !== false)); if (P.mj3d) Mahjong3D.prepare(); save(); }; return b; })()),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'チェス盤を3Dで表示'), h('small', {}, '立体の駒と盤。重い端末ではオフに')), (() => { const b = h('button', { class: 'switch' + (P.board3d !== false ? ' on' : ''), role: 'switch', 'aria-checked': String(P.board3d !== false) }); b.onclick = () => { P.board3d = P.board3d === false; b.classList.toggle('on', P.board3d !== false); b.setAttribute('aria-checked', String(P.board3d !== false)); if (P.board3d) Chess3D.load(); save(); }; return b; })()),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '保存先'), syncEl)),
@@ -5646,10 +7619,206 @@ const Mahjong3D = (() => {
     document.onkeydown = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
   }
 
+  // ================= モンゴル語の物語「ノミンの手紙」（はじめてのモンゴル語より。app.js の中に組み込まれる） =================
+  const MS = typeof MN_STORY !== 'undefined' ? MN_STORY : null;
+  const MA = typeof MN_ART !== 'undefined' ? MN_ART : null;
+
+  // ---- 名前をキリル文字に（日本人名のモンゴル語表記にならい、長音は落とす） ----
+  const KANA = {
+    あ: 'а', い: 'и', う: 'у', え: 'э', お: 'о', か: 'ка', き: 'ки', く: 'ку', け: 'кэ', こ: 'ко',
+    さ: 'са', し: 'ши', す: 'су', せ: 'сэ', そ: 'со', た: 'та', ち: 'чи', つ: 'цу', て: 'тэ', と: 'то',
+    な: 'на', に: 'ни', ぬ: 'ну', ね: 'нэ', の: 'но', は: 'ха', ひ: 'хи', ふ: 'фу', へ: 'хэ', ほ: 'хо',
+    ま: 'ма', み: 'ми', む: 'му', め: 'мэ', も: 'мо', や: 'я', ゆ: 'ю', よ: 'ё',
+    ら: 'ра', り: 'ри', る: 'ру', れ: 'рэ', ろ: 'ро', わ: 'ва', を: 'о', ん: 'н',
+    が: 'га', ぎ: 'ги', ぐ: 'гу', げ: 'гэ', ご: 'го', ざ: 'за', じ: 'жи', ず: 'зу', ぜ: 'зэ', ぞ: 'зо',
+    だ: 'да', ぢ: 'жи', づ: 'зу', で: 'дэ', ど: 'до', ば: 'ба', び: 'би', ぶ: 'бу', べ: 'бэ', ぼ: 'бо',
+    ぱ: 'па', ぴ: 'пи', ぷ: 'пу', ぺ: 'пэ', ぽ: 'по', ゔ: 'ву',
+  };
+  const SMALL_Y = { ゃ: ['а', 'я'], ゅ: ['у', 'ю'], ょ: ['о', 'ё'] };
+  const SMALL_V = { ぁ: 'а', ぃ: 'и', ぅ: 'у', ぇ: 'э', ぉ: 'о' };
+  function kana2cyr(src) {
+    const s = String(src || '').trim().replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/[\s　]+/g, ' ');
+    if (!s) return null;
+    const out = []; let gem = false;
+    for (const ch of s) {
+      if (ch === ' ') { out.push(' '); continue; }
+      if (ch === 'ー') continue;
+      if (ch === 'っ') { gem = true; continue; }
+      if (SMALL_Y[ch] && out.length) { const prev = out.pop().replace(/и$/, ''); out.push(prev + (/[шчж]$/.test(prev) ? SMALL_Y[ch][0] : SMALL_Y[ch][1])); continue; }
+      if (SMALL_V[ch] && out.length) { out.push(out.pop().replace(/[аиуэо]$/, '') + SMALL_V[ch]); continue; }
+      const c = KANA[ch]; if (!c) return null;
+      out.push(gem ? c[0] + c : c); gem = false;
+    }
+    return out.join('')
+      .replace(/([оё])у/g, '$1').replace(/юу/g, 'ю').replace(/(.)\1/g, (m, v) => ('аиуэо'.includes(v) ? v : m))
+      .replace(/([аоуэяюё])и/g, '$1й')
+      .split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+  const mnProf = () => ({ name: P.mnName || 'あなた', cyr: P.mnCyr || 'Найз' });
+  const fillName = (s) => (typeof s === 'string' ? s.replaceAll('{name}', mnProf().name).replaceAll('{cyr}', mnProf().cyr) : s);
+  function setMnName(kana) {
+    const cyr = kana2cyr(kana); if (!cyr) return false;
+    P.mnName = kana.trim(); P.mnCyr = cyr; P.mnNameAsked = 1; save(); return true;
+  }
+
+  // ---- 章 → モンゴル語コースの先頭のユニット ----
+  (function addStoryUnits() {
+    const mn = BY_ID.mn; if (!mn || !MS) return;
+    const units = MS.CHAPTERS.map((ch, ci) => {
+      const letters = ch.kind === 'letter';
+      const items = ch.items.map((it) => (letters
+        ? [it.mn, `${it.kana}（${it.rom}）`, it.rom, it.kana, `例：${it.ex}（${it.exRom}）＝${it.exJa}。${it.note}`]
+        : [it.mn, it.ja, it.rom, it.kana, it.note || '']));
+      const n = items.length, half = Math.ceil(n / 2);
+      const lessons = [{ id: 'st', name: '物語', story: 'intro' }, { id: 'l1', name: 'はじめて', lv: 1, range: [0, half] }, { id: 'l2', name: 'つづき', lv: 2, range: [half, n] }, { id: 'l3', name: '仕上げ', lv: 3, range: [0, n] }];
+      if (ch.replies) lessons.push({ id: 'rp', name: '受け答え', replies: true });
+      lessons.push({ id: 'end', name: '章のおわり', story: 'clear' });
+      return { id: 's' + ci, title: `${ci + 1}. ${ch.title}`, desc: `${ch.place}（${ch.placeMn}）`, level: '物語', letters, tpl: true, tip: ch.tip ? `【${ch.tip[0]}】${ch.tip[1]}` : null, items, lessons, chapter: ch, ci };
+    });
+    mn.units = units.concat(mn.units);
+    mn.levels = Object.assign({ 物語: '旅の物語「ノミンの手紙」：空港から草原のゲルへ。文字・あいさつ・家畜・数字・自己紹介' }, mn.levels);
+  })();
+
+  // 受け答え：相手のことばに合う返事を選ぶ
+  function repliesLesson(unit) {
+    const ch = unit.chapter; const audio = canSpeak('mn');
+    return shuffle(ch.replies).map((r) => {
+      const [q, qja, a, aja, wrong] = r.map((x) => (Array.isArray(x) ? x.map(fillName) : fillName(x)));
+      return mcFrom({ q: '返事として合うのは？', main: q, mainCls: 'cyr', reading: qja, showReading: true, audio: audio ? q : null, lang: 'mn', ex: `${q}（${qja}）→ ${a}（${aja}）`, sayAfter: audio ? a : null },
+        { text: a, cls: 'cyrs' }, wrong.map((w) => ({ text: w, cls: 'cyrs' })));
+    });
+  }
+
+  // ---- 物語の画面 ----
+  let ST = null, stRaf = 0;
+  const STORY_PLACE = { title: ['旅のはじまり', 'Аяллын эхлэл'] };
+  function openStory(course, unit, lesson) {
+    const ch = unit.chapter; const ci = unit.ci; const lines = [];
+    if (lesson.story === 'intro') {
+      if (ci === 0) for (const l of MS.PROLOGUE) lines.push({ l, scene: 'title' });
+      for (const l of ch.intro) lines.push({ l, scene: ch.scene });
+    } else for (const l of ch.clear) lines.push({ l, scene: ch.scene, readable: true });
+    ST = { course, unit, lesson, ch, ci, lines, i: 0, phase: lesson.story === 'intro' && ci === 0 && !P.mnNameAsked ? 'name' : 'lines', marked: false };
+    go({ name: 'story' });
+  }
+  function storyMark() {
+    if (ST.marked) return; ST.marked = true;
+    const k = keyOf(ST.course, ST.unit, ST.lesson); const r = P.lessons[k] || { n: 0, best: 0 }; r.n++; r.best = 100; P.lessons[k] = r;
+    awardXP(5); save();
+  }
+  function fitCv(cv) { const r = cv.getBoundingClientRect(); const d = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.max(1, Math.round(r.width * d)); cv.height = Math.max(1, Math.round(r.height * d)); }
+  function storyLoop(sceneCv) {
+    cancelAnimationFrame(stRaf); stRaf = 0;
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    fitCv(sceneCv); const c = sceneCv.getContext('2d'); let last = 0;
+    const draw = (t) => {
+      const cur = ST && ST.lines[Math.min(ST.i, ST.lines.length - 1)];
+      try { MA.drawScene(c, sceneCv.width, sceneCv.height, (ST && ST.phase === 'lines' && cur ? cur.scene : ST && ST.ch.scene) || 'title', t); } catch { /* 絵が描けなくても会話は続ける */ }
+      const b = ST && ST.bust;
+      if (b && b.cv.isConnected) { try { const bc = b.cv.getContext('2d'); bc.clearRect(0, 0, b.cv.width, b.cv.height); MA.drawBust(bc, b.cv.width, b.look, t, performance.now() < b.until); } catch { /* なし */ } }
+    };
+    draw(2.5); if (ST) ST.redraw = draw;
+    if (reduce) return;
+    const tick = (ms) => { if (!sceneCv.isConnected) { stRaf = 0; return; } if (ms - last > 33) { last = ms; draw(ms / 1000); } stRaf = requestAnimationFrame(tick); };
+    stRaf = requestAnimationFrame(tick);
+  }
+  function letterEl(readable) {
+    const L0 = MS.LETTER; const say = fillName(L0.mn).replace(/\n/g, ' ');
+    return h('div', { class: 'st-letter', 'aria-label': 'ノミンからの手紙' }, h('div', { class: 'cyr' }, fillName(L0.mn)),
+      readable ? [h('div', { class: 'kana' }, fillName(L0.kana)), h('div', { class: 'ja' }, fillName(L0.ja)),
+        canSpeak('mn') ? h('button', { class: 'chip', onclick: (e) => { e.stopPropagation(); speak(say, false, 'mn'); } }, icon('speaker'), '手紙を聞く') : null]
+        : h('div', { class: 'ja' }, '（……まだ読めない）'));
+  }
+  function storyView() {
+    if (!ST || !MS) { go({ name: 'course', cid: 'mn' }, 'replace'); return; }
+    const ch = ST.ch;
+    const toCourse = () => { cancelAnimationFrame(stRaf); go({ name: 'course', cid: 'mn' }); };
+    const skip = h('button', { class: 'chip tog', onclick: () => { if (ST.phase === 'lines' || ST.phase === 'name') { ST.phase = 'end'; paint(); } } }, 'スキップ');
+    const bar = h('div', { class: 'topbar' }, h('div', { class: 'wrap' },
+      h('button', { class: 'icon-btn', 'aria-label': 'コースに戻る', onclick: toCourse }, icon('close')),
+      h('h2', {}, `${ST.ci + 1}. ${ch.title}${ST.lesson.story === 'clear' ? '（章のおわり）' : ''}`), skip));
+    const sceneCv = h('canvas', { role: 'img', 'aria-label': ch.place + 'の景色' });
+    const placeB = h('b'), placeS = h('span', { class: 'cyr' });
+    const box = h('div', { class: 'st-box', 'aria-live': 'polite' });
+    const root = h('div', { class: 'wrap st-wrap', style: cvars('mn') },
+      h('div', { class: 'st-scene' }, sceneCv, h('div', { class: 'st-place' }, placeB, placeS)), box);
+    app.append(bar, root);
+    const next = () => { if (ST.phase !== 'lines') return; if (ST.i < ST.lines.length - 1) ST.i++; else ST.phase = 'end'; paint(); };
+    function setPlace() {
+      const cur = ST.phase === 'lines' ? ST.lines[ST.i] : null;
+      const [a, b] = cur && STORY_PLACE[cur.scene] ? STORY_PLACE[cur.scene] : [ch.place, ch.placeMn];
+      placeB.textContent = a; placeS.textContent = b;
+    }
+    function paint() {
+      setPlace(); box.replaceChildren(); ST.bust = null; skip.hidden = ST.phase === 'end';
+      if (ST.redraw) setTimeout(() => ST && ST.redraw && ST.redraw(performance.now() / 1000), 0);
+      if (ST.phase === 'name') {
+        const inp = h('input', { class: 'tin st-name', type: 'text', placeholder: '例：たろう', autocomplete: 'off', 'aria-label': 'あなたの名前（ひらがな・カタカナ）' });
+        const pv = h('div', { class: 'st-cyr cyr' }, '　'); const msg = h('small', { class: 'mmsg' });
+        inp.addEventListener('input', () => { pv.textContent = kana2cyr(inp.value) || '　'; msg.textContent = ''; });
+        const ok = h('button', { class: 'cta' }, 'この名前で旅に出る');
+        ok.onclick = () => { if (setMnName(inp.value)) { ST.phase = 'lines'; paint(); } else msg.textContent = 'ひらがなかカタカナで入れてください'; };
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok.click(); });
+        const later = h('button', { class: 'cta alt' }, 'あとで（「あなた」で進む）');
+        later.onclick = () => { P.mnNameAsked = 1; save(); ST.phase = 'lines'; paint(); };
+        box.append(h('div', { class: 'st-card' }, h('b', {}, 'あなたの名前を教えてください'), h('small', { class: 'note' }, 'キリル文字にして、物語と自己紹介の問題で使います（設定で変えられます）。'), inp, pv, msg, ok, later));
+        setTimeout(() => inp.focus(), 60);
+        return;
+      }
+      if (ST.phase === 'lines') {
+        const cur = ST.lines[ST.i]; const [sp, mnRaw, jaRaw] = cur.l; const last = ST.i === ST.lines.length - 1;
+        const dlg = h('div', { class: 'st-dlg' + (sp === 'narr' ? ' narr' : ''), role: 'button', tabindex: '0', 'aria-label': '次へ', onclick: next });
+        if (sp === 'letter') dlg.append(letterEl(!!cur.readable));
+        else {
+          const who = MS.PEOPLE[sp] || {}; const name = sp === 'me' ? mnProf().name : fillName(who.name || '');
+          const m = fillName(mnRaw), j = fillName(jaRaw);
+          if (name) {
+            const bc = who.look && MA ? h('canvas', { width: '112', height: '112', 'aria-hidden': 'true' }) : null;
+            dlg.append(h('div', { class: 'st-who' }, bc, h('div', {}, h('b', {}, name), h('small', {}, who.role || (sp === 'me' ? 'あなた' : '')))));
+            if (bc) ST.bust = { cv: bc, look: who.look, until: performance.now() + (m ? 1600 : 900) };
+          }
+          if (m) {
+            const say = canSpeak('mn') ? h('button', { class: 'mini-say', 'aria-label': 'モンゴル語を聞く', onclick: (e) => { e.stopPropagation(); speak(m, false, 'mn'); if (ST.bust) ST.bust.until = performance.now() + 1600; } }, icon('speaker')) : null;
+            dlg.append(h('div', { class: 'st-mn cyr', lang: 'mn' }, m, say));
+            if (P.autoplay && canSpeak('mn')) setTimeout(() => speak(m, false, 'mn'), 200);
+          }
+          if (j) dlg.append(h('p', { class: 'st-ja' }, j));
+        }
+        dlg.append(h('span', { class: 'st-next' }, last ? '▶ 先へ' : '▼ タップで次へ'));
+        dlg.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); next(); } });
+        box.append(dlg);
+        dlg.focus({ preventScroll: true });
+        return;
+      }
+      // おわり：章のはじめはポイントと文化、章のおわりはごほうび
+      const units = ST.course.units; const ui = units.indexOf(ST.unit);
+      const nextUnit = units[ui + 1] && units[ui + 1].chapter ? units[ui + 1] : null;
+      if (ST.lesson.story === 'intro') {
+        if (ch.tip) box.append(h('div', { class: 'st-card tip' }, h('b', {}, ch.tip[0]), h('p', {}, ch.tip[1])));
+        if (ch.culture) box.append(h('div', { class: 'st-card' }, h('small', { class: 'note' }, 'モンゴルのこと'), h('p', {}, ch.culture)));
+        const l1 = ST.unit.lessons.find((l) => !l.story);
+        box.append(h('div', { class: 'rbtns' },
+          h('button', { class: 'cta', onclick: () => { storyMark(); startLesson(ST.course, ST.unit, l1); } }, 'この章の練習をはじめる'),
+          h('button', { class: 'cta alt', onclick: () => { storyMark(); toCourse(); } }, 'コースに戻る')));
+      } else {
+        if (ch.reward) box.append(h('div', { class: 'st-card reward' }, h('span', { class: 'gift' }, icon('check')), h('div', {}, h('small', { class: 'note' }, '手に入れた'), h('b', {}, ch.reward[0]), h('p', {}, ch.reward[1]))));
+        if (!nextUnit) box.append(h('div', { class: 'st-card tip' }, h('b', {}, `${mnProf().name}さん、旅をやりとげました`), h('p', {}, 'Монгол хэлний аялал дууслаа.（モンゴル語の旅が終わりました）この先はコースの「入門」「基礎」「応用」で、格や動詞の時制に進めます。')));
+        box.append(h('div', { class: 'rbtns' },
+          nextUnit ? h('button', { class: 'cta', onclick: () => { storyMark(); openStory(ST.course, nextUnit, nextUnit.lessons[0]); } }, '次の章へ') : null,
+          h('button', { class: nextUnit ? 'cta alt' : 'cta', onclick: () => { storyMark(); toCourse(); } }, 'コースに戻る')));
+      }
+    }
+    paint();
+    storyLoop(sceneCv);
+    document.onkeydown = (e) => { if (e.target && e.target.tagName === 'INPUT') return; if ((e.key === 'Enter' || e.key === ' ') && ST.phase === 'lines') { e.preventDefault(); next(); } };
+  }
+  window.addEventListener('resize', () => { const cv = document.querySelector('.st-scene canvas'); if (cv) fitCv(cv); });
+
+
   // ================= TOEIC 900（app.js の中に組み込まれる） =================
   const TD = TOEIC_DATA;
   const WBY = Object.fromEntries(TD.words.map((w) => [w.id, w]));
-  const BANDS = [600, 730, 860, 990];
+  const BANDS = [300, 450, 600, 730, 860, 990];
   const CAT_JA = { pos: '品詞', verb: '動詞の形', prep: '前置詞・接続詞', pron: '代名詞', rel: '関係詞', vocab: '語彙', comp: '比較・その他' };
   const PART_JA = { p2: 'Part 2 応答問題', p34: 'Part 3・4 会話・説明文', p5: 'Part 5 文法・語彙', p7: 'Part 7 読解', dict: 'ディクテーション', words: '単語' };
   const POS_JA = { 名: '名詞', 動: '動詞', 形: '形容詞', 副: '副詞', 前: '前置詞', 接: '接続詞', 句: '熟語' };
@@ -5673,7 +7842,7 @@ const Mahjong3D = (() => {
   const curScore = () => { const t = TS(); return t.cur ?? t.start; };
   const PHASES = [
     { to: 450, name: '土台', hours: '300〜400時間', lv: 1, menu: ['words', 'course', 'p2', 'dict', 'p5'],
-      focus: '中学英語の文法（英語コースの入門・基礎）、600点レベルの単語、英語の音を聞き取る耳（ディクテーション・Part 2）。この段階で Part 7 の長文に手を出しても伸びない。' },
+      focus: '中学英語の文法（英語コースの入門・基礎と、下の文法レッスン）、300〜600点レベルの単語、英語の音を聞き取る耳（ディクテーション・Part 2）。この段階で Part 7 の長文に手を出しても伸びない。' },
     { to: 600, name: '型', hours: '約300時間', lv: 2, menu: ['words', 'p5', 'p2', 'p34', 'dict'],
       focus: 'Part 5 の頻出パターン（品詞・動詞の形・前置詞と接続詞）、730点レベルの単語、Part 3・4 で話の流れを追う。' },
     { to: 750, name: '速さ', hours: '300〜400時間', lv: 2, menu: ['words', 'p5', 'p34', 'p7', 'p2'],
@@ -5765,8 +7934,11 @@ const Mahjong3D = (() => {
 
   // ---------- 単語の問題 ----------
   const posGroup = (p) => (p === '前' || p === '接' ? '前接' : p);
+  // 「取る・（時間が）かかる」→ [取る, かかる]。意味が1つでも重なる語は誤答に使わない（正解が2つになるのを防ぐ）
+  const senses = (ja) => ja.replace(/（[^）]*）/g, '').split(/[・、,／]/).map((x) => x.trim()).filter(Boolean);
+  const overlap = (a, b) => { const sa = new Set(senses(a)); return senses(b).some((x) => sa.has(x)); };
   function wordDistract(w, n, key) {
-    const same = TD.words.filter((x) => x !== w && posGroup(x.pos) === posGroup(w.pos) && x[key] !== w[key]);
+    const same = TD.words.filter((x) => x !== w && posGroup(x.pos) === posGroup(w.pos) && x[key] !== w[key] && x.w.toLowerCase() !== w.w.toLowerCase() && !overlap(x.ja, w.ja));
     const near = same.filter((x) => Math.abs(BANDS.indexOf(x.band) - BANDS.indexOf(w.band)) <= 1);
     const pool = near.length >= n ? near : same;
     const out = []; for (const x of shuffle(pool)) { if (out.length >= n) break; if (!out.some((y) => y[key] === x[key])) out.push(x); }
@@ -5793,12 +7965,12 @@ const Mahjong3D = (() => {
   }
   function wordEx(w, type) {
     const tag = `単語 ・ ${w.band}点レベル ・ ${POS_JA[w.pos] || ''}`;
-    const exLine = `${w.w}＝${w.ja}。${w.ex}（${w.exJa}）`;
+    const exLine = `${w.w}＝${w.ja}。` + (w.ex ? (w.exJa ? `${w.ex}（${w.exJa}）` : `例：${w.ex}`) : '');
     const base = { _item: 'tw.' + w.id, _cat: 'words' };
     if (type === 'card') return { t: 'card', q: '新しい単語', tag: `新出 ・ ${w.band}点レベル`, w };
     if (type === 'listen' && canSpeak()) return Object.assign(mcFrom({ q: '聞こえた単語の意味は？', tag, listen: w.w, ex: exLine }, { text: w.ja }, wordDistract(w, 3, 'ja').map((x) => ({ text: x.ja }))), base);
     if (type === 'm2w') return Object.assign(mcFrom({ q: '英語では？', tag, main: w.ja, ex: exLine, sayAfter: canSpeak() ? w.w : null, lang: 'en' }, { text: w.w, cls: 'en' }, wordDistract(w, 3, 'w').map((x) => ({ text: x.w, cls: 'en' }))), base);
-    if (type === 'cloze' && w.ex.includes(w.form)) {
+    if (type === 'cloze' && w.form && w.exJa && w.ex.includes(w.form)) {
       const ds = wordDistract(w, 6, 'w').map((x) => inflectLike(w.w, w.form, x.w)).filter((x, i, a) => x.toLowerCase() !== w.form.toLowerCase() && a.indexOf(x) === i).slice(0, 3);
       if (ds.length === 3) return Object.assign(mcFrom({ q: '空所に入る語は？', tag, main: w.ex.replace(w.form, '_____'), mainCls: 'en', reading: w.exJa, ex: exLine, sayAfter: canSpeak() ? w.ex : null, lang: 'en', showReading: true }, { text: w.form, cls: 'en' }, ds.map((x) => ({ text: x, cls: 'en' }))), base);
     }
@@ -5836,6 +8008,8 @@ const Mahjong3D = (() => {
     pool = pool.map((q) => [rank(q), q]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
     return pool.slice(0, n);
   }
+  const GLV = { 1: '〜300', 2: '〜450', 3: '〜600', 4: '〜730', 5: '〜860', 6: '〜950' };
+  const grammarQs = (g) => poolOf('p5').filter((q) => q.tag === g.tag || (g.cat && !q.tag && q.cat === g.cat));
   function weakCats() {
     return Object.keys(CAT_JA).map((c) => [c, accOf('p5:' + c)]).filter(([, a]) => a && a.n >= 3).sort((a, b) => a[1].p - b[1].p).slice(0, 2).map(([c]) => c);
   }
@@ -5850,12 +8024,12 @@ const Mahjong3D = (() => {
   }
   function setEx(s, part) {
     const qs = s.qs.map((q) => { const order = shuffle([0, 1, 2, 3]); return { q: q.q, choices: order.map((i) => q.choices[i]), a: order.indexOf(0) }; });
-    const tag = part === 'p7' ? `Part 7 ・ ${s.docs.length > 1 ? '複数の文書' : '1つの文書'}${s.ai ? ' ・ AI作成' : ''}` : `${s.kind === 'talk' ? 'Part 4 ・ 説明文' : 'Part 3 ・ 会話'}${s.ai ? ' ・ AI作成' : ''}`;
+    const tag = part === 'p7' ? `Part 7 ・ ${s.label || (s.docs.length > 1 ? '複数の文書' : '1つの文書')}${s.ai ? ' ・ AI作成' : ''}` : `${s.kind === 'talk' ? 'Part 4 ・ 説明文' : 'Part 3 ・ 会話'}${s.ai ? ' ・ AI作成' : ''}`;
     return { t: 'set', part, q: part === 'p7' ? '文書を読んで設問に答えよう' : '設問を先に読んでから再生しよう', tag, set: Object.assign({}, s, { qs }), _q: s.id, _sec: part === 'p7' ? 'R' : 'L' };
   }
   function dictPool() {
     const lv = phaseNow().lv; const seen = TD.words.filter((w) => wordBox(w) >= 0);
-    const words = (seen.length >= 5 ? seen : TD.words.filter((w) => w.band === 600)).map((w) => ({ text: w.ex, ja: w.exJa }));
+    const words = (seen.length >= 5 ? seen : TD.words.filter((w) => w.band <= 450)).filter((w) => w.ex && w.ex.split(' ').length >= 3).map((w) => ({ text: w.ex, ja: w.exJa }));
     const talk = TD.p2.filter((q) => q.lv <= lv).map((q) => ({ text: q.q, ja: '' }));
     return { words, talk };
   }
@@ -5925,13 +8099,13 @@ const Mahjong3D = (() => {
   // ---------- 問題の描画（TOEIC 用） ----------
   function rCard(ex, ctx, host) {
     const w = ex.w; const audio = canSpeak();
-    const i = w.ex.indexOf(w.form);
-    const exEl = h('div', { class: 'wex en' }, i >= 0 ? w.ex.slice(0, i) : w.ex, i >= 0 ? h('b', {}, w.form) : null, i >= 0 ? w.ex.slice(i + w.form.length) : null);
-    if (audio) exEl.append(h('button', { class: 'mini-say', 'aria-label': '例文を聞く', onclick: () => speak(w.ex) }, icon('speaker')));
+    const i = w.form ? w.ex.indexOf(w.form) : -1;
+    const exEl = w.ex ? h('div', { class: 'wex en' }, i >= 0 ? w.ex.slice(0, i) : w.ex, i >= 0 ? h('b', {}, w.form) : null, i >= 0 ? w.ex.slice(i + w.form.length) : null) : null;
+    if (exEl && audio) exEl.append(h('button', { class: 'mini-say', 'aria-label': '例文を聞く', onclick: () => speak(w.ex) }, icon('speaker')));
     host.append(h('div', { class: 'wcard' },
       h('div', { class: 'wtop' }, audio ? h('button', { class: 'say', 'aria-label': '発音を聞く', onclick: () => speak(w.w) }, icon('speaker')) : null,
         h('div', {}, h('div', { class: 'ww en' }, w.w), h('div', { class: 'wpos' }, POS_JA[w.pos] || ''))),
-      h('div', { class: 'wja' }, w.ja), exEl, h('div', { class: 'wexja' }, w.exJa)));
+      h('div', { class: 'wja' }, w.ja), exEl, w.exJa ? h('div', { class: 'wexja' }, w.exJa) : null));
     if (audio && P.autoplay) setTimeout(() => speak(w.w), 250);
     ctx.ready(true);
     return { ctaLabel: '覚えた・次へ', noSkip: true, check: () => ({ ok: true, neutral: true, instant: true }) };
@@ -5964,7 +8138,7 @@ const Mahjong3D = (() => {
     return h('div', { class: 'doc ' + (d.kind || 'notice') },
       d.head && d.head.length ? h('div', { class: 'dhead en' }, ...d.head.map((x) => h('div', {}, x))) : null,
       d.title ? h('div', { class: 'dtitle en' }, d.title) : null,
-      ...String(d.body || '').split('\n').filter(Boolean).map((p) => h('p', { class: 'en' }, p)));
+      ...(d.pre ? [h('div', { class: 'dpre en' }, String(d.body || ''))] : String(d.body || '').split('\n').filter(Boolean).map((p) => h('p', { class: 'en' }, p))));
   }
   function rSet(ex, ctx, host) {
     const s = ex.set; const isL = ex.part === 'p34'; const t0 = Date.now(); let pb = null;
@@ -5992,7 +8166,9 @@ const Mahjong3D = (() => {
       const secs = Math.round((Date.now() - t0) / 1000);
       const box = h('div', { class: 'review-box' });
       if (isL && canSpeak()) box.append(transcript());
-      box.append(h('details', { class: 'tip', open: true }, h('summary', {}, '日本語訳'), h('p', {}, s.ja)), h('div', { class: 'sx' }, s.ex));
+      if (s.ja) box.append(h('details', { class: 'tip', open: true }, h('summary', {}, isL && s.lines.length && s.ja.length < 80 ? '内容' : '日本語訳'), h('p', {}, s.ja)));
+      if (!s.ja || (isL && s.ja.length < 80)) box.append(explainEl('ja:' + s.id, '全文の日本語訳（Claude）', () => `次の英文${isL ? '（TOEIC Part 3/4 の音声スクリプト）' : '（TOEIC Part 7 の文書）'}を、自然な日本語に全文訳してください。訳だけを書き、解説や書式記号（**や#）は付けないこと。\n\n${isL ? s.lines.map(([sp, t]) => (sp === 'N' ? '' : sp + ': ') + t).join('\n') : s.docs.map((d) => d.body || (d.lines || []).map((l) => l.join(' ')).join('\n')).join('\n\n')}`));
+      box.append(h('div', { class: 'sx pre' }, s.ex));
       host.append(box);
       return { right, secs };
     };
@@ -6227,11 +8403,28 @@ const Mahjong3D = (() => {
     const bank = P.mistakes.toeic || [];
     if (bank.length) root.append(h('button', { class: 'cta alt tmiss', onclick: startToeicReview }, `間違えた問題をやり直す（${bank.length}）`));
 
+    // 文法レッスン（読んで、その文法の Part 5 を解く）
+    if (TD.grammar.length) {
+      root.append(h('div', { class: 'sec-title' }, `文法レッスン（${TD.grammar.length}）`));
+      const read = t.gread || (t.gread = {}); const gl = h('div', { class: 'glist' });
+      for (const g of TD.grammar) {
+        const qs = grammarQs(g);
+        const det = h('details', { class: 'gles' + (read[g.tag] ? ' read' : '') },
+          h('summary', {}, h('span', { class: 'glv num' }, GLV[g.lv] || ''), h('b', {}, g.title), read[g.tag] ? icon('check') : null),
+          ...g.body.map((x) => h('p', {}, x)),
+          g.ex && g.ex.length ? h('div', { class: 'gex' }, ...g.ex.map(([en, ja]) => h('div', { class: 'gexr' }, h('div', { class: 'en' }, en, canSpeak() ? h('button', { class: 'mini-say', 'aria-label': '例文を聞く', onclick: () => speak(en) }, icon('speaker')) : null), h('small', {}, ja)))) : null,
+          qs.length ? h('button', { class: 'cta alt', onclick: () => startToeic(sampleN(qs, Math.min(8, qs.length)).map(p5Ex), `文法：${g.tag}`) }, `この文法の Part 5 を解く（${qs.length}問から）`) : null);
+        det.addEventListener('toggle', () => { if (det.open && !read[g.tag]) { read[g.tag] = 1; save(); } });
+        gl.append(det);
+      }
+      root.append(gl);
+    }
+
     // 単語の帯
     root.append(h('div', { class: 'sec-title' }, '単語（スコアの目安ごと）'));
     const bands = h('div', { class: 'bands' });
     for (const b of BANDS) { const c = wordCounts(b); bands.append(h('div', { class: 'band' }, h('span', { class: 'num' }, b + '点'), h('div', { class: 'bbar' }, h('i', { class: 'l', style: `width:${(c.learned / c.total) * 100}%` }), h('i', { class: 'm', style: `width:${(c.learning / c.total) * 100}%` })), h('span', { class: 'num' }, `${c.learned}/${c.total}`))); }
-    root.append(bands, h('p', { class: 'tnote left' }, '「覚えた」＝7日あけても正解できた語。900点には1万語近い語彙が要ると言われるので、ここの約400語は頻出の芯だけです。'));
+    root.append(bands, h('p', { class: 'tnote left' }, `「覚えた」＝7日あけても正解できた語。全${TD.words.length}語。900点には1万語近い語彙が要ると言われるので、ここにあるのは頻出の芯です。`));
 
     // 正答率
     root.append(h('div', { class: 'sec-title' }, '正答率（最近30問）'));

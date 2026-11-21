@@ -654,5 +654,50 @@ details.tip p { margin: 6px 0 2px; font-size: 14px; line-height: 1.7; }
 .mres span:nth-child(2) { color: var(--muted); font-size: 13.5px; }
 .tin { font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 2px solid var(--line); border-radius: 10px; padding: 7px 10px; max-width: 150px; }
 .tpage .hero p { opacity: .95; }
+.glist { display: flex; flex-direction: column; gap: 6px; }
+.gles { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+.gles summary { cursor: pointer; display: flex; align-items: center; gap: 8px; list-style: none; }
+.gles summary::-webkit-details-marker { display: none; }
+.gles summary b { flex: 1; font-size: 14.5px; }
+.gles summary .ico { color: var(--good); }
+.gles .glv { flex: none; font-size: 11px; color: var(--cc); border: 1px solid var(--cc); border-radius: 99px; padding: 1px 7px; }
+.gles p { margin: 8px 0 0; font-size: 14px; line-height: 1.7; }
+.gles .gex { margin: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+.gles .gexr { background: var(--surface-2); border-radius: 8px; padding: 6px 10px; }
+.gles .gexr .en { font-weight: 800; }
+.gles .gexr small { color: var(--muted); }
+.gles .cta { margin-top: 4px; font-size: 15px; padding: 11px; }
+.doc .dpre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.choice .ct.cyrs { font-size: 19px; font-family: var(--font-num); }
+.st-wrap { display: flex; flex-direction: column; gap: 12px; padding-block: 12px 24px; }
+.st-scene { position: relative; border-radius: 16px; overflow: hidden; background: var(--surface-2); aspect-ratio: 16 / 9; }
+.st-scene canvas { display: block; width: 100%; height: 100%; }
+.st-place { position: absolute; left: 12px; top: 10px; right: 12px; color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.6); line-height: 1.3; }
+.st-place b { display: block; font-size: 17px; }
+.st-place span { font-size: 13px; opacity: .92; }
+.st-box { display: flex; flex-direction: column; gap: 10px; }
+.st-dlg { position: relative; background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px 26px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; min-height: 132px; text-align: left; }
+.st-dlg.narr { background: var(--surface-2); border-style: dashed; }
+.st-who { display: flex; align-items: center; gap: 10px; }
+.st-who canvas { width: 56px; height: 56px; border-radius: 50%; flex: none; background: var(--surface-2); }
+.st-who b { font-size: 15px; }
+.st-who small { display: block; color: var(--muted); font-size: 12px; line-height: 1.2; }
+.st-mn { font-family: var(--font-num); font-weight: 700; font-size: 21px; line-height: 1.35; color: var(--c-mn); }
+.st-ja { margin: 0; font-size: 15px; line-height: 1.65; }
+.st-next { position: absolute; right: 14px; bottom: 6px; color: var(--muted); font-size: 12.5px; }
+.st-letter { background: #fbf8f1; color: #2a2418; border-radius: 6px; padding: 16px 18px; box-shadow: 0 6px 18px rgba(0,0,0,.18); transform: rotate(-1deg); display: flex; flex-direction: column; gap: 8px; font-family: var(--font-num); font-size: 18px; line-height: 1.6; white-space: pre-line; }
+.st-letter .kana { font-family: var(--font-ui); font-size: 13.5px; color: #6b5d44; }
+.st-letter .ja { font-family: var(--font-ui); font-size: 14.5px; border-top: 1px dashed #cbbd9c; padding-top: 8px; }
+.st-letter .chip { align-self: flex-start; color: #2a2418; background: #fff; }
+.st-card { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.st-card.tip { background: color-mix(in srgb, var(--gold) 12%, var(--surface)); border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
+.st-card p { margin: 0; font-size: 14.5px; line-height: 1.7; }
+.st-card .note { color: var(--muted); font-size: 12px; font-weight: 800; }
+.st-card.reward { flex-direction: row; align-items: center; gap: 12px; }
+.st-card .gift { width: 44px; height: 44px; border-radius: 12px; background: var(--gold); color: #fff; display: grid; place-items: center; flex: none; }
+.st-name { max-width: none; width: 100%; }
+.st-cyr { font-family: var(--font-num); font-weight: 800; font-size: 28px; color: var(--c-mn); text-align: center; min-height: 40px; }
+.sheet .srow .cyr { font-family: var(--font-num); font-weight: 800; color: var(--c-mn); }
+.sx.pre { white-space: pre-line; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>

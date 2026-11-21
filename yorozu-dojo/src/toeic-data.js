@@ -783,6 +783,40 @@ notwithstanding|前|〜にもかかわらず|*Notwithstanding* the delay, the pr
   const p2 = P2.trim().split('\n').map((line, i) => { const [lv, q, a, w1, w2, ...ex] = line.split('|'); return { id: 'p2.' + i, lv: +lv, q, choices: [a, w1, w2], ex: ex.join('|') }; });
   const p34 = P34.map((s) => Object.assign({}, s, { id: 'p34.' + s.id, qs: s.qs.map((q) => ({ q: q[0], choices: q.slice(1) })) }));
   const p7 = P7.map((s) => Object.assign({}, s, { id: 'p7.' + s.id, qs: s.qs.map((q) => ({ q: q[0], choices: q.slice(1) })) }));
-  return { words, p5, p2, p34, p7 };
+
+  // ---- 「900点ロード」の教材を合流する（src/toeic-extra。同じ単語は先に入っている方を残す） ----
+  const X = typeof TOEIC_EXTRA !== 'undefined' ? TOEIC_EXTRA : (typeof require === 'function' ? require('./toeic-extra/load.js') : null);
+  let grammar = [];
+  if (X) {
+    const POS = { n: '名', v: '動', a: '形', ad: '副', p: '前', c: '接' };
+    const BAND = { 1: 300, 2: 450, 3: 600, 4: 730, 5: 860, 6: 990 };
+    const lv3 = (lv) => (lv <= 2 ? 1 : lv <= 4 ? 2 : 3);
+    const TAGCAT = { 品詞: 'pos', 代名詞: 'pron', 前置詞: 'prep', '前置詞・接続詞': 'prep', 関係詞: 'rel', 語彙: 'vocab', 比較: 'comp' };
+    const rows = (t) => t.trim().split('\n').map((x) => x.trim()).filter((x) => x && !x.startsWith('#'));
+    const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const have = new Set(words.map((w) => w.id.toLowerCase()));
+    for (const [lv, txt] of Object.entries(X.VOCAB)) for (const line of rows(txt)) {
+      const [en, pos, ja, ex = ''] = line.split('|').map((x) => x.trim());
+      if (!en || have.has(en.toLowerCase())) continue; have.add(en.toLowerCase());
+      const m = ex.match(new RegExp('\\b' + esc(en) + '\\b', 'i'));
+      words.push({ id: en, w: en, pos: POS[pos] || '名', ja: ja.replace(/、/g, '・'), ex, form: m ? m[0] : null, exJa: '', band: BAND[lv] || 600, src: 'x' });
+    }
+    words.sort((a, b) => a.band - b.band); // 帯の順（同じ帯の中は元の順）
+    const firstOf = (c, a) => [c[a], ...c.filter((_, k) => k !== a)];
+    rows(X.P5).forEach((line, i) => {
+      const [tag, lv, q, c1, c2, c3, c4, a, ...ex] = line.split('|').map((x) => x.trim());
+      p5.push({ id: 'x5.' + i, lv: lv3(+lv), cat: TAGCAT[tag] || 'verb', tag, q: q.replace(/_{3,}/, '-------'), choices: firstOf([c1, c2, c3, c4], +a), ex: ex.join('|') });
+    });
+    rows(X.P2).forEach((line, i) => {
+      const [lv, q, c1, c2, c3, a, ...ja] = line.split('|').map((x) => x.trim());
+      p2.push({ id: 'x2.' + i, lv: lv3(+lv), q, choices: firstOf([c1, c2, c3], +a), ex: ja.join('|') });
+    });
+    const exOf = (qs) => qs.map((q, k) => `${k + 1}. ${q.ex}`).join('\n');
+    X.P34.forEach((o, i) => p34.push({ id: 'p34.x' + i, lv: lv3(o.lv), kind: o.kind, title: '', lines: o.lines, ja: o.ja, qs: o.qs.map((q) => ({ q: q.q, choices: firstOf(q.c, q.a) })), ex: exOf(o.qs) }));
+    const kindOf = (t) => (/mail/i.test(t) ? 'email' : /advert/i.test(t) ? 'ad' : /article/i.test(t) ? 'article' : 'notice');
+    X.P7.forEach((o, i) => p7.push({ id: 'p7.x' + i, lv: lv3(o.lv), label: o.title, docs: [{ kind: kindOf(o.title), title: '', body: o.text, pre: true }], ja: '', qs: o.qs.map((q) => ({ q: q.q, choices: firstOf(q.c, q.a) })), ex: exOf(o.qs) }));
+    grammar = X.LESSONS.map((g) => Object.assign({}, g, { cat: TAGCAT[g.tag] || null }));
+  }
+  return { words, p5, p2, p34, p7, grammar };
 })();
 if (typeof module !== 'undefined') module.exports = TOEIC_DATA;

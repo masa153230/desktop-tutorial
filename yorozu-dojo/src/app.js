@@ -279,7 +279,8 @@
   const tokens = (s) => s.split(/\s+/).map((w) => w.replace(/^[¿¡"“]+|[.,!?;:"”]+$/g, '')).filter(Boolean);
 
   function langItems(course, unit) {
-    return unit.items.map((it, i) => ({ id: unit.id + '.' + i, t: it[0], ja: it[1], rom: it[2] || '', kana: it[3] || '' }));
+    const f = unit.tpl ? fillName : (x) => x; // 物語の章は {name}・{cyr} を名前に置きかえる
+    return unit.items.map((it, i) => ({ id: unit.id + '.' + i, t: f(it[0]), ja: f(it[1]), rom: it[2] || '', kana: f(it[3] || ''), note: it[4] || '' }));
   }
   function readingOf(o) { return o.rom ? (o.kana ? `${o.rom} ／ ${o.kana}` : o.rom) : ''; }
 
@@ -289,8 +290,9 @@
     const target = (x) => ({ text: x.t, cls: tcls });
     const ja = (x) => ({ text: x.ja });
     if (unit.letters) {
-      if (type === 's2l') return mcFrom({ q: 'この音の文字は？', main: o.ja }, { text: o.t, cls: 'cyr big' }, distract(all, o, 't').map((x) => ({ text: x.t, cls: 'cyr big' })));
-      return mcFrom({ q: 'この文字の音は？', main: o.t, mainCls: 'big', ex: o.t + ' ＝ ' + o.ja }, ja(o), distract(all, o, 'ja').map(ja));
+      const lex = o.t + ' ＝ ' + o.ja + (o.note ? '。' + o.note : '');
+      if (type === 's2l') return mcFrom({ q: 'この音の文字は？', main: o.ja, ex: lex }, { text: o.t, cls: 'cyr big' }, distract(all, o, 't').map((x) => ({ text: x.t, cls: 'cyr big' })));
+      return mcFrom({ q: 'この文字の音は？', main: o.t, mainCls: 'big', ex: lex }, ja(o), distract(all, o, 'ja').map(ja));
     }
     if (type === 'spell' && !isEn && !/\s/.test(o.t) && [...o.t].length <= 9) {
       const chars = [...o.t]; const pool = 'абвгдеёжзийклмноөпрстуүфхцчшыьэюя'.split('').filter((c) => !chars.includes(c.toLowerCase()) && !chars.includes(c));
@@ -305,7 +307,7 @@
     if (type === 'order' && words.length < 3) type = 'j2t';
     if (type === 'type' && (!isEn || words.length > 6)) type = 'j2t';
     if (type === 'listen' && !isEn) type = 't2j';
-    const exText = readingOf(o) ? `${o.t}（${readingOf(o)}）＝ ${o.ja}` : `${o.t} ＝ ${o.ja}`;
+    const exText = (readingOf(o) ? `${o.t}（${readingOf(o)}）＝ ${o.ja}` : `${o.t} ＝ ${o.ja}`) + (o.note ? `。${o.note}` : '');
     const lang = isEn ? 'en' : 'mn'; const voice = canSpeak(lang) ? o.t : null;
     if (type === 'speak' && isEn && words.length <= 10) return { t: 'speak', q: '声に出して読んでみよう', main: o.t, ja: o.ja, a: o.t, ex: exText, lang };
     if (type === 'speak') type = 'j2t';
@@ -479,6 +481,7 @@
     return exs.filter(Boolean);
   }
   function buildLesson(course, unit, lesson) {
+    if (lesson.replies) return repliesLesson(unit);
     if (lesson.drill) return drillLesson(course, lesson);
     if (lesson.ex) return lesson.ex.map(normCurated);
     if (lesson.cur) return shuffle(unit.curated.slice(lesson.cur[0], lesson.cur[1]).map((e, i) => curatedEx(course, unit, e, lesson.cur[0] + i)));
@@ -500,7 +503,7 @@
 
   // ---------- 画面 ----------
   let view = { name: 'home' };
-  const HASH = (v) => ({ home: 'home', course: 'course-' + v.cid, lesson: 'lesson', result: 'result', chess: 'chess', mjplay: 'mahjong', mjreview: 'mjreview', toeic: 'toeic' })[v.name] || 'home';
+  const HASH = (v) => ({ home: 'home', course: 'course-' + v.cid, lesson: 'lesson', result: 'result', chess: 'chess', mjplay: 'mahjong', mjreview: 'mjreview', toeic: 'toeic', story: 'story' })[v.name] || 'home';
   let expectHash = null;
   function go(v, nav) {
     view = v; render(); window.scrollTo(0, 0);
@@ -515,6 +518,7 @@
     if (name === 'mahjong') return go({ name: 'mjplay' }, 'pop');
     if (name === 'mjreview' && MP.review) return go({ name: 'mjreview' }, 'pop');
     if (name === 'toeic') return go({ name: 'toeic' }, 'pop');
+    if (name === 'story') return go(ST ? { name: 'story' } : { name: 'course', cid: 'mn' }, 'pop');
     if ((name === 'lesson' || name === 'result') && L) return go(L.back || { name: 'course', cid: L.cid }, 'pop');
     return go({ name: 'home' }, 'pop');
   }
@@ -530,6 +534,7 @@
     else if (view.name === 'mjplay') mjView();
     else if (view.name === 'mjreview') mjReview();
     else if (view.name === 'toeic') toeicView();
+    else if (view.name === 'story') storyView();
   }
 
   function courseIcon(c) {
@@ -624,6 +629,7 @@
   // ---------- レッスン進行 ----------
   let L = null;
   function startLesson(course, unit, lesson) {
+    if (lesson.story) { openStory(course, unit, lesson); return; }
     const exs = buildLesson(course, unit, lesson);
     L = { cid: course.id, key: keyOf(course, unit, lesson), title: lesson.name, unit, lesson, queue: exs.map((e, i) => Object.assign(e, { _uid: i, _tries: 0 })), total: exs.length, cleared: 0, wrong: new Set(), combo: 0, maxCombo: 0, t0: Date.now(), review: false, srsSeen: new Set() };
     go({ name: 'lesson' });
@@ -1174,6 +1180,7 @@
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '効果音'), h('small', {}, '正解・不正解の音')), sw('sound')),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '英語の自動読み上げ'), h('small', {}, canSpeak() ? '問題が出たら発音を流す' : 'この環境では音声が使えません')), sw('autoplay')),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'モンゴル語の読みを表示'), h('small', {}, 'ローマ字とカナ（目安）')), sw('reading')),
+      (() => { const pv = h('small', { class: 'cyr' }, P.mnCyr || '物語と自己紹介で使う'); const inp = h('input', { class: 'tin', type: 'text', value: P.mnName || '', placeholder: 'ひらがな', 'aria-label': 'モンゴル語での名前（ひらがな）' }); inp.addEventListener('input', () => { pv.textContent = kana2cyr(inp.value) || 'ひらがなかカタカナで'; }); inp.addEventListener('change', () => { if (inp.value.trim() && setMnName(inp.value)) pv.textContent = P.mnCyr; }); return h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'モンゴル語での名前'), pv), inp); })(),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '麻雀の卓を3Dで表示'), h('small', {}, '牌・山・河を立体で。重い端末ではオフに')), (() => { const b = h('button', { class: 'switch' + (P.mj3d !== false ? ' on' : ''), role: 'switch', 'aria-checked': String(P.mj3d !== false) }); b.onclick = () => { P.mj3d = P.mj3d === false; b.classList.toggle('on', P.mj3d !== false); b.setAttribute('aria-checked', String(P.mj3d !== false)); if (P.mj3d) Mahjong3D.prepare(); save(); }; return b; })()),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, 'チェス盤を3Dで表示'), h('small', {}, '立体の駒と盤。重い端末ではオフに')), (() => { const b = h('button', { class: 'switch' + (P.board3d !== false ? ' on' : ''), role: 'switch', 'aria-checked': String(P.board3d !== false) }); b.onclick = () => { P.board3d = P.board3d === false; b.classList.toggle('on', P.board3d !== false); b.setAttribute('aria-checked', String(P.board3d !== false)); if (P.board3d) Chess3D.load(); save(); }; return b; })()),
       h('div', { class: 'srow' }, h('div', { class: 'sl' }, h('b', {}, '保存先'), syncEl)),
@@ -1181,6 +1188,8 @@
     bg.append(sheet); document.body.append(bg);
     document.onkeydown = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
   }
+
+  /*__MNSTORY__*/
 
   /*__TOEIC__*/
 

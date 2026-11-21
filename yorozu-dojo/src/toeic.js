@@ -1,7 +1,7 @@
   // ================= TOEIC 900（app.js の中に組み込まれる） =================
   const TD = TOEIC_DATA;
   const WBY = Object.fromEntries(TD.words.map((w) => [w.id, w]));
-  const BANDS = [600, 730, 860, 990];
+  const BANDS = [300, 450, 600, 730, 860, 990];
   const CAT_JA = { pos: '品詞', verb: '動詞の形', prep: '前置詞・接続詞', pron: '代名詞', rel: '関係詞', vocab: '語彙', comp: '比較・その他' };
   const PART_JA = { p2: 'Part 2 応答問題', p34: 'Part 3・4 会話・説明文', p5: 'Part 5 文法・語彙', p7: 'Part 7 読解', dict: 'ディクテーション', words: '単語' };
   const POS_JA = { 名: '名詞', 動: '動詞', 形: '形容詞', 副: '副詞', 前: '前置詞', 接: '接続詞', 句: '熟語' };
@@ -25,7 +25,7 @@
   const curScore = () => { const t = TS(); return t.cur ?? t.start; };
   const PHASES = [
     { to: 450, name: '土台', hours: '300〜400時間', lv: 1, menu: ['words', 'course', 'p2', 'dict', 'p5'],
-      focus: '中学英語の文法（英語コースの入門・基礎）、600点レベルの単語、英語の音を聞き取る耳（ディクテーション・Part 2）。この段階で Part 7 の長文に手を出しても伸びない。' },
+      focus: '中学英語の文法（英語コースの入門・基礎と、下の文法レッスン）、300〜600点レベルの単語、英語の音を聞き取る耳（ディクテーション・Part 2）。この段階で Part 7 の長文に手を出しても伸びない。' },
     { to: 600, name: '型', hours: '約300時間', lv: 2, menu: ['words', 'p5', 'p2', 'p34', 'dict'],
       focus: 'Part 5 の頻出パターン（品詞・動詞の形・前置詞と接続詞）、730点レベルの単語、Part 3・4 で話の流れを追う。' },
     { to: 750, name: '速さ', hours: '300〜400時間', lv: 2, menu: ['words', 'p5', 'p34', 'p7', 'p2'],
@@ -117,8 +117,11 @@
 
   // ---------- 単語の問題 ----------
   const posGroup = (p) => (p === '前' || p === '接' ? '前接' : p);
+  // 「取る・（時間が）かかる」→ [取る, かかる]。意味が1つでも重なる語は誤答に使わない（正解が2つになるのを防ぐ）
+  const senses = (ja) => ja.replace(/（[^）]*）/g, '').split(/[・、,／]/).map((x) => x.trim()).filter(Boolean);
+  const overlap = (a, b) => { const sa = new Set(senses(a)); return senses(b).some((x) => sa.has(x)); };
   function wordDistract(w, n, key) {
-    const same = TD.words.filter((x) => x !== w && posGroup(x.pos) === posGroup(w.pos) && x[key] !== w[key]);
+    const same = TD.words.filter((x) => x !== w && posGroup(x.pos) === posGroup(w.pos) && x[key] !== w[key] && x.w.toLowerCase() !== w.w.toLowerCase() && !overlap(x.ja, w.ja));
     const near = same.filter((x) => Math.abs(BANDS.indexOf(x.band) - BANDS.indexOf(w.band)) <= 1);
     const pool = near.length >= n ? near : same;
     const out = []; for (const x of shuffle(pool)) { if (out.length >= n) break; if (!out.some((y) => y[key] === x[key])) out.push(x); }
@@ -145,12 +148,12 @@
   }
   function wordEx(w, type) {
     const tag = `単語 ・ ${w.band}点レベル ・ ${POS_JA[w.pos] || ''}`;
-    const exLine = `${w.w}＝${w.ja}。${w.ex}（${w.exJa}）`;
+    const exLine = `${w.w}＝${w.ja}。` + (w.ex ? (w.exJa ? `${w.ex}（${w.exJa}）` : `例：${w.ex}`) : '');
     const base = { _item: 'tw.' + w.id, _cat: 'words' };
     if (type === 'card') return { t: 'card', q: '新しい単語', tag: `新出 ・ ${w.band}点レベル`, w };
     if (type === 'listen' && canSpeak()) return Object.assign(mcFrom({ q: '聞こえた単語の意味は？', tag, listen: w.w, ex: exLine }, { text: w.ja }, wordDistract(w, 3, 'ja').map((x) => ({ text: x.ja }))), base);
     if (type === 'm2w') return Object.assign(mcFrom({ q: '英語では？', tag, main: w.ja, ex: exLine, sayAfter: canSpeak() ? w.w : null, lang: 'en' }, { text: w.w, cls: 'en' }, wordDistract(w, 3, 'w').map((x) => ({ text: x.w, cls: 'en' }))), base);
-    if (type === 'cloze' && w.ex.includes(w.form)) {
+    if (type === 'cloze' && w.form && w.exJa && w.ex.includes(w.form)) {
       const ds = wordDistract(w, 6, 'w').map((x) => inflectLike(w.w, w.form, x.w)).filter((x, i, a) => x.toLowerCase() !== w.form.toLowerCase() && a.indexOf(x) === i).slice(0, 3);
       if (ds.length === 3) return Object.assign(mcFrom({ q: '空所に入る語は？', tag, main: w.ex.replace(w.form, '_____'), mainCls: 'en', reading: w.exJa, ex: exLine, sayAfter: canSpeak() ? w.ex : null, lang: 'en', showReading: true }, { text: w.form, cls: 'en' }, ds.map((x) => ({ text: x, cls: 'en' }))), base);
     }
@@ -188,6 +191,8 @@
     pool = pool.map((q) => [rank(q), q]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
     return pool.slice(0, n);
   }
+  const GLV = { 1: '〜300', 2: '〜450', 3: '〜600', 4: '〜730', 5: '〜860', 6: '〜950' };
+  const grammarQs = (g) => poolOf('p5').filter((q) => q.tag === g.tag || (g.cat && !q.tag && q.cat === g.cat));
   function weakCats() {
     return Object.keys(CAT_JA).map((c) => [c, accOf('p5:' + c)]).filter(([, a]) => a && a.n >= 3).sort((a, b) => a[1].p - b[1].p).slice(0, 2).map(([c]) => c);
   }
@@ -202,12 +207,12 @@
   }
   function setEx(s, part) {
     const qs = s.qs.map((q) => { const order = shuffle([0, 1, 2, 3]); return { q: q.q, choices: order.map((i) => q.choices[i]), a: order.indexOf(0) }; });
-    const tag = part === 'p7' ? `Part 7 ・ ${s.docs.length > 1 ? '複数の文書' : '1つの文書'}${s.ai ? ' ・ AI作成' : ''}` : `${s.kind === 'talk' ? 'Part 4 ・ 説明文' : 'Part 3 ・ 会話'}${s.ai ? ' ・ AI作成' : ''}`;
+    const tag = part === 'p7' ? `Part 7 ・ ${s.label || (s.docs.length > 1 ? '複数の文書' : '1つの文書')}${s.ai ? ' ・ AI作成' : ''}` : `${s.kind === 'talk' ? 'Part 4 ・ 説明文' : 'Part 3 ・ 会話'}${s.ai ? ' ・ AI作成' : ''}`;
     return { t: 'set', part, q: part === 'p7' ? '文書を読んで設問に答えよう' : '設問を先に読んでから再生しよう', tag, set: Object.assign({}, s, { qs }), _q: s.id, _sec: part === 'p7' ? 'R' : 'L' };
   }
   function dictPool() {
     const lv = phaseNow().lv; const seen = TD.words.filter((w) => wordBox(w) >= 0);
-    const words = (seen.length >= 5 ? seen : TD.words.filter((w) => w.band === 600)).map((w) => ({ text: w.ex, ja: w.exJa }));
+    const words = (seen.length >= 5 ? seen : TD.words.filter((w) => w.band <= 450)).filter((w) => w.ex && w.ex.split(' ').length >= 3).map((w) => ({ text: w.ex, ja: w.exJa }));
     const talk = TD.p2.filter((q) => q.lv <= lv).map((q) => ({ text: q.q, ja: '' }));
     return { words, talk };
   }
@@ -277,13 +282,13 @@
   // ---------- 問題の描画（TOEIC 用） ----------
   function rCard(ex, ctx, host) {
     const w = ex.w; const audio = canSpeak();
-    const i = w.ex.indexOf(w.form);
-    const exEl = h('div', { class: 'wex en' }, i >= 0 ? w.ex.slice(0, i) : w.ex, i >= 0 ? h('b', {}, w.form) : null, i >= 0 ? w.ex.slice(i + w.form.length) : null);
-    if (audio) exEl.append(h('button', { class: 'mini-say', 'aria-label': '例文を聞く', onclick: () => speak(w.ex) }, icon('speaker')));
+    const i = w.form ? w.ex.indexOf(w.form) : -1;
+    const exEl = w.ex ? h('div', { class: 'wex en' }, i >= 0 ? w.ex.slice(0, i) : w.ex, i >= 0 ? h('b', {}, w.form) : null, i >= 0 ? w.ex.slice(i + w.form.length) : null) : null;
+    if (exEl && audio) exEl.append(h('button', { class: 'mini-say', 'aria-label': '例文を聞く', onclick: () => speak(w.ex) }, icon('speaker')));
     host.append(h('div', { class: 'wcard' },
       h('div', { class: 'wtop' }, audio ? h('button', { class: 'say', 'aria-label': '発音を聞く', onclick: () => speak(w.w) }, icon('speaker')) : null,
         h('div', {}, h('div', { class: 'ww en' }, w.w), h('div', { class: 'wpos' }, POS_JA[w.pos] || ''))),
-      h('div', { class: 'wja' }, w.ja), exEl, h('div', { class: 'wexja' }, w.exJa)));
+      h('div', { class: 'wja' }, w.ja), exEl, w.exJa ? h('div', { class: 'wexja' }, w.exJa) : null));
     if (audio && P.autoplay) setTimeout(() => speak(w.w), 250);
     ctx.ready(true);
     return { ctaLabel: '覚えた・次へ', noSkip: true, check: () => ({ ok: true, neutral: true, instant: true }) };
@@ -316,7 +321,7 @@
     return h('div', { class: 'doc ' + (d.kind || 'notice') },
       d.head && d.head.length ? h('div', { class: 'dhead en' }, ...d.head.map((x) => h('div', {}, x))) : null,
       d.title ? h('div', { class: 'dtitle en' }, d.title) : null,
-      ...String(d.body || '').split('\n').filter(Boolean).map((p) => h('p', { class: 'en' }, p)));
+      ...(d.pre ? [h('div', { class: 'dpre en' }, String(d.body || ''))] : String(d.body || '').split('\n').filter(Boolean).map((p) => h('p', { class: 'en' }, p))));
   }
   function rSet(ex, ctx, host) {
     const s = ex.set; const isL = ex.part === 'p34'; const t0 = Date.now(); let pb = null;
@@ -344,7 +349,9 @@
       const secs = Math.round((Date.now() - t0) / 1000);
       const box = h('div', { class: 'review-box' });
       if (isL && canSpeak()) box.append(transcript());
-      box.append(h('details', { class: 'tip', open: true }, h('summary', {}, '日本語訳'), h('p', {}, s.ja)), h('div', { class: 'sx' }, s.ex));
+      if (s.ja) box.append(h('details', { class: 'tip', open: true }, h('summary', {}, isL && s.lines.length && s.ja.length < 80 ? '内容' : '日本語訳'), h('p', {}, s.ja)));
+      if (!s.ja || (isL && s.ja.length < 80)) box.append(explainEl('ja:' + s.id, '全文の日本語訳（Claude）', () => `次の英文${isL ? '（TOEIC Part 3/4 の音声スクリプト）' : '（TOEIC Part 7 の文書）'}を、自然な日本語に全文訳してください。訳だけを書き、解説や書式記号（**や#）は付けないこと。\n\n${isL ? s.lines.map(([sp, t]) => (sp === 'N' ? '' : sp + ': ') + t).join('\n') : s.docs.map((d) => d.body || (d.lines || []).map((l) => l.join(' ')).join('\n')).join('\n\n')}`));
+      box.append(h('div', { class: 'sx pre' }, s.ex));
       host.append(box);
       return { right, secs };
     };
@@ -579,11 +586,28 @@
     const bank = P.mistakes.toeic || [];
     if (bank.length) root.append(h('button', { class: 'cta alt tmiss', onclick: startToeicReview }, `間違えた問題をやり直す（${bank.length}）`));
 
+    // 文法レッスン（読んで、その文法の Part 5 を解く）
+    if (TD.grammar.length) {
+      root.append(h('div', { class: 'sec-title' }, `文法レッスン（${TD.grammar.length}）`));
+      const read = t.gread || (t.gread = {}); const gl = h('div', { class: 'glist' });
+      for (const g of TD.grammar) {
+        const qs = grammarQs(g);
+        const det = h('details', { class: 'gles' + (read[g.tag] ? ' read' : '') },
+          h('summary', {}, h('span', { class: 'glv num' }, GLV[g.lv] || ''), h('b', {}, g.title), read[g.tag] ? icon('check') : null),
+          ...g.body.map((x) => h('p', {}, x)),
+          g.ex && g.ex.length ? h('div', { class: 'gex' }, ...g.ex.map(([en, ja]) => h('div', { class: 'gexr' }, h('div', { class: 'en' }, en, canSpeak() ? h('button', { class: 'mini-say', 'aria-label': '例文を聞く', onclick: () => speak(en) }, icon('speaker')) : null), h('small', {}, ja)))) : null,
+          qs.length ? h('button', { class: 'cta alt', onclick: () => startToeic(sampleN(qs, Math.min(8, qs.length)).map(p5Ex), `文法：${g.tag}`) }, `この文法の Part 5 を解く（${qs.length}問から）`) : null);
+        det.addEventListener('toggle', () => { if (det.open && !read[g.tag]) { read[g.tag] = 1; save(); } });
+        gl.append(det);
+      }
+      root.append(gl);
+    }
+
     // 単語の帯
     root.append(h('div', { class: 'sec-title' }, '単語（スコアの目安ごと）'));
     const bands = h('div', { class: 'bands' });
     for (const b of BANDS) { const c = wordCounts(b); bands.append(h('div', { class: 'band' }, h('span', { class: 'num' }, b + '点'), h('div', { class: 'bbar' }, h('i', { class: 'l', style: `width:${(c.learned / c.total) * 100}%` }), h('i', { class: 'm', style: `width:${(c.learning / c.total) * 100}%` })), h('span', { class: 'num' }, `${c.learned}/${c.total}`))); }
-    root.append(bands, h('p', { class: 'tnote left' }, '「覚えた」＝7日あけても正解できた語。900点には1万語近い語彙が要ると言われるので、ここの約400語は頻出の芯だけです。'));
+    root.append(bands, h('p', { class: 'tnote left' }, `「覚えた」＝7日あけても正解できた語。全${TD.words.length}語。900点には1万語近い語彙が要ると言われるので、ここにあるのは頻出の芯です。`));
 
     // 正答率
     root.append(h('div', { class: 'sec-title' }, '正答率（最近30問）'));
