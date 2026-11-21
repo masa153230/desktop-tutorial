@@ -44,13 +44,22 @@ for (const [h, k, w] of [['123m456p789s234s5p', 0, 0], ['1357m2468p13579s', 0, 4
   const got = S(h, k); console.log(got === w ? 'ok' : 'NG', 'shanten', h, k, got, w); if (got !== w) fail++;
 }
 // CPU 4人で半荘
-let seed = 11; const rand = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+let seed = 11; let wallFront = 52; const rand = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
 (async () => {
   const yaku = {}; const reasons = {}; let hands = 0, calls = 0, kans = 0; const t0 = Date.now();
   const N = +(process.argv[2] || 20);
   for (let k = 0; k < N; k++) {
     const g = new G.Game({ rand, rules: { length: k % 2 ? 'hanchan' : 'tonpu' }, agents: [0, 1, 2, 3].map(() => G.cpuAgent()), hooks: {
-      emit: (ev) => { if (ev === 'kan') kans++; if (ev === 'call') calls++; },
+      emit: (ev) => {
+        if (ev === 'kan') kans++; if (ev === 'call') calls++;
+        // 3D の山の表示と同じ数え方：割れ目から取った枚数は減らない・嶺上牌の数はカンの数と一致・山の残りが合う
+        if (ev === 'start') wallFront = 52;
+        if (ev === 'draw') {
+          const front = 122 - g.live.length - g.kanCount;
+          if (front < wallFront || front > 122 - g.kanCount || g.rinshanIdx !== g.kanCount || g.dice.some((d) => d < 1 || d > 6)) { fail++; console.log('NG 山', front, wallFront, g.rinshanIdx, g.kanCount); }
+          wallFront = front;
+        }
+      },
       pause: async (r) => {
         if (r.wins) r.wins.forEach((w) => w.ev.yaku.forEach(([n]) => { yaku[n] = (yaku[n] || 0) + 1; }));
         if (r.type === 'draw') reasons[r.reason] = (reasons[r.reason] || 0) + 1;

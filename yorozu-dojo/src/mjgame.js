@@ -320,6 +320,8 @@ const MJG = (() => {
     async playHand() {
       const all = []; for (let id = 0; id < 136; id++) all.push(id);
       this.shuffle(all);
+      // サイコロは山を割る位置を決めるだけ（牌はシャッフル済み）。対局の乱数は使わない
+      this.dice = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
       this.dead = all.slice(122); this.live = all.slice(0, 122);
       this.doraInd = [T(this.dead[4])]; this.uraInd = [T(this.dead[5])];
       this.rinshanIdx = 0; this.kanCount = 0; this.kanBy = [0, 0, 0, 0];

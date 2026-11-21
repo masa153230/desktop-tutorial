@@ -130,7 +130,7 @@ const Mahjong3D = (() => {
     kick();
   }
   function drawCenter(g) {
-    const key = JSON.stringify([g.scores, g.dealer, g.turn, g.honba, g.sticks, g.live.length, g.kyokuName(), g.players.map((p) => p.riichi), !!g.result, g.startDealer, g.doraInd]);
+    const key = JSON.stringify([g.scores, g.dealer, g.turn, g.honba, g.sticks, g.live.length, g.kyokuName(), g.players.map((p) => p.riichi), !!g.result, g.startDealer, g.doraInd, g.dice]);
     if (key === centerKey) return; centerKey = key;
     const x = centerCv.getContext('2d'); const N = 512;
     const bg = x.createLinearGradient(0, 0, N, N); bg.addColorStop(0, '#1d2835'); bg.addColorStop(1, '#0d1218'); x.fillStyle = bg; x.fillRect(0, 0, N, N);
@@ -153,17 +153,33 @@ const Mahjong3D = (() => {
     const n = g.doraInd.length, tw = 50, th = 68, gap = 6; let x0 = N / 2 - (n * tw + (n - 1) * gap) / 2 + 30;
     x.fillStyle = '#9fb3c8'; x.font = '800 28px "Zen Maru Gothic", "Hiragino Sans", sans-serif'; x.textAlign = 'right'; x.fillText('ドラ', x0 - 10, N / 2 + 46); x.textAlign = 'center';
     g.doraInd.forEach((t) => { const cv = faceCv[t]; if (cv) { x.fillStyle = '#d9cfb5'; x.fillRect(x0 - 2, N / 2 + 10, tw + 4, th + 6); x.drawImage(cv, x0, N / 2 + 12, tw, th); } x0 += tw + gap; });
+    if (g.dice) { x.fillStyle = '#7f93a8'; x.font = '800 26px "Zen Maru Gothic", "Hiragino Sans", sans-serif'; x.fillText(`サイ ${g.dice[0]}・${g.dice[1]}`, N / 2, N / 2 + 118); }
     centerTex.needsUpdate = true;
   }
-  // 山：環状に 68 山（各家 17 山 × 2 段）。配牌とツモで先頭から減り、末尾 7 山が王牌。
+  // 山：68 山（各家 17 山 × 2 段）を、割れ目から時計回りにつながる輪として扱う。
+  // サイコロの合計 S：親を1として反時計回りに S 番目の家の山を、その家から見て右端から S 山数え、その左で割る。
+  // ツモは割れ目から時計回り（各家の山を右→左、取り切ったら上家の山の右端へ）。
+  // 輪の最後の 7 山（割れ目のすぐ右）が王牌。嶺上牌は割れ目側の端から取り、ドラ表示牌はそこから 3 山目の上段、カンドラはその隣へ。
+  const RINSHAN_K = [134, 135, 132, 133];
+  const indK = (n) => 130 - 2 * n;
+  function wallRing(g) {
+    const S = (g.dice || [3, 4])[0] + (g.dice || [3, 4])[1];
+    const owner = (g.dealer + S - 1) % 4;
+    return (k) => {
+      const r = Math.floor(k / 2), top = k % 2 === 0, tot = S + r;
+      const s = (((owner - Math.floor(tot / 17)) % 4) + 4) % 4, j = tot % 17;
+      return { s, x: 8 - j * W, z: r >= 61 ? 8.35 : 8.7, y: top ? H * 1.5 : H / 2 };
+    };
+  }
   function layoutWall(g) {
-    const dummy = new T.Object3D(); dummy.rotation.order = 'YXZ'; const remainLive = g.live.length;
-    const taken = 136 - 14 - remainLive; const rinshan = g.rinshanIdx || 0;
-    const ring = (k) => { const stack = Math.floor(k / 2), top = k % 2 === 0; const seatK = Math.floor(stack / 17); const s = (g.dealer + seatK) % 4; const j = stack % 17; return { s, x: 8 - j * W, z: 8.7, y: top ? H * 1.5 : H / 2 }; };
-    const indicatorPos = new Set(g.doraInd.map((_, k) => 126 - 2 * k));
+    const dummy = new T.Object3D(); dummy.rotation.order = 'YXZ'; const ring = wallRing(g);
+    // 割れ目から取った枚数（配牌＋ツモ）。カンで海底が1枚早まっても、その牌は王牌に回るだけで動かない
+    const front = 122 - g.live.length - (g.kanCount || 0);
+    const gone = new Set(RINSHAN_K.slice(0, g.rinshanIdx || 0));
+    const indicatorPos = new Set(g.doraInd.map((_, n) => indK(n)));
     let n = 0;
     for (let k = 0; k < 136; k++) {
-      const removed = k < taken || k >= 136 - rinshan || indicatorPos.has(k) || (k >= 122 && false);
+      const removed = k < front || gone.has(k) || indicatorPos.has(k);
       const p = ring(k); const w = toWorld(p.s, p.x, p.y, p.z);
       dummy.position.copy(w); dummy.rotation.set(0, SEAT_A[p.s], Math.PI); dummy.scale.setScalar(removed ? 0.0001 : 1); dummy.updateMatrix();
       wall.setMatrixAt(n++, dummy.matrix);
@@ -171,7 +187,7 @@ const Mahjong3D = (() => {
     wall.instanceMatrix.needsUpdate = true;
     indicators.forEach((m, k) => {
       const t = g.doraInd[k]; if (t == null) { m.visible = false; return; }
-      const p = ring(126 - 2 * k); const w = toWorld(p.s, p.x, p.y, p.z);
+      const p = ring(indK(k)); const w = toWorld(p.s, p.x, p.y, p.z);
       m.material = [faceMats[t], backMat, sideMat]; m.visible = true; m.position.copy(w); m.rotation.set(0, SEAT_A[p.s], 0);
     });
   }
