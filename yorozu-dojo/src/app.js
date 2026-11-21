@@ -52,7 +52,7 @@
 
   // ---------- 進捗の保存 ----------
   const LS_KEY = 'yorozu-dojo-v1';
-  const blank = () => ({ v: 1, xp: 0, daily: {}, streak: 0, best: 0, last: null, goal: 30, lessons: {}, mistakes: { en: [], mn: [], ch: [], mj: [] }, sound: true, reading: true, autoplay: true, updatedAt: 0 });
+  const blank = () => ({ v: 1, xp: 0, daily: {}, streak: 0, best: 0, last: null, goal: 30, lessons: {}, mistakes: { en: [], mn: [], ch: [], mj: [], toeic: [] }, sound: true, reading: true, autoplay: true, updatedAt: 0 });
   function normalize(p) {
     const b = blank(); const o = Object.assign(b, p || {});
     o.mistakes = Object.assign(blank().mistakes, o.mistakes || {});
@@ -98,6 +98,7 @@
     const sa = (a.stats || {}), sb = (b.stats || {}); o.stats = o.stats || {};
     if (sa.chess || sb.chess) { o.stats.chess = o.stats.chess || {}; for (const lv of ['1', '2', '3', '4', '5']) { const p = (sa.chess || {})[lv] || {}, q = (sb.chess || {})[lv] || {}; o.stats.chess[lv] = { w: Math.max(p.w || 0, q.w || 0), d: Math.max(p.d || 0, q.d || 0), l: Math.max(p.l || 0, q.l || 0) }; } }
     if (sa.mj || sb.mj) { const p = sa.mj || { games: 0 }, q = sb.mj || { games: 0 }; o.stats.mj = JSON.parse(JSON.stringify((p.games || 0) >= (q.games || 0) ? p : q)); }
+    if (a.toeic || b.toeic) o.toeic = mergeToeic(newer.toeic, older.toeic);
     o.updatedAt = Math.max(a.updatedAt || 0, b.updatedAt || 0);
     return o;
   }
@@ -485,7 +486,7 @@
   }
 
   // ---------- 苦手リスト ----------
-  const exKey = (e) => [e.t, e.q, e.main || '', e.fen || '', e.tiles || '', e.hand || '', e.listen || '', e.a && e.t !== 'mc' ? e.a : ''].join('|');
+  const exKey = (e) => [e.t, e.q, e.main || '', e.fen || '', e.tiles || '', e.hand || '', e.listen || '', e.a && e.t !== 'mc' ? e.a : ''].join('|') + (e._q ? '|' + e._q : '');
   function addMistake(cid, e) {
     if (e.t === 'pairs') return;
     const bank = P.mistakes[cid] || (P.mistakes[cid] = []);
@@ -499,7 +500,7 @@
 
   // ---------- 画面 ----------
   let view = { name: 'home' };
-  const HASH = (v) => ({ home: 'home', course: 'course-' + v.cid, lesson: 'lesson', result: 'result', chess: 'chess', mjplay: 'mahjong', mjreview: 'mjreview' })[v.name] || 'home';
+  const HASH = (v) => ({ home: 'home', course: 'course-' + v.cid, lesson: 'lesson', result: 'result', chess: 'chess', mjplay: 'mahjong', mjreview: 'mjreview', toeic: 'toeic' })[v.name] || 'home';
   let expectHash = null;
   function go(v, nav) {
     view = v; render(); window.scrollTo(0, 0);
@@ -513,7 +514,8 @@
     if (name === 'chess') return go({ name: 'chess' }, 'pop');
     if (name === 'mahjong') return go({ name: 'mjplay' }, 'pop');
     if (name === 'mjreview' && MP.review) return go({ name: 'mjreview' }, 'pop');
-    if ((name === 'lesson' || name === 'result') && L) return go({ name: 'course', cid: L.cid }, 'pop');
+    if (name === 'toeic') return go({ name: 'toeic' }, 'pop');
+    if ((name === 'lesson' || name === 'result') && L) return go(L.back || { name: 'course', cid: L.cid }, 'pop');
     return go({ name: 'home' }, 'pop');
   }
   window.addEventListener('hashchange', () => { const name = location.hash.slice(1); if (name === expectHash) { expectHash = null; return; } expectHash = null; navFromHash(name); });
@@ -527,6 +529,7 @@
     else if (view.name === 'chess') chessView();
     else if (view.name === 'mjplay') mjView();
     else if (view.name === 'mjreview') mjReview();
+    else if (view.name === 'toeic') toeicView();
   }
 
   function courseIcon(c) {
@@ -547,6 +550,7 @@
       h('div', { class: 'stat streak' + (st ? '' : ' off') }, h('span', { class: 'lbl' }, '連続日数'), h('span', { class: 'val num' }, icon('flame'), st, h('small', {}, '日'))),
       h('div', { class: 'stat' }, h('span', { class: 'lbl' }, '今日のXP'), h('span', { class: 'val num' }, tx, h('small', {}, '/ ' + P.goal)), h('div', { class: 'goalbar' }, h('i', { style: `width:${goalPct}%` }))),
       h('div', { class: 'stat' }, h('span', { class: 'lbl' }, '合計XP'), h('span', { class: 'val num' }, icon('bolt'), P.xp.toLocaleString('ja-JP')))));
+    root.append(h('div', { class: 'sec-title' }, 'いちばんの目標'), toeicCard());
     root.append(h('div', { class: 'sec-title' }, 'コース'));
     const grid = h('div', { class: 'courses' });
     for (const c of COURSES) {
@@ -591,7 +595,8 @@
         nx ? h('button', { class: 'hbtn', onclick: () => startLesson(c, nx.u, nx.l) }, icon('play'), '続きから') : null,
         due ? h('button', { class: 'hbtn ghost', onclick: () => startSrs(c) }, icon('review'), `今日の復習（${Math.min(12, due)}）`) : null,
         bank.length ? h('button', { class: nx ? 'hbtn ghost' : 'hbtn', onclick: () => startReview(c) }, icon('review'), `苦手を復習（${bank.length}）`) : null,
-        c.id === 'ch' || c.id === 'mj' ? h('button', { class: 'hbtn ghost', onclick: () => go({ name: c.id === 'ch' ? 'chess' : 'mjplay' }) }, icon('loop'), c.id === 'ch' ? 'CPUと対局' : 'CPUと対局') : null));
+        c.id === 'ch' || c.id === 'mj' ? h('button', { class: 'hbtn ghost', onclick: () => go({ name: c.id === 'ch' ? 'chess' : 'mjplay' }) }, icon('loop'), c.id === 'ch' ? 'CPUと対局' : 'CPUと対局') : null,
+        c.id === 'en' ? h('button', { class: 'hbtn ghost', onclick: () => go({ name: 'toeic' }) }, icon('bolt'), `TOEIC ${TS().target} へ`) : null));
     if (!nx && !bank.length) hero.append(h('p', {}, '全部修了。ドリル（∞）は何度でも新しい問題が出ます。'));
     root.append(hero);
     let prevLv = null;
@@ -641,7 +646,7 @@
     const pbar = h('i', { style: `width:${(L.cleared / L.total) * 100}%` });
     const combo = h('span', { class: 'combo num' }, L.combo >= 3 ? `${L.combo}連続` : '');
     const top = h('div', { class: 'lbar' }, h('div', { class: 'wrap' },
-      h('button', { class: 'icon-btn', 'aria-label': 'レッスンをやめる', onclick: () => go({ name: 'course', cid: L.cid }) }, icon('close')),
+      h('button', { class: 'icon-btn', 'aria-label': 'レッスンをやめる', onclick: () => go(L.back || { name: 'course', cid: L.cid }) }, icon('close')),
       h('div', { class: 'pbar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(L.total), 'aria-valuenow': String(L.cleared) }, pbar), combo));
     const body = h('main', { class: 'lbody' });
     const inner = h('div', { class: 'wrap' }); body.append(inner);
@@ -657,6 +662,8 @@
     function grade(res) {
       if (phase !== 'answer') return;
       phase = 'feedback';
+      studyTick();
+      if (res.instant) { L.queue.shift(); L.cleared++; L.neutralN = (L.neutralN || 0) + 1; advance(); return; }
       if (ctrl && ctrl.lock) ctrl.lock();
       const ok = !!res.ok;
       sfx(ok ? 'good' : 'bad');
@@ -678,9 +685,9 @@
         if (L.review) removeMistake(L.cid, cur);
       } else {
         L.combo = 0; L.wrong.add(cur._uid);
-        if (!L.review) addMistake(L.cid, cur);
+        if (!L.review && !res.noBank) addMistake(L.cid, cur);
         cur._tries++;
-        if (cur._tries < 2) { const re = JSON.parse(JSON.stringify(cur)); if (re.t === 'mc') { const correct = re.choices[re.a]; re.choices = shuffle(re.choices); re.a = re.choices.findIndex((c) => JSON.stringify(c) === JSON.stringify(correct)); } if (re.t === 'order') re.words = shuffle(re.words); L.queue.push(re); }
+        if (cur._tries < 2 && !res.noRetry && !cur._noRetry) { const re = JSON.parse(JSON.stringify(cur)); if (re.t === 'mc') { const correct = re.choices[re.a]; re.choices = shuffle(re.choices); re.a = re.choices.findIndex((c) => JSON.stringify(c) === JSON.stringify(correct)); } if (re.t === 'order') re.words = shuffle(re.words); L.queue.push(re); }
         else L.cleared++;
       }
       pbar.style.width = `${(L.cleared / L.total) * 100}%`;
@@ -690,6 +697,8 @@
     cta.onclick = () => { if (phase === 'answer' && ctrl && ctrl.check) grade(ctrl.check()); };
     ctrl = mountExercise(ex, ctx, inner);
     if (ctrl && ctrl.auto) { cta.hidden = true; }
+    if (ctrl && ctrl.ctaLabel) cta.textContent = ctrl.ctaLabel;
+    if (ctrl && ctrl.noSkip) skip.hidden = true;
     document.onkeydown = (e) => {
       if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') && e.key !== 'Enter') return;
       if (e.key === 'Enter') {
@@ -709,7 +718,9 @@
   }
 
   function finishLesson() {
-    const firstTry = L.total - L.wrong.size; const acc = Math.round((firstTry / L.total) * 100);
+    const graded = Math.max(1, L.total - (L.neutralN || 0));
+    const firstTry = graded - L.wrong.size; const acc = Math.max(0, Math.round((firstTry / graded) * 100));
+    if (L.menuKey) menuDone(L.menuKey); else if (L.cid === 'en' && L.key) menuDone('course');
     const xp = 10 + (L.wrong.size === 0 ? 5 : 0) + (L.review ? 5 : 0);
     awardXP(xp);
     if (L.key) { const r = P.lessons[L.key] || { n: 0, best: 0 }; r.n++; r.best = Math.max(r.best, acc); P.lessons[L.key] = r; }
@@ -720,9 +731,10 @@
   }
 
   function renderResult() {
-    const r = L.result; const c = BY_ID[L.cid];
+    if (L.mock) { renderMockResult(); return; }
+    const r = L.result; const c = BY_ID[L.cid] || { id: 'toeic', name: 'TOEIC' };
     const mm = Math.floor(r.secs / 60), ss = String(r.secs % 60).padStart(2, '0');
-    const nx = nextLesson(c);
+    const nx = BY_ID[L.cid] ? nextLesson(c) : null;
     const perfect = L.wrong.size === 0;
     const root = h('div', { class: 'wrap result', style: cvars(c.id) },
       h('div', { class: 'seal', 'aria-hidden': 'true' }, ...[...(perfect ? '皆伝' : '修了')].map((ch) => h('span', {}, ch))),
@@ -734,7 +746,7 @@
         h('div', { class: 'rstat' }, h('div', { class: 'lbl' }, 'タイム'), h('div', { class: 'val num' }, `${mm}:${ss}`))),
       h('div', { class: 'rbtns' },
         nx && !L.review ? h('button', { class: 'cta', onclick: () => startLesson(c, nx.u, nx.l) }, '次のレッスンへ') : null,
-        h('button', { class: nx && !L.review ? 'cta alt' : 'cta', onclick: () => go({ name: 'course', cid: c.id }) }, 'コースに戻る'),
+        h('button', { class: nx && !L.review ? 'cta alt' : 'cta', onclick: () => go(L.back || { name: 'course', cid: c.id }) }, L.back ? 'TOEIC のページへ' : 'コースに戻る'),
         h('button', { class: 'cta alt', onclick: () => go({ name: 'home' }) }, 'ホーム')));
     app.append(root);
     document.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); root.querySelector('.cta').click(); } };
@@ -744,7 +756,11 @@
   function mountExercise(ex, ctx, host) {
     if (ex.tag) host.append(h('div', { class: 'eyebrow' }, ex.tag));
     host.append(h('p', { class: 'q' }, ex.q));
-    if (ex.t === 'mc') return rMC(ex, ctx, host);
+    if (ex.t === 'mc') return toeicWrap(ex, rMC(ex, ctx, host), host);
+    if (ex.t === 'card') return rCard(ex, ctx, host);
+    if (ex.t === 'p2') return rP2(ex, ctx, host);
+    if (ex.t === 'set') return rSet(ex, ctx, host);
+    if (ex.t === 'dict') return rDict(ex, ctx, host);
     if (ex.t === 'order' || ex.t === 'spell') return rOrder(ex, ctx, host);
     if (ex.t === 'type') return rType(ex, ctx, host);
     if (ex.t === 'pairs') return rPairs(ex, ctx, host);
@@ -769,7 +785,7 @@
       wrap.append(b);
       if (P.autoplay) setTimeout(() => speak(ex.audio, false, ex.lang || 'en'), 250);
     }
-    wrap.append(h('div', { class: 'bubble' }, h('div', { class: 'main ' + (ex.mainCls || '') }, ex.main), ex.reading && P.reading ? h('div', { class: 'reading' }, ex.reading) : null));
+    wrap.append(h('div', { class: 'bubble' }, h('div', { class: 'main ' + (ex.mainCls || '') }, ex.main), ex.reading && (P.reading || ex.showReading) ? h('div', { class: 'reading' }, ex.reading) : null));
     return wrap;
   }
   function rMC(ex, ctx, host) {
@@ -791,11 +807,11 @@
     const list = h('div', { class: 'choices' + (isTileGrid ? ' grid' : '') });
     let sel = -1;
     ex.choices.forEach((c, i) => {
-      list.append(h('button', { class: 'choice', onclick: () => { sel = i; [...list.children].forEach((x, j) => x.classList.toggle('sel', j === i)); ctx.ready(true); } }, h('span', { class: 'kbd' }, i + 1), choiceBody(c)));
+      list.append(h('button', { class: 'choice', onclick: () => { sel = i; [...list.children].forEach((x, j) => x.classList.toggle('sel', j === i)); ctx.ready(true); } }, h('span', { class: 'kbd' }, ex.letters ? 'ABCD'[i] : i + 1), choiceBody(c)));
     });
     host.append(list);
     return {
-      key: (k) => { const n = +k; if (n >= 1 && n <= ex.choices.length) list.children[n - 1].click(); },
+      key: (k) => { const li = ex.letters ? 'abcd'.indexOf(String(k).toLowerCase()) : -1; const n = li >= 0 ? li + 1 : +k; if (n >= 1 && n <= ex.choices.length) list.children[n - 1].click(); },
       check: () => {
         const ok = sel === ex.a;
         [...list.children].forEach((b, j) => { b.disabled = true; if (j === ex.a) b.classList.add('right'); else if (j === sel) b.classList.add('wrong'); });
@@ -1166,13 +1182,16 @@
     document.onkeydown = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
   }
 
+  /*__TOEIC__*/
+
   /*__PLAY__*/
 
   // ---------- 起動 ----------
+  const speechReady = initSpeech(); // ブラウザ音声の有無は同期で決まるので、最初の描画より前に呼ぶ
   render();
   if (location.hash.length > 1 && location.hash !== '#home') navFromHash(location.hash.slice(1));
   setTimeout(getSampler, 800);
-  initSpeech();
+  speechReady.then(() => { if (view.name === 'toeic' || view.name === 'home') render(); });
   initSync();
   setTimeout(ensureChess, 1500);
 })();
